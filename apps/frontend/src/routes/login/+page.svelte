@@ -26,7 +26,7 @@
 
 <div class="h-screen flex items-center justify-center bg-gray-100">
     <div class="bg-white p-8 rounded shadow w-96">
-        <h1 class="text-xl mb-4 font-bold">Sales Bot Admin</h1>
+        <h1 class="text-xl mb-4 font-bold">Consola de administración: Bot 1</h1>
         <input bind:value={username} placeholder="Usuario" class="w-full mb-3 p-2 border rounded" />
         <input type="password" bind:value={password} placeholder="Contraseña" class="w-full mb-3 p-2 border rounded" />
         {#if error}<p class="text-red-500 mb-3">{error}</p>{/if}
