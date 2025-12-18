@@ -3,14 +3,26 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "start": "bun run --env-file=../.env src/index.ts",
+    "dev": "bun run --watch --env-file=../.env src/index.ts"
+  },
   "devDependencies": {
     "@totem/tsconfig": "workspace:*",
-    "@types/bun": "latest"
+    "@types/bun": "^1.3.5"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "hono": "^4.11.1"
+    "@oslojs/crypto": "^1.0.1",
+    "@oslojs/encoding": "^1.1.0",
+    "@totem/types": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.11.1",
+    "jsonwebtoken": "^9.0.3",
+    "openai": "^6.14.0",
+    "xlsx": "^0.18.5"
   }
 }
