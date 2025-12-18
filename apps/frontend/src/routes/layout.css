@@ -1,3 +1,74 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+    --color-cream-50: #FCFCFA;
+    --color-cream-100: #F3F3EF;
+    --color-cream-200: #E8E8E4;
+    --color-cream-300: #DCDCD8;
+    
+    --color-ink-900: #121212;
+    --color-ink-600: #4A4A4A;
+    --color-ink-400: #888888;
+    
+    --font-serif: "Besley", serif;
+    --font-sans: "Inter", sans-serif;
+}
+
+:root {
+    background-color: var(--color-cream-100);
+    color: var(--color-ink-900);
+}
+
+body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+}
+
+/* UI Component Standards */
+
+.btn-primary {
+    @apply bg-ink-900 text-cream-50 px-6 py-3 rounded-none hover:bg-ink-600 transition-all duration-200 font-medium text-sm tracking-wide uppercase;
+}
+
+.btn-secondary {
+    @apply bg-transparent border border-ink-900 text-ink-900 px-6 py-3 rounded-none hover:bg-ink-900 hover:text-cream-50 transition-all duration-200 font-medium text-sm tracking-wide uppercase;
+}
+
+.input-group {
+    @apply mb-6;
+}
+
+.input-label {
+    @apply block text-xs uppercase tracking-widest text-ink-400 mb-2 font-bold;
+}
+
+.input-field {
+    @apply block w-full bg-transparent border-b border-ink-900/30 px-0 py-2 text-ink-900 focus:border-ink-900 focus:ring-0 placeholder-ink-400/50 transition-colors duration-200 outline-none text-lg font-serif;
+}
+
+.input-select {
+    @apply block w-full bg-transparent border-b border-ink-900/30 px-0 py-2 text-ink-900 focus:border-ink-900 focus:ring-0 transition-colors duration-200 outline-none text-lg font-serif appearance-none;
+}
+
+/* Layout Utilities */
+.page-container {
+    @apply max-w-7xl mx-auto p-8 md:p-12 min-h-screen;
+}
+
+.module-header {
+    @apply flex flex-col md:flex-row justify-between items-end mb-12 border-b border-ink-900/10 pb-6 gap-6;
+}
+
+.module-title {
+    @apply text-4xl md:text-5xl font-serif text-ink-900 leading-tight;
+}
+
+.module-subtitle {
+    @apply text-xs font-bold tracking-widest uppercase text-ink-400 mb-2 block;
+}

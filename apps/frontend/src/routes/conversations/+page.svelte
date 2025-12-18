@@ -26,55 +26,98 @@
             body: JSON.stringify({ content: messageText })
         });
         messageText = '';
-        alert('Sent');
     }
 
     onMount(load);
 </script>
 
-<div class="flex h-screen">
-    <div class="w-1/3 border-r bg-gray-50 p-4 overflow-y-auto">
-        <div class="mb-4">
-            <a href="/" class="text-blue-600 hover:underline text-sm">← Inicio</a>
+<div class="flex h-[calc(100vh-80px)]"> <!-- Subtract top nav height approx -->
+    <!-- Sidebar List -->
+    <div class="w-full md:w-96 border-r border-ink-900/10 bg-white flex flex-col">
+        <div class="p-6 border-b border-ink-900/10">
+             <span class="text-xs font-bold tracking-widest uppercase text-ink-400 mb-1 block">Bandeja de entrada</span>
+            <h2 class="text-2xl font-serif">Activos</h2>
         </div>
-        <h2 class="font-bold mb-4">Inbox</h2>
-        {#each conversations as conv}
-            <button onclick={() => selectedPhone = conv.phone_number} class="w-full text-left p-3 hover:bg-gray-200 rounded border-b">
-                <div class="font-bold">{conv.phone_number}</div>
-                <div class="text-sm">{conv.current_state}</div>
-                <div class="text-xs text-gray-500">Status: {conv.status}</div>
-            </button>
-        {/each}
+        <div class="overflow-y-auto flex-1">
+            {#each conversations as conv}
+                <button 
+                    onclick={() => selectedPhone = conv.phone_number} 
+                    class="w-full text-left p-6 border-b border-cream-100 hover:bg-cream-50 transition-colors group {selectedPhone === conv.phone_number ? 'bg-cream-100 border-l-4 border-l-ink-900' : 'border-l-4 border-l-transparent'}"
+                >
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-mono text-sm font-semibold tracking-tight">{conv.phone_number}</span>
+                        <span class="text-[10px] px-2 py-0.5 border {conv.status === 'human_takeover' ? 'bg-ink-900 text-white border-ink-900' : 'text-ink-400 border-ink-200'}">
+                            {conv.status === 'human_takeover' ? 'MANUAL' : 'AUTO'}
+                        </span>
+                    </div>
+                    <div class="text-sm font-serif text-ink-600 truncate opacity-80 group-hover:opacity-100 transition-opacity">
+                        {conv.current_state}
+                    </div>
+                </button>
+            {/each}
+        </div>
     </div>
 
-    <div class="w-2/3 p-4 flex flex-col">
+    <!-- Chat Area -->
+    <div class="hidden md:flex flex-col flex-1 bg-cream-50 relative">
         {#if selectedPhone}
             {@const activeConv = conversations.find(c => c.phone_number === selectedPhone)}
-            {#if activeConv}
-                <div class="flex justify-between border-b pb-4 mb-4">
-                    <h2 class="font-bold text-xl">{selectedPhone}</h2>
-                    {#if activeConv.status !== 'human_takeover'}
-                        <button onclick={() => takeover(selectedPhone!)} class="bg-red-600 text-white px-3 py-1 rounded text-sm">
-                            Take Over
-                        </button>
-                    {:else}
-                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm">Human Active</span>
-                    {/if}
+            
+            <!-- Header -->
+            <div class="p-6 border-b border-ink-900/10 bg-white/80 backdrop-blur flex justify-between items-center sticky top-0 z-10">
+                <div>
+                    <h2 class="font-serif text-2xl">{selectedPhone}</h2>
+                    <p class="text-xs text-ink-400 uppercase tracking-widest font-bold">Sesión en curso</p>
                 </div>
-
-                <div class="flex-grow bg-gray-100 p-4 rounded mb-4 overflow-y-auto">
-                    <p class="text-center text-gray-500 italic">Message history not loaded in simple view.</p>
-                </div>
-
-                {#if activeConv.status === 'human_takeover'}
-                    <div class="flex gap-2">
-                        <input bind:value={messageText} class="flex-grow border p-2 rounded" placeholder="Type a message..." />
-                        <button onclick={sendMessage} class="bg-blue-600 text-white px-4 rounded">Send</button>
+                
+                {#if activeConv?.status !== 'human_takeover'}
+                    <button onclick={() => takeover(selectedPhone!)} class="btn-secondary py-2 text-xs">
+                        Intervenir
+                    </button>
+                {:else}
+                    <div class="flex items-center gap-2 px-4 py-2 bg-cream-100 border border-cream-200">
+                        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                        <span class="text-xs font-bold text-ink-900 uppercase tracking-wider">Humano Activo</span>
                     </div>
                 {/if}
+            </div>
+
+            <!-- Messages -->
+            <div class="flex-grow p-12 overflow-y-auto space-y-6">
+                <div class="flex justify-center mb-8">
+                    <span class="text-xs text-ink-300 uppercase tracking-widest border-b border-ink-200 pb-1">Inicio de historial</span>
+                </div>
+                
+                <!-- Mock Placeholder -->
+                <div class="flex justify-start max-w-2xl">
+                    <div class="bg-white border border-cream-200 p-6 shadow-sm">
+                        <p class="text-base font-serif leading-relaxed text-ink-600">
+                            El historial de mensajes se carga bajo demanda. Los nuevos mensajes aparecerán aquí en tiempo real.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input -->
+            {#if activeConv?.status === 'human_takeover'}
+                <div class="p-6 border-t border-ink-900/10 bg-white">
+                    <div class="flex gap-0 shadow-lg">
+                        <input 
+                            bind:value={messageText} 
+                            class="flex-grow bg-white p-4 text-lg font-serif outline-none placeholder-ink-300"
+                            placeholder="Escriba su mensaje..."
+                        />
+                        <button onclick={sendMessage} class="bg-ink-900 text-white px-8 font-bold hover:bg-ink-700 transition-colors">
+                            ENVIAR
+                        </button>
+                    </div>
+                </div>
             {/if}
         {:else}
-            <div class="flex h-full items-center justify-center text-gray-400">Select a conversation</div>
+            <div class="flex-1 flex flex-col items-center justify-center text-ink-300 opacity-50">
+                <span class="text-9xl mb-4 font-serif italic">&larr;</span>
+                <p class="font-serif text-lg">Seleccione un cliente.</p>
+            </div>
         {/if}
     </div>
 </div>

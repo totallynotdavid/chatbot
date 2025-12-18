@@ -5,14 +5,19 @@
 
     let products = $state<Product[]>([]);
     let showForm = $state(false);
+    
+    // Form state
     let name = $state('');
     let price = $state('');
     let segment = $state('fnb');
     let category = $state('');
     let files: FileList | undefined = $state();
     
+    // Bulk state
     let csvFiles: FileList | undefined = $state();
     let importResult = $state<{successCount: number, errors: string[]} | null>(null);
+
+    let isAdmin = $derived(user.data?.role === 'admin');
 
     async function load() {
         const res = await fetch('/api/catalog');
@@ -28,10 +33,18 @@
         form.append('price', price);
         form.append('segment', segment);
         form.append('category', category);
-        form.append('description', '');
-
+        
         await fetch('/api/catalog', { method: 'POST', body: form });
         showForm = false;
+        load();
+    }
+
+    async function uploadCsv() {
+        if (!csvFiles || csvFiles.length === 0) return;
+        const form = new FormData();
+        form.append('csv', csvFiles[0]);
+        const res = await fetch('/api/catalog/bulk', { method: 'POST', body: form });
+        importResult = await res.json();
         load();
     }
 
@@ -41,83 +54,116 @@
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `report-${new Date().toISOString().split('T')[0]}.xlsx`;
+        a.download = `reporte-${new Date().toISOString().split('T')[0]}.xlsx`;
         a.click();
-    }
-
-    async function uploadCsv() {
-        if (!csvFiles || csvFiles.length === 0) return;
-        const form = new FormData();
-        form.append('csv', csvFiles[0]);
-
-        const res = await fetch('/api/catalog/bulk', { method: 'POST', body: form });
-        importResult = await res.json();
-        load();
     }
 
     onMount(load);
 </script>
 
-<div class="p-6">
-    <div class="mb-4">
-        <a href="/" class="text-blue-600 hover:underline text-sm">← Volver al inicio</a>
-    </div>
-    <div class="flex justify-between mb-6">
-        <h1 class="text-2xl font-bold">Catálogo de productos</h1>
-        <div class="flex gap-2">
-            <button onclick={downloadReport} class="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2">
-                <span>📊</span> Reporte
-            </button>
-            <button onclick={() => showForm = !showForm} class="bg-green-600 text-white px-4 py-2 rounded">
-                {showForm ? 'Cancelar' : 'Agregar producto'}
-            </button>
+<div class="page-container">
+    <!-- Header -->
+    <div class="module-header">
+        <div>
+            <span class="module-subtitle">Inventario</span>
+            <h1 class="module-title">Catálogo de productos</h1>
         </div>
-    </div>
-
-    <div class="flex items-center gap-2 border p-2 rounded bg-white mb-6">
-        <span class="text-sm pl-2 font-bold text-gray-600">Importar:</span>
-        <input type="file" bind:files={csvFiles} accept=".csv" class="text-sm" />
-        <button onclick={uploadCsv} class="bg-blue-800 text-white px-3 py-1 rounded text-sm">Subir CSV</button>
-    </div>
-
-    {#if importResult}
-        <div class="mb-6 p-4 bg-gray-50 border rounded text-sm">
-            <p class="font-bold text-green-700">Imported: {importResult.successCount} items</p>
-            {#if importResult.errors.length > 0}
-                <ul class="text-red-600 mt-2 list-disc pl-4">
-                    {#each importResult.errors as err}
-                        <li>{err}</li>
-                    {/each}
-                </ul>
+        
+        <div class="flex gap-4">
+            <button onclick={downloadReport} class="btn-secondary">
+                Descargar reporte
+            </button>
+            {#if isAdmin}
+                <button onclick={() => showForm = !showForm} class="btn-primary">
+                    {showForm ? 'Cerrar editor' : 'Nuevo producto'}
+                </button>
             {/if}
-            <button onclick={() => importResult = null} class="text-gray-500 underline mt-2">Descartar</button>
         </div>
-    {/if}
+    </div>
 
-    {#if showForm}
-        <div class="bg-white p-4 mb-6 rounded shadow border">
-            <div class="grid grid-cols-2 gap-4">
-                <input bind:value={name} placeholder="Nombre del producto" class="border p-2 rounded" />
-                <input bind:value={price} type="number" placeholder="Precio" class="border p-2 rounded" />
-                <select bind:value={segment} class="border p-2 rounded">
-                    <option value="fnb">FNB</option>
-                    <option value="gaso">Gasodomestico</option>
-                </select>
-                <input bind:value={category} placeholder="Categoría" class="border p-2 rounded" />
-                <input type="file" bind:files class="border p-2 rounded col-span-2" accept="image/*" />
+    <!-- Admin Tools -->
+    {#if isAdmin}
+        <div class="mb-12 border-b border-ink-900/10 pb-8">
+            <div class="flex items-center gap-6">
+                <span class="text-sm font-bold uppercase tracking-wider text-ink-900">Importación masiva:</span>
+                <label class="cursor-pointer border-b border-ink-900 text-ink-900 text-sm hover:opacity-50 transition-opacity">
+                    Seleccionar archivo CSV
+                    <input type="file" bind:files={csvFiles} accept=".csv" class="hidden" onchange={uploadCsv} />
+                </label>
             </div>
-            <button onclick={upload} class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Guardar producto</button>
+            
+            {#if importResult}
+                <div class="mt-4 bg-cream-200 p-4 text-sm font-mono">
+                    <p class="font-bold">Resultado: {importResult.successCount} ítems procesados.</p>
+                    {#if importResult.errors.length > 0}
+                        <ul class="text-red-600 mt-2 list-disc pl-4">
+                            {#each importResult.errors as err}
+                                <li>{err}</li>
+                            {/each}
+                        </ul>
+                    {/if}
+                    <button onclick={() => importResult = null} class="underline mt-2 text-ink-600">Limpiar</button>
+                </div>
+            {/if}
         </div>
+
+        {#if showForm}
+            <div class="bg-white p-8 border border-cream-200 shadow-lg mb-12 max-w-2xl">
+                <h3 class="text-xl font-serif mb-6">Agregar nuevo ítem</h3>
+                <div class="space-y-4">
+                    <div class="input-group">
+                        <label class="input-label">Nombre del producto</label>
+                        <input bind:value={name} class="input-field" placeholder="Ej. Cocina 4 hornillas" />
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="input-group">
+                            <label class="input-label">Precio (PEN)</label>
+                            <input bind:value={price} type="number" class="input-field" placeholder="0.00" />
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Segmento</label>
+                            <select bind:value={segment} class="input-select">
+                                <option value="fnb">Financiera (FNB)</option>
+                                <option value="gaso">Gasodomésticos</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Categoría</label>
+                        <input bind:value={category} class="input-field" placeholder="Ej. Línea Blanca" />
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Imagen referencial</label>
+                        <input type="file" bind:files class="block w-full text-sm text-ink-600 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-ink-100 file:text-ink-700 hover:file:bg-ink-200 cursor-pointer" accept="image/*" />
+                    </div>
+
+                    <div class="pt-4">
+                        <button onclick={upload} class="btn-primary w-full">Guardar en base de datos</button>
+                    </div>
+                </div>
+            </div>
+        {/if}
     {/if}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <!-- Gallery -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {#each products as p}
-            <div class="bg-white border rounded shadow overflow-hidden">
-                <img src={`/static/${p.image_main_path}`} alt={p.name} class="w-full h-48 object-cover" />
-                <div class="p-4">
-                    <h3 class="font-bold">{p.name}</h3>
-                    <p class="text-gray-600">S/ {p.price}</p>
-                    <span class="text-xs bg-gray-200 px-2 py-1 rounded">{p.segment}</span>
+            <div class="group">
+                <div class="aspect-[4/5] bg-white border border-cream-200 mb-4 overflow-hidden relative">
+                    <img src={`/static/${p.image_main_path}`} alt={p.name} class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                    <span class="absolute bottom-0 left-0 bg-white/90 backdrop-blur px-3 py-1 text-[10px] font-bold uppercase tracking-widest border-t border-r border-cream-200">
+                        {p.segment}
+                    </span>
+                </div>
+                <div>
+                    <h3 class="font-serif text-lg leading-tight mb-1">{p.name}</h3>
+                    <div class="flex justify-between items-baseline border-t border-ink-900/20 pt-2 mt-2">
+                        <span class="text-xs uppercase tracking-wider text-ink-400">{p.category}</span>
+                        <span class="font-mono text-sm font-bold">S/ {p.price}</span>
+                    </div>
                 </div>
             </div>
         {/each}

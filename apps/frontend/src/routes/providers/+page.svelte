@@ -8,7 +8,7 @@
 	let provider = $state<'fnb' | 'gaso' | null>(null);
 	let error = $state('');
 	let healthStatus = $state<any>(null);
-	let providersChecked = $state<string[]>([]);
+    let providersChecked = $state<string[]>([]);
 	let providersUnavailable = $state<any>(null);
 
 	onMount(async () => {
@@ -21,12 +21,8 @@
 	async function loadHealth() {
 		try {
 			const res = await fetch('/api/health');
-			if (res.ok) {
-				healthStatus = await res.json();
-			}
-		} catch (err) {
-			console.error('Failed to load health status', err);
-		}
+			if (res.ok) healthStatus = await res.json();
+		} catch (err) {}
 	}
 
 	async function handleQuery() {
@@ -34,26 +30,17 @@
 			error = 'El DNI debe tener 8 dígitos';
 			return;
 		}
-
-		loading = true;
-		error = '';
-		result = null;
-		provider = null;
-		providersChecked = [];
-		providersUnavailable = null;
-
+		loading = true; error = ''; result = null;
 		try {
 			const res = await fetch(`/api/providers/${dni}`);
 			const data = await res.json();
-
 			if (!res.ok) {
-				error = data.error || 'Error al consultar';
+				error = data.error || 'Consulta fallida';
 				return;
 			}
-
 			result = data.result;
 			provider = data.provider;
-			providersChecked = data.providersChecked || [];
+            providersChecked = data.providersChecked || [];
 			providersUnavailable = data.providersUnavailable;
 		} catch (err) {
 			error = 'Error de conexión';
@@ -62,159 +49,101 @@
 			await loadHealth();
 		}
 	}
-
-	function getReason(reason?: string) {
-		const reasons: Record<string, string> = {
-			not_found: 'Cliente no encontrado en el sistema',
-			api_error: 'Error al consultar el sistema',
-			provider_unavailable: 'Proveedor temporalmente no disponible',
-			installation_pending: 'Instalación pendiente',
-			service_cuts_exceeded: 'Excede cortes de servicio permitidos'
-		};
-		return reason ? reasons[reason] || reason : '';
-	}
 </script>
 
-<main class="p-8">
-	<div class="mb-6">
-		<a href="/" class="text-blue-600 hover:underline text-sm">← Volver al inicio</a>
-	</div>
-	
-	<div class="mb-8">
-		<h1 class="text-3xl font-bold mb-2">Consulta de Historial Crediticio</h1>
-		<p class="text-gray-600">Ingresa el DNI del cliente para verificar elegibilidad</p>
-		
-		<!-- Health Status -->
-		{#if healthStatus}
-			<div class="mt-4 flex gap-3 text-sm">
-				<div class="flex items-center gap-2">
-					<span class="text-gray-600">FNB:</span>
-					<span class="px-2 py-1 rounded text-xs font-medium {healthStatus.providers.fnb.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-						{healthStatus.providers.fnb.available ? 'Disponible' : 'Bloqueado'}
-					</span>
-				</div>
-				<div class="flex items-center gap-2">
-					<span class="text-gray-600">Gaso:</span>
-					<span class="px-2 py-1 rounded text-xs font-medium {healthStatus.providers.gaso.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-						{healthStatus.providers.gaso.available ? 'Disponible' : 'Bloqueado'}
-					</span>
-				</div>
-			</div>
-		{/if}
-	</div>
+<div class="p-8 md:p-12 max-w-4xl mx-auto">
+    <div class="mb-12 border-b border-cream-200 pb-6 flex justify-between items-end">
+        <div>
+            <span class="text-xs font-bold tracking-widest uppercase text-ink-400 mb-2 block">Base de datos 03</span>
+            <h1 class="text-4xl font-serif text-ink-900">Historial crediticio</h1>
+        </div>
 
-	<div class="bg-white rounded-lg shadow-md p-6 max-w-2xl">
-		<div class="space-y-4">
-			<!-- DNI Input -->
-			<div>
-				<label for="dni" class="block text-sm font-medium mb-2">
-					DNI del Cliente
-				</label>
-				<input
-					id="dni"
-					type="text"
-					bind:value={dni}
-					placeholder="12345678"
-					maxlength="8"
-					class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-					disabled={loading}
-				/>
-			</div>
+        {#if healthStatus}
+             <div class="flex gap-4 text-xs font-mono">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full {healthStatus.providers.fnb.available ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span>Sistema FNB</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full {healthStatus.providers.gaso.available ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span>Sistema Gaso</span>
+                </div>
+            </div>
+        {/if}
+    </div>
 
-			<!-- Query Button -->
-			<button
-				onclick={handleQuery}
-				disabled={loading || !dni}
-				class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-			>
-				{loading ? 'Consultando...' : 'Consultar'}
-			</button>
+    <div class="bg-white p-8 border border-cream-200 shadow-sm mb-8">
+        <label for="dni" class="block text-sm font-bold uppercase tracking-wider mb-4">Identificación del cliente</label>
+        <div class="flex gap-4">
+            <input
+                id="dni"
+                type="text"
+                bind:value={dni}
+                placeholder="DNI (ej. 12345678)"
+                maxlength="8"
+                class="input-field text-2xl font-mono tracking-widest"
+                disabled={loading}
+            />
+            <button
+                onclick={handleQuery}
+                disabled={loading || !dni}
+                class="btn-primary shrink-0 self-end mb-2"
+            >
+                {loading ? 'Escaneando...' : 'Consultar'}
+            </button>
+        </div>
+        {#if error}
+            <p class="mt-4 text-red-600 font-serif italic">{error}</p>
+        {/if}
+    </div>
 
-			<!-- Error Message -->
-			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-					{error}
-				</div>
-			{/if}
+    {#if result}
+        <div class="bg-cream-50 border border-ink-900 p-8 relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAABCAYAAAD5PA/NAAAAFklEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')] opacity-20"></div>
 
-			<!-- Results -->
-			{#if result}
-				<div class="mt-6 border-t pt-6">
-					<h2 class="text-xl font-semibold mb-4">Resultados</h2>
-					
-					<div class="space-y-3">
-						<!-- Providers Checked Info -->
-						{#if providersChecked.length > 0}
-							<div class="text-xs text-gray-500 mb-2">
-								Proveedores consultados: {providersChecked.join(', ').toUpperCase()}
-							</div>
-						{/if}
-						
-						{#if providersUnavailable}
-							<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded text-sm mb-3">
-								⚠️ Algunos proveedores no están disponibles temporalmente
-							</div>
-						{/if}
+            <div class="flex justify-between items-start mb-8">
+                <div>
+                    <h2 class="text-2xl font-serif font-bold">Reporte de elegibilidad</h2>
+                    <p class="text-sm text-ink-600 font-mono mt-1">{new Date().toLocaleDateString()} — {new Date().toLocaleTimeString()}</p>
+                </div>
+                <div class={`px-4 py-2 border-2 text-sm font-bold uppercase tracking-widest ${result.eligible ? 'border-green-600 text-green-700' : 'border-red-600 text-red-700'}`}>
+                    {result.eligible ? 'Aprobado' : 'Rechazado'}
+                </div>
+            </div>
 
-						<!-- Provider Source -->
-						{#if provider}
-							<div class="flex items-center gap-3">
-								<span class="text-sm font-medium text-gray-600">Proveedor:</span>
-								<span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-									{provider === 'fnb' ? 'FNB (Electrodomésticos)' : 'Gaso (Gasodoméstico)'}
-								</span>
-							</div>
-						{/if}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 font-mono text-sm border-t border-dashed border-ink-300 pt-8">
+                <div>
+                    <span class="block text-ink-400 text-xs uppercase mb-1">Nombre del cliente</span>
+                    <span class="text-lg">{result.name || 'N/A'}</span>
+                </div>
+                <div>
+                    <span class="block text-ink-400 text-xs uppercase mb-1">Proveedor origen</span>
+                    <span class="text-lg">{provider === 'fnb' ? 'FNB (Retail)' : 'Gaso (Servicios)'}</span>
+                </div>
+                <div>
+                    <span class="block text-ink-400 text-xs uppercase mb-1">Línea aprobada</span>
+                    <span class="text-2xl font-bold">S/ {result.credit.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+                </div>
+                 {#if provider === 'gaso' && result.nse !== undefined}
+                <div>
+                    <span class="block text-ink-400 text-xs uppercase mb-1">Nivel NSE</span>
+                    <span class="text-lg">{result.nse}</span>
+                </div>
+                {/if}
+            </div>
 
-						<!-- Eligibility Status -->
-						<div class="flex items-center gap-3">
-							<span class="text-sm font-medium text-gray-600">Estado:</span>
-							<span class="px-3 py-1 rounded-full text-sm font-medium {result.eligible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-								{result.eligible ? 'Elegible' : 'No Elegible'}
-							</span>
-						</div>
-
-						<!-- Name -->
-						{#if result.name}
-							<div class="flex items-center gap-3">
-								<span class="text-sm font-medium text-gray-600">Nombre:</span>
-								<span class="text-sm">{result.name}</span>
-							</div>
-						{/if}
-
-						<!-- Credit Line -->
-						<div class="flex items-center gap-3">
-							<span class="text-sm font-medium text-gray-600">Línea de Crédito:</span>
-							<span class="text-sm font-semibold">
-								S/ {result.credit.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-							</span>
-						</div>
-
-						<!-- NSE (only for Gaso) -->
-						{#if provider === 'gaso' && result.nse !== undefined}
-							<div class="flex items-center gap-3">
-								<span class="text-sm font-medium text-gray-600">NSE:</span>
-								<span class="text-sm">{result.nse}</span>
-							</div>
-						{/if}
-
-						<!-- Reason (if not eligible) -->
-						{#if !result.eligible && result.reason}
-							<div class="flex items-start gap-3">
-								<span class="text-sm font-medium text-gray-600">Motivo:</span>
-								<span class="text-sm text-red-600">{getReason(result.reason)}</span>
-							</div>
-						{/if}
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
-</main>
-
-<style>
-	input:disabled {
-		cursor: not-allowed;
-		opacity: 0.6;
-	}
-</style>
+            {#if !result.eligible && result.reason}
+                <div class="mt-8 bg-red-50 border-l-2 border-red-500 p-4">
+                    <span class="block text-red-800 text-xs uppercase font-bold mb-1">Razón del rechazo</span>
+                    <p class="text-red-900 font-serif italic">{result.reason}</p>
+                </div>
+            {/if}
+            
+            {#if providersUnavailable}
+                <div class="mt-4 text-xs text-yellow-700 bg-yellow-50 p-2 text-center">
+                    ⚠ Advertencia: Interrupción parcial del sistema detectada durante el escaneo.
+                </div>
+            {/if}
+        </div>
+    {/if}
+</div>
