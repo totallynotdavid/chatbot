@@ -17,78 +17,85 @@ let files: FileList | undefined = $state();
 
 // Bulk state
 let csvFiles: FileList | undefined = $state();
-let importResult = $state<{ successCount: number; errors: string[] } | null>(null);
+let importResult = $state<{ successCount: number; errors: string[] } | null>(
+    null,
+);
 
-let canEdit = $derived(user.data?.role === "admin" || user.data?.role === "developer");
+let canEdit = $derived(
+    user.data?.role === "admin" || user.data?.role === "developer",
+);
 
 async function load() {
-  const res = await fetch("/api/catalog");
-  if (res.status === 401) {
-    user.logout();
-    return;
-  }
-  if (res.ok) {
-    products = await res.json();
-  }
+    const res = await fetch("/api/catalog");
+    if (res.status === 401) {
+        user.logout();
+        return;
+    }
+    if (res.ok) {
+        products = await res.json();
+    }
 }
 
 async function upload() {
-  const file = files?.[0];
-  if (!file) return;
+    const file = files?.[0];
+    if (!file) return;
 
-  const form = new FormData();
-  form.append("image", file);
-  form.append("name", name);
-  form.append("price", price);
-  form.append("segment", segment);
-  form.append("category", category);
-  form.append("description", description);
-  if (installments) form.append("installments", installments);
+    const form = new FormData();
+    form.append("image", file);
+    form.append("name", name);
+    form.append("price", price);
+    form.append("segment", segment);
+    form.append("category", category);
+    form.append("description", description);
+    if (installments) form.append("installments", installments);
 
-  const res = await fetch("/api/catalog", { method: "POST", body: form });
-  
-  if (res.ok) {
-    showForm = false;
-    name = "";
-    price = "";
-    installments = "";
-    category = "";
-    description = "";
-    files = undefined;
-    await load();
-  }
+    const res = await fetch("/api/catalog", { method: "POST", body: form });
+
+    if (res.ok) {
+        showForm = false;
+        name = "";
+        price = "";
+        installments = "";
+        category = "";
+        description = "";
+        files = undefined;
+        await load();
+    }
 }
 
 async function uploadCsv() {
-  const csvFile = csvFiles?.[0];
-  if (!csvFile) return;
+    const csvFile = csvFiles?.[0];
+    if (!csvFile) return;
 
-  const form = new FormData();
-  form.append("csv", csvFile);
+    const form = new FormData();
+    form.append("csv", csvFile);
 
-  const res = await fetch("/api/catalog/bulk", { method: "POST", body: form });
-  if (res.ok) {
-    importResult = await res.json();
-    await load();
-  }
+    const res = await fetch("/api/catalog/bulk", {
+        method: "POST",
+        body: form,
+    });
+    if (res.ok) {
+        importResult = await res.json();
+        await load();
+    }
 }
 
 async function downloadReport() {
-  const res = await fetch("/api/reports/daily");
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
-  a.click();
+    const res = await fetch("/api/reports/daily");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.click();
 }
 
 onMount(() => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-    return;
-  }
-  load();
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
+    load();
 });
 </script>
 

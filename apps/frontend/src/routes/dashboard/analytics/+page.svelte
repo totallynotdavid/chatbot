@@ -7,42 +7,42 @@ let events = $state<any[]>([]);
 let loading = $state(true);
 
 async function loadData() {
-  loading = true;
-  
-  const [statsRes, eventsRes] = await Promise.all([
-    fetch("/api/analytics/funnel"),
-    fetch("/api/analytics/events?limit=100"),
-  ]);
+    loading = true;
 
-  if (statsRes.ok) {
-    const data = await statsRes.json();
-    stats = data.stats;
-  }
+    const [statsRes, eventsRes] = await Promise.all([
+        fetch("/api/analytics/funnel"),
+        fetch("/api/analytics/events?limit=100"),
+    ]);
 
-  if (eventsRes.ok) {
-    const data = await eventsRes.json();
-    events = data.events;
-  }
+    if (statsRes.ok) {
+        const data = await statsRes.json();
+        stats = data.stats;
+    }
 
-  loading = false;
+    if (eventsRes.ok) {
+        const data = await eventsRes.json();
+        events = data.events;
+    }
+
+    loading = false;
 }
 
 onMount(() => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-    return;
-  }
-  loadData();
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
+    loadData();
 });
 
 function getConversionRate() {
-  if (!stats || stats.sessions_started === 0) return 0;
-  return ((stats.products_offered / stats.sessions_started) * 100).toFixed(1);
+    if (!stats || stats.sessions_started === 0) return 0;
+    return ((stats.products_offered / stats.sessions_started) * 100).toFixed(1);
 }
 
 function getEligibilityRate() {
-  if (!stats || stats.dni_collected === 0) return 0;
-  return ((stats.eligibility_passed / stats.dni_collected) * 100).toFixed(1);
+    if (!stats || stats.dni_collected === 0) return 0;
+    return ((stats.eligibility_passed / stats.dni_collected) * 100).toFixed(1);
 }
 </script>
 

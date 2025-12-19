@@ -9,37 +9,37 @@ let error = $state("");
 let loading = $state(false);
 
 async function submit() {
-  if (!username || !password) {
-    error = "Usuario y contraseña son requeridos";
-    return;
-  }
+    if (!username || !password) {
+        error = "Usuario y contraseña son requeridos";
+        return;
+    }
 
-  loading = true;
-  error = "";
+    loading = true;
+    error = "";
 
-  const res = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+    const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    });
 
-  loading = false;
+    loading = false;
 
-  if (res.ok) {
-    const data = await res.json();
-    user.data = data.user;
-    user.isAuthenticated = true;
-    goto("/dashboard");
-  } else {
-    error = "Credenciales no válidas";
-  }
+    if (res.ok) {
+        const data = await res.json();
+        user.data = data.user;
+        user.isAuthenticated = true;
+        goto("/dashboard");
+    } else {
+        error = "Credenciales no válidas";
+    }
 }
 
 onMount(async () => {
-  await user.checkAuth();
-  if (user.isAuthenticated) {
-    goto("/dashboard");
-  }
+    await user.checkAuth();
+    if (user.isAuthenticated) {
+        goto("/dashboard");
+    }
 });
 </script>
 

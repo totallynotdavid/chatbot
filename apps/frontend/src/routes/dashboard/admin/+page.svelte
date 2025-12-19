@@ -11,86 +11,91 @@ let newRole = $state("sales_agent");
 let message = $state("");
 
 async function loadUsers() {
-  const res = await fetch("/api/admin/users");
-  if (res.ok) {
-    const data = await res.json();
-    users = data.users;
-  }
+    const res = await fetch("/api/admin/users");
+    if (res.ok) {
+        const data = await res.json();
+        users = data.users;
+    }
 }
 
 async function createUser() {
-  if (!newUsername || !newPassword || !newName) {
-    message = "Todos los campos son obligatorios";
-    return;
-  }
+    if (!newUsername || !newPassword || !newName) {
+        message = "Todos los campos son obligatorios";
+        return;
+    }
 
-  const res = await fetch("/api/admin/users", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: newUsername,
-      password: newPassword,
-      name: newName,
-      role: newRole,
-    }),
-  });
+    const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: newUsername,
+            password: newPassword,
+            name: newName,
+            role: newRole,
+        }),
+    });
 
-  if (res.ok) {
-    message = `Usuario ${newUsername} creado correctamente.`;
-    newUsername = "";
-    newPassword = "";
-    newName = "";
-    await loadUsers();
-  } else {
-    const error = await res.json();
-    message = error.error || "Error al crear usuario";
-  }
+    if (res.ok) {
+        message = `Usuario ${newUsername} creado correctamente.`;
+        newUsername = "";
+        newPassword = "";
+        newName = "";
+        await loadUsers();
+    } else {
+        const error = await res.json();
+        message = error.error || "Error al crear usuario";
+    }
 }
 
 async function toggleUserStatus(userId: string) {
-  const res = await fetch(`/api/admin/users/${userId}/status`, { method: "PATCH" });
-  if (res.ok) {
-    await loadUsers();
-  }
+    const res = await fetch(`/api/admin/users/${userId}/status`, {
+        method: "PATCH",
+    });
+    if (res.ok) {
+        await loadUsers();
+    }
 }
 
 async function resetPassword(userId: string) {
-  const newPass = prompt("Nueva contraseña:");
-  if (!newPass) return;
+    const newPass = prompt("Nueva contraseña:");
+    if (!newPass) return;
 
-  const res = await fetch(`/api/admin/users/${userId}/password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ newPassword: newPass }),
-  });
+    const res = await fetch(`/api/admin/users/${userId}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: newPass }),
+    });
 
-  if (res.ok) {
-    alert("Contraseña actualizada. Todas las sesiones del usuario fueron invalidadas.");
-  }
+    if (res.ok) {
+        alert(
+            "Contraseña actualizada. Todas las sesiones del usuario fueron invalidadas.",
+        );
+    }
 }
 
 onMount(() => {
-  if (!user.isAuthenticated) {
-    goto("/login");
-    return;
-  }
-  if (user.data?.role !== "admin") {
-    goto("/dashboard");
-    return;
-  }
-  loadUsers();
+    if (!user.isAuthenticated) {
+        goto("/login");
+        return;
+    }
+    if (user.data?.role !== "admin") {
+        goto("/dashboard");
+        return;
+    }
+    loadUsers();
 });
 
 function getRoleBadgeClass(role: string) {
-  if (role === "admin") return "bg-red-100 text-red-800 border-red-200";
-  if (role === "developer") return "bg-blue-100 text-blue-800 border-blue-200";
-  return "bg-green-100 text-green-800 border-green-200";
+    if (role === "admin") return "bg-red-100 text-red-800 border-red-200";
+    if (role === "developer")
+        return "bg-blue-100 text-blue-800 border-blue-200";
+    return "bg-green-100 text-green-800 border-green-200";
 }
 
 function getRoleLabel(role: string) {
-  if (role === "admin") return "Administrador";
-  if (role === "developer") return "Desarrollador";
-  return "Agente de ventas";
+    if (role === "admin") return "Administrador";
+    if (role === "developer") return "Desarrollador";
+    return "Agente de ventas";
 }
 </script>
 

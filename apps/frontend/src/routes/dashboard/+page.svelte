@@ -3,9 +3,9 @@ import { onMount } from "svelte";
 import { user } from "$lib/state.svelte";
 
 onMount(async () => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-  }
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+    }
 });
 
 const isDeveloper = $derived(user.data?.role === "developer");

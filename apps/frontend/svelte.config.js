@@ -10,8 +10,8 @@ const config = {
                 toggleKeyCombo: "control-shift",
                 holdMode: true,
                 showToggleButton: "active",
-            }
-        }
+            },
+        },
     }),
     kit: {
         adapter: adapter(),

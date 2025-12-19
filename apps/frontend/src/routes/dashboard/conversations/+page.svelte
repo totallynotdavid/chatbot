@@ -10,76 +10,76 @@ let conversationDetail = $state<any>(null);
 let polling: Timer | null = null;
 
 async function loadConversations() {
-  const res = await fetch("/api/conversations");
-  if (res.status === 401) {
-    user.logout();
-    return;
-  }
-  if (res.ok) {
-    conversations = await res.json();
-  }
+    const res = await fetch("/api/conversations");
+    if (res.status === 401) {
+        user.logout();
+        return;
+    }
+    if (res.ok) {
+        conversations = await res.json();
+    }
 }
 
 async function loadConversationDetail(phone: string) {
-  const res = await fetch(`/api/conversations/${phone}`);
-  if (res.ok) {
-    conversationDetail = await res.json();
-  }
+    const res = await fetch(`/api/conversations/${phone}`);
+    if (res.ok) {
+        conversationDetail = await res.json();
+    }
 }
 
 async function takeover(phone: string) {
-  await fetch(`/api/conversations/${phone}/takeover`, { method: "POST" });
-  await loadConversations();
-  if (selectedPhone === phone) {
-    await loadConversationDetail(phone);
-  }
+    await fetch(`/api/conversations/${phone}/takeover`, { method: "POST" });
+    await loadConversations();
+    if (selectedPhone === phone) {
+        await loadConversationDetail(phone);
+    }
 }
 
 async function sendMessage() {
-  if (!(selectedPhone && messageText.trim())) return;
+    if (!(selectedPhone && messageText.trim())) return;
 
-  await fetch(`/api/conversations/${selectedPhone}/message`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: messageText }),
-  });
+    await fetch(`/api/conversations/${selectedPhone}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: messageText }),
+    });
 
-  messageText = "";
-  await loadConversationDetail(selectedPhone);
+    messageText = "";
+    await loadConversationDetail(selectedPhone);
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 }
 
 $effect(() => {
-  if (selectedPhone) {
-    loadConversationDetail(selectedPhone);
-  }
+    if (selectedPhone) {
+        loadConversationDetail(selectedPhone);
+    }
 });
 
 onMount(() => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-    return;
-  }
-
-  loadConversations();
-
-  // Poll every 2 seconds
-  polling = setInterval(() => {
-    loadConversations();
-    if (selectedPhone) {
-      loadConversationDetail(selectedPhone);
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+        return;
     }
-  }, 2000);
 
-  return () => {
-    if (polling) clearInterval(polling);
-  };
+    loadConversations();
+
+    // Poll every 2 seconds
+    polling = setInterval(() => {
+        loadConversations();
+        if (selectedPhone) {
+            loadConversationDetail(selectedPhone);
+        }
+    }, 2000);
+
+    return () => {
+        if (polling) clearInterval(polling);
+    };
 });
 </script>
 

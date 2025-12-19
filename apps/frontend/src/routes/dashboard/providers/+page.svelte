@@ -10,48 +10,48 @@ let error = $state("");
 let healthStatus = $state<any>(null);
 
 onMount(async () => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-  }
-  await loadHealth();
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+    }
+    await loadHealth();
 });
 
 async function loadHealth() {
-  try {
-    const res = await fetch("/api/health");
-    if (res.ok) healthStatus = await res.json();
-  } catch (err) {
-    console.error("Health check failed:", err);
-  }
+    try {
+        const res = await fetch("/api/health");
+        if (res.ok) healthStatus = await res.json();
+    } catch (err) {
+        console.error("Health check failed:", err);
+    }
 }
 
 async function handleQuery() {
-  if (!/^\d{8}$/.test(dni)) {
-    error = "El DNI debe tener 8 dígitos";
-    return;
-  }
-
-  loading = true;
-  error = "";
-  result = null;
-
-  try {
-    const res = await fetch(`/api/providers/${dni}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      error = data.error || "Consulta fallida";
-      return;
+    if (!/^\d{8}$/.test(dni)) {
+        error = "El DNI debe tener 8 dígitos";
+        return;
     }
 
-    result = data.result;
-    provider = data.provider;
-  } catch (err) {
-    error = "Error de conexión";
-  } finally {
-    loading = false;
-    await loadHealth();
-  }
+    loading = true;
+    error = "";
+    result = null;
+
+    try {
+        const res = await fetch(`/api/providers/${dni}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            error = data.error || "Consulta fallida";
+            return;
+        }
+
+        result = data.result;
+        provider = data.provider;
+    } catch (err) {
+        error = "Error de conexión";
+    } finally {
+        loading = false;
+        await loadHealth();
+    }
 }
 </script>
 

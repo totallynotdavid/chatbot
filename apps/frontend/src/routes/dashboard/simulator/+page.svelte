@@ -9,68 +9,74 @@ let conversation = $state<any>(null);
 let loading = $state(false);
 
 async function loadConversation() {
-  const res = await fetch(`/api/simulator/conversation/${testPhone}`);
-  if (res.ok) {
-    const data = await res.json();
-    conversation = data.conversation;
-    messages = data.messages;
-  }
+    const res = await fetch(`/api/simulator/conversation/${testPhone}`);
+    if (res.ok) {
+        const data = await res.json();
+        conversation = data.conversation;
+        messages = data.messages;
+    }
 }
 
 async function sendMessage() {
-  if (!currentInput.trim()) return;
+    if (!currentInput.trim()) return;
 
-  loading = true;
-  const messageText = currentInput;
-  currentInput = "";
+    loading = true;
+    const messageText = currentInput;
+    currentInput = "";
 
-  // Optimistically add to UI
-  messages = [...messages, {
-    id: Date.now().toString(),
-    direction: "inbound",
-    type: "text",
-    content: messageText,
-    created_at: new Date().toISOString(),
-  }];
+    // Optimistically add to UI
+    messages = [
+        ...messages,
+        {
+            id: Date.now().toString(),
+            direction: "inbound",
+            type: "text",
+            content: messageText,
+            created_at: new Date().toISOString(),
+        },
+    ];
 
-  try {
-    await fetch("/api/simulator/message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber: testPhone, message: messageText }),
-    });
+    try {
+        await fetch("/api/simulator/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                phoneNumber: testPhone,
+                message: messageText,
+            }),
+        });
 
-    // Reload to get bot responses
-    setTimeout(() => loadConversation(), 1000);
-  } catch (error) {
-    console.error("Send error:", error);
-  } finally {
-    loading = false;
-  }
+        // Reload to get bot responses
+        setTimeout(() => loadConversation(), 1000);
+    } catch (error) {
+        console.error("Send error:", error);
+    } finally {
+        loading = false;
+    }
 }
 
 async function resetConversation() {
-  if (!confirm("¿Reiniciar la conversación?")) return;
+    if (!confirm("¿Reiniciar la conversación?")) return;
 
-  await fetch(`/api/simulator/reset/${testPhone}`, { method: "POST" });
-  messages = [];
-  conversation = null;
-  await loadConversation();
+    await fetch(`/api/simulator/reset/${testPhone}`, { method: "POST" });
+    messages = [];
+    conversation = null;
+    await loadConversation();
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 }
 
 onMount(() => {
-  if (!user.isAuthenticated) {
-    window.location.href = "/login";
-    return;
-  }
-  loadConversation();
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
+    loadConversation();
 });
 </script>
 
