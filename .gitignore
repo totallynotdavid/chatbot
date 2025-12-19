@@ -5,3 +5,7 @@ node_modules
 *.tsbuildinfo
 dist
 data
+
+# dev tools
+*.ps1
+example.md
