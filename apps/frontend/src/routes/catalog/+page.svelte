@@ -64,7 +64,6 @@
 </script>
 
 <div class="page-container">
-    <!-- Header -->
     <div class="module-header">
         <div>
             <span class="module-subtitle">Inventario</span>
@@ -83,7 +82,6 @@
         </div>
     </div>
 
-    <!-- Admin Tools -->
     {#if isAdmin}
         <div class="mb-12 border-b border-ink-900/10 pb-8">
             <div class="flex items-center gap-6">
@@ -114,18 +112,18 @@
                 <h3 class="text-xl font-serif mb-6">Agregar nuevo ítem</h3>
                 <div class="space-y-4">
                     <div class="input-group">
-                        <label class="input-label">Nombre del producto</label>
-                        <input bind:value={name} class="input-field" placeholder="Ej. Cocina 4 hornillas" />
+                        <label for="product-name" class="input-label">Nombre del producto</label>
+                        <input id="product-name" bind:value={name} class="input-field" placeholder="Ej. Cocina 4 hornillas" />
                     </div>
                     
                     <div class="grid grid-cols-2 gap-8">
                         <div class="input-group">
-                            <label class="input-label">Precio (PEN)</label>
-                            <input bind:value={price} type="number" class="input-field" placeholder="0.00" />
+                            <label for="product-price" class="input-label">Precio (PEN)</label>
+                            <input id="product-price" bind:value={price} type="number" class="input-field" placeholder="0.00" />
                         </div>
                         <div class="input-group">
-                            <label class="input-label">Segmento</label>
-                            <select bind:value={segment} class="input-select">
+                            <label for="product-segment" class="input-label">Segmento</label>
+                            <select id="product-segment" bind:value={segment} class="input-select">
                                 <option value="fnb">Financiera (FNB)</option>
                                 <option value="gaso">Gasodomésticos</option>
                             </select>
@@ -133,13 +131,13 @@
                     </div>
 
                     <div class="input-group">
-                        <label class="input-label">Categoría</label>
-                        <input bind:value={category} class="input-field" placeholder="Ej. Línea Blanca" />
+                        <label for="product-category" class="input-label">Categoría</label>
+                        <input id="product-category" bind:value={category} class="input-field" placeholder="Ej. Línea Blanca" />
                     </div>
 
                     <div class="input-group">
-                        <label class="input-label">Imagen referencial</label>
-                        <input type="file" bind:files class="block w-full text-sm text-ink-600 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-ink-100 file:text-ink-700 hover:file:bg-ink-200 cursor-pointer" accept="image/*" />
+                        <label for="product-image" class="input-label">Imagen referencial</label>
+                        <input id="product-image" type="file" bind:files class="block w-full text-sm text-ink-600 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-ink-100 file:text-ink-700 hover:file:bg-ink-200 cursor-pointer" accept="image/*" />
                     </div>
 
                     <div class="pt-4">

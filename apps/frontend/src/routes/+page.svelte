@@ -10,7 +10,6 @@
 </script>
 
 <div class="h-screen w-full flex flex-col md:flex-row bg-cream-100 overflow-hidden">
-    <!-- Header / Intro Column -->
     <div class="w-full md:w-1/3 lg:w-1/4 bg-cream-50 border-b md:border-b-0 md:border-r border-ink-900/10 p-12 flex flex-col justify-between">
         <div>
             <h1 class="text-5xl font-serif mb-6 italic">Totem</h1>
@@ -36,7 +35,7 @@
         {/if}
     </div>
 
-    <!-- Grid Navigation -->
+    <!-- Grid navigation -->
     <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 auto-rows-fr">
         <a href="/conversations" class="group border-b border-r border-ink-900/10 p-12 hover:bg-white transition-all flex flex-col justify-between relative overflow-hidden">
             <span class="text-6xl font-serif text-cream-300 group-hover:text-ink-100 transition-colors absolute top-4 right-4 z-0">01</span>

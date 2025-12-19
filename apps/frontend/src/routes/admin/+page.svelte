@@ -19,8 +19,7 @@
     });
 
     async function createUser() {
-        // Mock API call - in production replace with actual fetch
-        // await fetch('/api/admin/users', { ... })
+        // Mock API call
         console.log('Creating user', { newUsername, newRole });
         message = `Usuario ${newUsername} creado correctamente.`;
         newUsername = '';
@@ -41,19 +40,19 @@
         
         <form onsubmit={(e) => { e.preventDefault(); createUser(); }} class="space-y-6">
             <div class="input-group">
-                <label class="input-label">Nombre de usuario</label>
-                <input bind:value={newUsername} type="text" class="input-field" placeholder="usuario_nuevo" required />
+                <label for="new-username" class="input-label">Nombre de usuario</label>
+                <input id="new-username" bind:value={newUsername} type="text" class="input-field" placeholder="usuario_nuevo" required />
             </div>
 
             <div class="input-group">
-                <label class="input-label">Contraseña temporal</label>
-                <input bind:value={newPassword} type="password" class="input-field" placeholder="••••••••" required />
+                <label for="new-password" class="input-label">Contraseña temporal</label>
+                <input id="new-password" bind:value={newPassword} type="password" class="input-field" placeholder="" required />
             </div>
 
             <div class="input-group">
-                <label class="input-label">Rol de acceso</label>
-                <select bind:value={newRole} class="input-select">
-                    <option value="user">Agente Operativo (User)</option>
+                <label for="new-role" class="input-label">Rol de acceso</label>
+                <select id="new-role" bind:value={newRole} class="input-select">
+                    <option value="user">Agente operativo (User)</option>
                     <option value="admin">Administrador (Admin)</option>
                 </select>
             </div>

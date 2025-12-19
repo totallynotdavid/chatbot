@@ -31,8 +31,7 @@
     onMount(load);
 </script>
 
-<div class="flex h-[calc(100vh-80px)]"> <!-- Subtract top nav height approx -->
-    <!-- Sidebar List -->
+<div class="flex h-[calc(100vh-80px)]">
     <div class="w-full md:w-96 border-r border-ink-900/10 bg-white flex flex-col">
         <div class="p-6 border-b border-ink-900/10">
              <span class="text-xs font-bold tracking-widest uppercase text-ink-400 mb-1 block">Bandeja de entrada</span>
@@ -58,12 +57,10 @@
         </div>
     </div>
 
-    <!-- Chat Area -->
     <div class="hidden md:flex flex-col flex-1 bg-cream-50 relative">
         {#if selectedPhone}
             {@const activeConv = conversations.find(c => c.phone_number === selectedPhone)}
             
-            <!-- Header -->
             <div class="p-6 border-b border-ink-900/10 bg-white/80 backdrop-blur flex justify-between items-center sticky top-0 z-10">
                 <div>
                     <h2 class="font-serif text-2xl">{selectedPhone}</h2>
@@ -82,13 +79,11 @@
                 {/if}
             </div>
 
-            <!-- Messages -->
             <div class="grow p-12 overflow-y-auto space-y-6">
                 <div class="flex justify-center mb-8">
                     <span class="text-xs text-ink-300 uppercase tracking-widest border-b border-ink-200 pb-1">Inicio de historial</span>
                 </div>
                 
-                <!-- Mock Placeholder -->
                 <div class="flex justify-start max-w-2xl">
                     <div class="bg-white border border-cream-200 p-6 shadow-sm">
                         <p class="text-base font-serif leading-relaxed text-ink-600">
@@ -98,7 +93,6 @@
                 </div>
             </div>
 
-            <!-- Input -->
             {#if activeConv?.status === 'human_takeover'}
                 <div class="p-6 border-t border-ink-900/10 bg-white">
                     <div class="flex gap-0 shadow-lg">
