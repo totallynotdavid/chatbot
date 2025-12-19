@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db } from "../db/index.ts";
 import * as XLSX from "xlsx";
 
 export const ReportService = {

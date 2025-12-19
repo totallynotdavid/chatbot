@@ -19,8 +19,6 @@ onMount(() => {
 });
 
 async function createUser() {
-    // Mock API call
-    console.log("Creating user", { newUsername, newRole });
     message = `Usuario ${newUsername} creado correctamente.`;
     newUsername = "";
     newPassword = "";

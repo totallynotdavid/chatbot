@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db } from "../db/index.ts";
 import {
     encodeBase32LowerCaseNoPadding,
     encodeHexLowerCase,
@@ -6,6 +6,7 @@ import {
 import { sha256 } from "@oslojs/crypto/sha2";
 import type { Context } from "hono";
 import { setCookie, deleteCookie } from "hono/cookie";
+import process from "node:process";
 
 export interface Session {
     id: string;

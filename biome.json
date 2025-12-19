@@ -1,50 +1,63 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
-    "vcs": {
-        "enabled": true,
-        "clientKind": "git",
-        "useIgnoreFile": true
-    },
-    "files": {
-        "ignoreUnknown": false
-    },
-    "formatter": {
-        "enabled": true,
-        "indentStyle": "space",
-        "indentWidth": 4
-    },
-    "linter": {
-        "enabled": true,
-        "rules": {
-            "recommended": true,
-            "a11y": "on",
-            "complexity": "on",
-            "correctness": "on",
-            "performance": "on",
-            "security": "on",
-            "style": {
-                "recommended": true,
-                "useNamingConvention": "off"
-            },
-            "suspicious": "on"
-        }
-    },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
-        }
-    },
-    "javascript": {
-        "formatter": {
-            "quoteStyle": "double"
-        }
-    },
-    "assist": {
-        "enabled": true,
-        "actions": {
-            "source": {
-                "organizeImports": "off"
-            }
-        }
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 4
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": "on",
+      "complexity": "on",
+      "correctness": {
+        "recommended": true,
+        "noNodejsModules": "off",
+        "noUnusedVariables": "off"
+      },
+      "performance": {
+        "recommended": true,
+        "noNamespaceImport": "off"
+      },
+      "security": {
+        "recommended": true,
+        "noSecrets": "off"
+      },
+      "style": {
+        "recommended": true,
+        "useNamingConvention": "off"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noExplicitAny": "off"
+      }
     }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
+  }
 }

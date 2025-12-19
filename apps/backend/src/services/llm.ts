@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import process from "node:process";
 
 const client = new OpenAI({
     apiKey: process.env.GEMINI_API_KEY,

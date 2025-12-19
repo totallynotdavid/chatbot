@@ -2,14 +2,14 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { getCookie } from "hono/cookie";
-import { db } from "./db";
+import { db } from "./db/index.ts";
 import bcrypt from "bcryptjs";
 
-import { CatalogService } from "./services/catalog";
-import { WhatsAppService } from "./services/whatsapp";
-import { BulkImportService } from "./services/bulk-import";
-import { ReportService } from "./services/reports";
-import { getProvidersHealth } from "./services/providers";
+import { CatalogService } from "./services/catalog.ts";
+import { WhatsAppService } from "./services/whatsapp.ts";
+import { BulkImportService } from "./services/bulk-import.ts";
+import { ReportService } from "./services/reports.ts";
+import { getProvidersHealth } from "./services/providers.ts";
 import {
     generateSessionToken,
     createSession,
@@ -19,9 +19,10 @@ import {
     deleteSessionTokenCookie,
     type Session,
     type User,
-} from "./services/auth";
-import { runAgent } from "./agent/core";
+} from "./services/auth.ts";
+import { runAgent } from "./agent/core.ts";
 import type { Conversation } from "@totem/types";
+import process from "node:process";
 
 type Env = {
     Variables: {
@@ -82,7 +83,7 @@ app.post("/api/auth/login", async (c) => {
         .prepare("SELECT * FROM users WHERE username = ?")
         .get(username) as any;
 
-    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    if (!(user && bcrypt.compareSync(password, user.password_hash))) {
         return c.json({ error: "Invalid credentials" }, 401);
     }
 
@@ -111,11 +112,11 @@ app.get("/api/catalog", (c) => c.json(CatalogService.getAll()));
 
 app.post("/api/catalog", async (c) => {
     const body = await c.req.parseBody();
-    const file = body["image"] as File;
+    const file = body.image as File;
     if (!file) return c.json({ error: "Missing image" }, 400);
 
-    const segment = body["segment"] as string;
-    const category = body["category"] as string;
+    const segment = body.segment as string;
+    const category = body.category as string;
     const fileName = `${Date.now()}_${file.name}`;
     const dir = `./data/uploads/catalog/${segment}/${category}`;
 
@@ -126,9 +127,9 @@ app.post("/api/catalog", async (c) => {
         id: crypto.randomUUID(),
         segment: segment as any,
         category,
-        name: body["name"] as string,
-        description: body["description"] as string,
-        price: parseFloat(body["price"] as string),
+        name: body.name as string,
+        description: body.description as string,
+        price: parseFloat(body.price as string),
         image_main_path: `catalog/${segment}/${category}/${fileName}`,
         image_specs_path: null,
         created_by: user.id,
@@ -138,7 +139,7 @@ app.post("/api/catalog", async (c) => {
 
 app.post("/api/catalog/bulk", async (c) => {
     const body = await c.req.parseBody();
-    const csvFile = body["csv"] as File;
+    const csvFile = body.csv as File;
     if (!csvFile) return c.json({ error: "CSV required" }, 400);
 
     const text = await csvFile.text();
@@ -204,7 +205,7 @@ app.get("/api/providers/:dni", async (c) => {
         return c.json({ error: "DNI debe tener 8 dígitos" }, 400);
     }
 
-    const { FNBProvider, GasoProvider } = await import("./services/providers");
+    const { FNBProvider, GasoProvider } = await import("./services/providers.ts");
     const healthStatus = getProvidersHealth();
 
     try {
@@ -250,15 +251,14 @@ app.get("/api/providers/:dni", async (c) => {
             result: { eligible: false, credit: 0, reason: "not_found" },
             providersChecked: checked,
             providersUnavailable:
-                !healthStatus.fnb.available || !healthStatus.gaso.available
+                !(healthStatus.fnb.available && healthStatus.gaso.available)
                     ? {
                           fnb: !healthStatus.fnb.available,
                           gaso: !healthStatus.gaso.available,
                       }
                     : undefined,
         });
-    } catch (error) {
-        console.error("Provider query error:", error);
+    } catch (_error) {
         return c.json({ error: "Error al consultar proveedor" }, 500);
     }
 });
