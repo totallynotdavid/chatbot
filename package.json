@@ -7,7 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "clean": "bun x shx rm -rf apps/*/node_modules node_modules"
+    "clean": "bun x shx rm -rf apps/*/node_modules node_modules",
+    "dev:backend": "cd apps/backend && bun run dev",
+    "dev:frontend": "cd apps/frontend && bun run dev",
+    "dev:notifier": "cd apps/notifier && node index.js",
+    "seed": "cd apps/backend && bun run seed"
   },
   "devDependencies": {
     "@totem/tsconfig": "workspace:*",
