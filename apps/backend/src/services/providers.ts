@@ -3,6 +3,44 @@ import jwt from 'jsonwebtoken';
 type FNBSession = { token: string; allyId: string; expiresAt: Date };
 let fnbSession: FNBSession | null = null;
 
+type FNBAuthResponse = {
+    valid: boolean;
+    message?: string;
+    data?: {
+        authToken: string;
+    };
+};
+
+type FNBCreditResponse = {
+    valid: boolean;
+    data?: {
+        lineaCredito?: string;
+        nombre?: string;
+    };
+};
+
+type PowerBIResponse = {
+    results?: Array<{
+        result?: {
+            data?: {
+                dsr?: {
+                    DS?: Array<{
+                        PH?: Array<{
+                            DM0?: Array<{
+                                M0?: unknown;
+                            }>;
+                        }>;
+                    }>;
+                };
+            };
+        };
+    }>;
+};
+
+type JwtPayload = {
+    commercialAllyId: string;
+};
+
 // Simple health tracking
 type ProviderHealth = {
     status: 'healthy' | 'blocked';
@@ -80,7 +118,7 @@ async function getFNBSession(): Promise<FNBSession> {
         throw new Error(errorMsg);
     }
     
-    const data = await response.json();
+    const data = await response.json() as FNBAuthResponse;
     
     if (!data.valid || !data.data?.authToken) {
         const errorMsg = `FNB Auth Invalid: ${data.message || 'No token'}`;
@@ -93,7 +131,10 @@ async function getFNBSession(): Promise<FNBSession> {
         throw new Error(errorMsg);
     }
 
-    const decoded = jwt.decode(data.data.authToken) as any;
+    const decoded = jwt.decode(data.data.authToken) as JwtPayload | null;
+    if (!decoded) {
+        throw new Error('Failed to decode JWT token');
+    }
     
     fnbSession = {
         token: data.data.authToken,
@@ -131,7 +172,7 @@ export const FNBProvider = {
             });
 
             if (!res.ok) throw new Error(`FNB Query Failed: ${res.status}`);
-            const data = await res.json();
+            const data = await res.json() as FNBCreditResponse;
 
             if (!data.valid || !data.data) {
                 return { eligible: false, credit: 0, name: undefined };
@@ -139,7 +180,7 @@ export const FNBProvider = {
 
             return {
                 eligible: true,
-                credit: parseFloat(data.data.lineaCredito || 0),
+                credit: parseFloat(data.data.lineaCredito || '0'),
                 name: data.data.nombre
             };
         } catch (error) {
@@ -208,9 +249,10 @@ async function queryPowerBI(dni: string, propertyName: string, visualId: string)
 
     if (!res.ok) return undefined;
     
-    const data = await res.json();
+    const data = await res.json() as PowerBIResponse;
     try {
-        const val = data.results[0].result.data.dsr.DS[0].PH[0].DM0[0].M0;
+        const val = data.results?.[0]?.result?.data?.dsr?.DS?.[0]?.PH?.[0]?.DM0?.[0]?.M0;
+        if (val === undefined || val === null) return undefined;
         return String(val).trim();
     } catch {
         return undefined;

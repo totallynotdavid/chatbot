@@ -1,5 +1,17 @@
 import { db } from '../db';
-import type { Product, Segment } from '@totem/types';
+import type { Product, Segment, StockStatus } from '@totem/types';
+
+type CreateProductData = {
+    id: string;
+    segment: Segment;
+    category: string;
+    name: string;
+    description: string | null;
+    price: number;
+    image_main_path: string;
+    image_specs_path: string | null;
+    created_by: string;
+};
 
 export const CatalogService = {
     getAll: () => {
@@ -13,7 +25,7 @@ export const CatalogService = {
         `).all(segment) as Product[];
     },
 
-    create: (data: Partial<Product> & { created_by: string }) => {
+    create: (data: CreateProductData) => {
         const stmt = db.prepare(`
             INSERT INTO catalog_products (
                 id, segment, category, name, description, price, 
@@ -27,11 +39,13 @@ export const CatalogService = {
         return data;
     },
 
-    update: (id: string, updates: Partial<Product>) => {
-        const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
-        if (!fields) return;
+    update: (id: string, updates: Partial<Pick<Product, 'name' | 'description' | 'price' | 'is_active' | 'stock_status'>>) => {
+        const entries = Object.entries(updates);
+        if (entries.length === 0) return;
+        const fields = entries.map(([k]) => `${k} = ?`).join(', ');
+        const values: (string | number | StockStatus)[] = entries.map(([, v]) => v as string | number | StockStatus);
         db.prepare(`UPDATE catalog_products SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-          .run(...Object.values(updates), id);
+          .run(...values, id);
     },
 
     delete: (id: string) => {

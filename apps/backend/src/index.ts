@@ -16,12 +16,21 @@ import {
     validateSessionToken, 
     invalidateSession,
     setSessionTokenCookie,
-    deleteSessionTokenCookie 
+    deleteSessionTokenCookie,
+    type Session,
+    type User
 } from './services/auth';
 import { runAgent } from './agent/core';
 import type { Conversation } from '@totem/types';
 
-const app = new Hono();
+type Env = {
+    Variables: {
+        user: User;
+        session: Session;
+    };
+};
+
+const app = new Hono<Env>();
 
 app.use('/*', cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -99,6 +108,7 @@ app.post('/api/catalog', async (c) => {
     
     await Bun.write(`${dir}/${fileName}`, await file.arrayBuffer());
     
+    const user = c.get('user');
     const prod = CatalogService.create({
         id: crypto.randomUUID(),
         segment: segment as any,
@@ -108,7 +118,7 @@ app.post('/api/catalog', async (c) => {
         price: parseFloat(body['price'] as string),
         image_main_path: `catalog/${segment}/${category}/${fileName}`,
         image_specs_path: null,
-        created_by: (c.get('user') as any).id
+        created_by: user.id
     });
     return c.json(prod);
 });
@@ -119,7 +129,8 @@ app.post('/api/catalog/bulk', async (c) => {
     if (!csvFile) return c.json({ error: 'CSV required' }, 400);
     
     const text = await csvFile.text();
-    const result = await BulkImportService.processCsv(text, (c.get('user') as any).id);
+    const user = c.get('user');
+    const result = await BulkImportService.processCsv(text, user.id);
     return c.json(result);
 });
 

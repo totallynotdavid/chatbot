@@ -8,11 +8,7 @@
     "dev": "bun run --watch --env-file=../../.env src/index.ts"
   },
   "devDependencies": {
-    "@totem/tsconfig": "workspace:*",
-    "@types/bun": "^1.3.5"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+    "@totem/tsconfig": "workspace:*"
   },
   "dependencies": {
     "@oslojs/crypto": "^1.0.1",

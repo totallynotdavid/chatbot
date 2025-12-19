@@ -17,7 +17,9 @@ export async function classifyIntent(message: string): Promise<'yes' | 'no' | 'q
             ],
             response_format: { type: "json_object" }
         });
-        const res = JSON.parse(completion.choices[0].message.content || '{}');
+        const choice = completion.choices[0];
+        const content = choice?.message.content;
+        const res = JSON.parse(content || '{}');
         return res.intent || 'unclear';
     } catch { return 'unclear'; }
 }
@@ -32,7 +34,9 @@ export async function extractEntity(message: string, entity: string): Promise<st
             ],
             response_format: { type: "json_object" }
         });
-        const res = JSON.parse(completion.choices[0].message.content || '{}');
+        const choice = completion.choices[0];
+        const content = choice?.message.content;
+        const res = JSON.parse(content || '{}');
         return res.value ? String(res.value) : null;
     } catch { return null; }
 }

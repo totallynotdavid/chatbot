@@ -16,7 +16,17 @@ export const BulkImportService = {
                 const cols = line.split(',').map(c => c.trim());
                 if (cols.length < 6) return;
 
-                const [segment, category, name, price, description, image_filename] = cols;
+                const segment = cols[0];
+                const category = cols[1];
+                const name = cols[2];
+                const price = cols[3];
+                const description = cols[4];
+                const image_filename = cols[5];
+
+                if (!segment || !category || !name || !price) {
+                    errors.push(`Row ${idx + 2}: Missing required fields`);
+                    return;
+                }
 
                 if (segment !== 'fnb' && segment !== 'gaso') {
                     errors.push(`Row ${idx + 2}: Invalid segment ${segment}`);
@@ -32,15 +42,16 @@ export const BulkImportService = {
                         segment: segment as Segment,
                         category,
                         name,
-                        description,
+                        description: description ?? null,
                         price: parseFloat(price),
                         image_main_path: relativePath,
                         image_specs_path: null,
                         created_by: userId
                     });
                     successCount++;
-                } catch (e: any) {
-                    errors.push(`Row ${idx + 2}: ${e.message}`);
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    errors.push(`Row ${idx + 2}: ${msg}`);
                 }
             });
         })();
