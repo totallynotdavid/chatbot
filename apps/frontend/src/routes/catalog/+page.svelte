@@ -1,66 +1,71 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { user } from '$lib/state.svelte';
-    import type { Product } from '@totem/types';
+import { onMount } from "svelte";
+import { user } from "$lib/state.svelte";
+import type { Product } from "@totem/types";
 
-    let products = $state<Product[]>([]);
-    let showForm = $state(false);
-    
-    // Form state
-    let name = $state('');
-    let price = $state('');
-    let segment = $state('fnb');
-    let category = $state('');
-    let files: FileList | undefined = $state();
-    
-    // Bulk state
-    let csvFiles: FileList | undefined = $state();
-    let importResult = $state<{successCount: number, errors: string[]} | null>(null);
+let products = $state<Product[]>([]);
+let showForm = $state(false);
 
-    let isAdmin = $derived(user.data?.role === 'admin');
+// Form state
+let name = $state("");
+let price = $state("");
+let segment = $state("fnb");
+let category = $state("");
+let files: FileList | undefined = $state();
 
-    async function load() {
-        const res = await fetch('/api/catalog');
-        if (res.status === 401) user.logout();
-        else products = await res.json();
-    }
+// Bulk state
+let csvFiles: FileList | undefined = $state();
+let importResult = $state<{ successCount: number; errors: string[] } | null>(
+    null,
+);
 
-    async function upload() {
-        const file = files?.[0];
-        if (!file) return;
-        const form = new FormData();
-        form.append('image', file);
-        form.append('name', name);
-        form.append('price', price);
-        form.append('segment', segment);
-        form.append('category', category);
-        
-        await fetch('/api/catalog', { method: 'POST', body: form });
-        showForm = false;
-        load();
-    }
+let isAdmin = $derived(user.data?.role === "admin");
 
-    async function uploadCsv() {
-        const csvFile = csvFiles?.[0];
-        if (!csvFile) return;
-        const form = new FormData();
-        form.append('csv', csvFile);
-        const res = await fetch('/api/catalog/bulk', { method: 'POST', body: form });
-        importResult = await res.json();
-        load();
-    }
+async function load() {
+    const res = await fetch("/api/catalog");
+    if (res.status === 401) user.logout();
+    else products = await res.json();
+}
 
-    async function downloadReport() {
-        const res = await fetch('/api/reports/daily');
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `reporte-${new Date().toISOString().split('T')[0]}.xlsx`;
-        a.click();
-    }
+async function upload() {
+    const file = files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("image", file);
+    form.append("name", name);
+    form.append("price", price);
+    form.append("segment", segment);
+    form.append("category", category);
 
-    onMount(load);
+    await fetch("/api/catalog", { method: "POST", body: form });
+    showForm = false;
+    load();
+}
+
+async function uploadCsv() {
+    const csvFile = csvFiles?.[0];
+    if (!csvFile) return;
+    const form = new FormData();
+    form.append("csv", csvFile);
+    const res = await fetch("/api/catalog/bulk", {
+        method: "POST",
+        body: form,
+    });
+    importResult = await res.json();
+    load();
+}
+
+async function downloadReport() {
+    const res = await fetch("/api/reports/daily");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.click();
+}
+
+onMount(load);
 </script>
 
 <div class="page-container">

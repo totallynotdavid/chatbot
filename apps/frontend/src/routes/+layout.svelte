@@ -1,16 +1,16 @@
 <script lang="ts">
-	import './layout.css';
-	import { onMount } from 'svelte';
-    import { user } from '$lib/state.svelte';
-    import { page } from '$app/state';
+import "./layout.css";
+import { onMount } from "svelte";
+import { user } from "$lib/state.svelte";
+import { page } from "$app/state";
 
-	onMount(() => {
-		user.checkAuth();
-	});
+onMount(() => {
+    user.checkAuth();
+});
 
-    let isLoginPage = $derived(page.url.pathname === '/login');
-    let isDashboard = $derived(page.url.pathname === '/');
-    let { children } = $props();
+let isLoginPage = $derived(page.url.pathname === "/login");
+let isDashboard = $derived(page.url.pathname === "/");
+let { children } = $props();
 </script>
 
 {#if isLoginPage}
@@ -20,7 +20,7 @@
         {#if !isDashboard && user.isAuthenticated}
             <nav class="border-b border-ink-900/10 bg-cream-50 px-8 py-4 flex justify-between items-center sticky top-0 z-50">
                 <a href="/" class="flex items-center gap-2 group">
-                    <span class="font-serif font-bold italic text-xl group-hover:text-ink-600 transition-colors">Totem</span>
+                    <span class="font-serif font-bold italic text-xl group-hover:text-ink-600 transition-colors">totem</span>
                     <span class="text-ink-400 text-sm">/</span>
                     <span class="text-xs uppercase tracking-widest font-bold text-ink-400 group-hover:text-ink-900 transition-colors">Volver al inicio</span>
                 </a>

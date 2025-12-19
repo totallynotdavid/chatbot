@@ -1,30 +1,30 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { user } from '$lib/state.svelte';
-    import { goto } from '$app/navigation';
+import { onMount } from "svelte";
+import { user } from "$lib/state.svelte";
+import { goto } from "$app/navigation";
 
-    let newUsername = $state('');
-    let newPassword = $state('');
-    let newRole = $state('user');
-    let message = $state('');
+let newUsername = $state("");
+let newPassword = $state("");
+let newRole = $state("user");
+let message = $state("");
 
-    onMount(() => {
-        if (!user.isAuthenticated) {
-            goto('/login');
-            return;
-        }
-        if (user.data?.role !== 'admin') {
-            goto('/');
-        }
-    });
-
-    async function createUser() {
-        // Mock API call
-        console.log('Creating user', { newUsername, newRole });
-        message = `Usuario ${newUsername} creado correctamente.`;
-        newUsername = '';
-        newPassword = '';
+onMount(() => {
+    if (!user.isAuthenticated) {
+        goto("/login");
+        return;
     }
+    if (user.data?.role !== "admin") {
+        goto("/");
+    }
+});
+
+async function createUser() {
+    // Mock API call
+    console.log("Creating user", { newUsername, newRole });
+    message = `Usuario ${newUsername} creado correctamente.`;
+    newUsername = "";
+    newPassword = "";
+}
 </script>
 
 <div class="page-container max-w-2xl">

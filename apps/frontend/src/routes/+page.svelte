@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { user } from '$lib/state.svelte';
+import { onMount } from "svelte";
+import { user } from "$lib/state.svelte";
 
-	onMount(async () => {
-		if (!user.isAuthenticated) {
-			window.location.href = '/login';
-		}
-	});
+onMount(async () => {
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+    }
+});
 </script>
 
 <div class="h-screen w-full flex flex-col md:flex-row bg-cream-100 overflow-hidden">
     <div class="w-full md:w-1/3 lg:w-1/4 bg-cream-50 border-b md:border-b-0 md:border-r border-ink-900/10 p-12 flex flex-col justify-between">
         <div>
-            <h1 class="text-5xl font-serif mb-6 italic">Totem</h1>
+            <h1 class="text-5xl font-serif mb-6 italic">totem</h1>
             <p class="text-lg text-ink-600 font-serif leading-relaxed">
                 Bienvenido, {user.data?.username}.<br>
                 Seleccione un módulo operativo para comenzar su sesión.

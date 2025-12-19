@@ -1,32 +1,32 @@
 <script lang="ts">
-    import { user } from '$lib/state.svelte';
-    import { goto } from '$app/navigation';
-    
-    let username = $state('');
-    let password = $state('');
-    let error = $state('');
+import { user } from "$lib/state.svelte";
+import { goto } from "$app/navigation";
 
-    async function submit() {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        if (res.ok) {
-            const data = await res.json();
-            user.data = data.user;
-            user.isAuthenticated = true;
-            goto('/');
-        } else {
-            error = 'Credenciales no válidas';
-        }
+let username = $state("");
+let password = $state("");
+let error = $state("");
+
+async function submit() {
+    const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    });
+
+    if (res.ok) {
+        const data = await res.json();
+        user.data = data.user;
+        user.isAuthenticated = true;
+        goto("/");
+    } else {
+        error = "Credenciales no válidas";
     }
+}
 </script>
 
 <div class="h-screen flex flex-col items-center justify-center bg-cream-100 p-8">
     <div class="w-full max-w-md bg-cream-50 p-12 border border-cream-200 shadow-xl">
-        <h1 class="text-6xl font-serif mb-4 italic text-ink-900">Totem</h1>
+        <h1 class="text-6xl font-serif mb-4 italic text-ink-900">totem</h1>
         <p class="text-ink-600 mb-12 font-serif text-lg leading-relaxed">Plataforma de gestión interna y control de operaciones.</p>
 
         <form onsubmit={(e) => { e.preventDefault(); submit(); }} class="space-y-2">

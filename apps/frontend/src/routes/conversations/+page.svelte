@@ -1,34 +1,34 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { user } from '$lib/state.svelte';
-    import type { Conversation } from '@totem/types';
+import { onMount } from "svelte";
+import { user } from "$lib/state.svelte";
+import type { Conversation } from "@totem/types";
 
-    let conversations = $state<Conversation[]>([]);
-    let selectedPhone = $state<string | null>(null);
-    let messageText = $state('');
+let conversations = $state<Conversation[]>([]);
+let selectedPhone = $state<string | null>(null);
+let messageText = $state("");
 
-    async function load() {
-        const res = await fetch('/api/conversations');
-        if (res.status === 401) user.logout();
-        else conversations = await res.json();
-    }
+async function load() {
+    const res = await fetch("/api/conversations");
+    if (res.status === 401) user.logout();
+    else conversations = await res.json();
+}
 
-    async function takeover(phone: string) {
-        await fetch(`/api/conversations/${phone}/takeover`, { method: 'POST' });
-        load();
-    }
+async function takeover(phone: string) {
+    await fetch(`/api/conversations/${phone}/takeover`, { method: "POST" });
+    load();
+}
 
-    async function sendMessage() {
-        if (!selectedPhone || !messageText) return;
-        await fetch(`/api/conversations/${selectedPhone}/message`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: messageText })
-        });
-        messageText = '';
-    }
+async function sendMessage() {
+    if (!selectedPhone || !messageText) return;
+    await fetch(`/api/conversations/${selectedPhone}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: messageText }),
+    });
+    messageText = "";
+}
 
-    onMount(load);
+onMount(load);
 </script>
 
 <div class="flex h-[calc(100vh-80px)]">

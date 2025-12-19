@@ -1,54 +1,56 @@
 <script lang="ts">
-	import { user } from '$lib/state.svelte';
-	import { onMount } from 'svelte';
+import { user } from "$lib/state.svelte";
+import { onMount } from "svelte";
 
-	let dni = $state('');
-	let loading = $state(false);
-	let result = $state<any>(null);
-	let provider = $state<'fnb' | 'gaso' | null>(null);
-	let error = $state('');
-	let healthStatus = $state<any>(null);
-    let providersChecked = $state<string[]>([]);
-	let providersUnavailable = $state<any>(null);
+let dni = $state("");
+let loading = $state(false);
+let result = $state<any>(null);
+let provider = $state<"fnb" | "gaso" | null>(null);
+let error = $state("");
+let healthStatus = $state<any>(null);
+let providersChecked = $state<string[]>([]);
+let providersUnavailable = $state<any>(null);
 
-	onMount(async () => {
-		if (!user.isAuthenticated) {
-			window.location.href = '/login';
-		}
-		await loadHealth();
-	});
+onMount(async () => {
+    if (!user.isAuthenticated) {
+        window.location.href = "/login";
+    }
+    await loadHealth();
+});
 
-	async function loadHealth() {
-		try {
-			const res = await fetch('/api/health');
-			if (res.ok) healthStatus = await res.json();
-		} catch (err) {}
-	}
+async function loadHealth() {
+    try {
+        const res = await fetch("/api/health");
+        if (res.ok) healthStatus = await res.json();
+    } catch (err) {}
+}
 
-	async function handleQuery() {
-		if (!/^\d{8}$/.test(dni)) {
-			error = 'El DNI debe tener 8 dígitos';
-			return;
-		}
-		loading = true; error = ''; result = null;
-		try {
-			const res = await fetch(`/api/providers/${dni}`);
-			const data = await res.json();
-			if (!res.ok) {
-				error = data.error || 'Consulta fallida';
-				return;
-			}
-			result = data.result;
-			provider = data.provider;
-            providersChecked = data.providersChecked || [];
-			providersUnavailable = data.providersUnavailable;
-		} catch (err) {
-			error = 'Error de conexión';
-		} finally {
-			loading = false;
-			await loadHealth();
-		}
-	}
+async function handleQuery() {
+    if (!/^\d{8}$/.test(dni)) {
+        error = "El DNI debe tener 8 dígitos";
+        return;
+    }
+    loading = true;
+    error = "";
+    result = null;
+    try {
+        const res = await fetch(`/api/providers/${dni}`);
+        const data = await res.json();
+        if (!res.ok) {
+            error = data.error || "Consulta fallida";
+            return;
+        }
+        result = data.result;
+        provider = data.provider;
+        providersChecked = data.providersChecked || [];
+        providersUnavailable = data.providersUnavailable;
+    } catch (err) {
+        error = "Error de conexión";
+    } finally {
+        loading = false;
+        await loadHealth();
+    }
+}
 </script>
 
 <div class="p-8 md:p-12 max-w-4xl mx-auto">
