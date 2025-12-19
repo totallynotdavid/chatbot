@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
+import process from "node:process";
 
 const DB_PATH = process.env.DB_PATH || "./data/database.sqlite";
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./data/uploads";
@@ -27,7 +28,6 @@ if (adminCheck.count === 0) {
         "INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)",
     );
     stmt.run(crypto.randomUUID(), "admin", hash, "admin");
-    console.log("Admin user seeded: admin / admin123");
 }
 
 export type DbUser = {

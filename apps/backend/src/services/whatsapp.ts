@@ -1,4 +1,5 @@
-import { db } from "../db";
+import { db } from "../db/index.ts";
+import process from "node:process";
 
 const TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_ID;

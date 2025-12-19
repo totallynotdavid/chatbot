@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import process from "node:process";
 
 type FNBSession = { token: string; allyId: string; expiresAt: Date };
 let fnbSession: FNBSession | null = null;
@@ -65,9 +66,6 @@ function markProviderBlocked(health: ProviderHealth, errorMsg: string) {
     health.status = "blocked";
     health.lastError = errorMsg;
     health.blockedUntil = new Date(Date.now() + BLOCK_DURATION_MS);
-    console.error(
-        `Provider blocked until ${health.blockedUntil.toISOString()}: ${errorMsg}`,
-    );
 }
 
 function markProviderHealthy(health: ProviderHealth) {
@@ -134,11 +132,11 @@ async function getFNBSession(): Promise<FNBSession> {
 
     const data = (await response.json()) as FNBAuthResponse;
 
-    if (!data.valid || !data.data?.authToken) {
+    if (!(data.valid && data.data?.authToken)) {
         const errorMsg = `FNB Auth Invalid: ${data.message || "No token"}`;
 
         // Check for blocked user
-        if (data.message && data.message.toLowerCase().includes("bloqueado")) {
+        if (data.message?.toLowerCase().includes("bloqueado")) {
             markProviderBlocked(fnbHealth, errorMsg);
         }
 
@@ -164,9 +162,6 @@ export const FNBProvider = {
     async checkCredit(dni: string) {
         // Check if provider is blocked
         if (!isProviderAvailable(fnbHealth)) {
-            console.warn(
-                `FNB provider is blocked until ${fnbHealth.blockedUntil?.toISOString()}`,
-            );
             return {
                 eligible: false,
                 credit: 0,
@@ -194,7 +189,7 @@ export const FNBProvider = {
             if (!res.ok) throw new Error(`FNB Query Failed: ${res.status}`);
             const data = (await res.json()) as FNBCreditResponse;
 
-            if (!data.valid || !data.data) {
+            if (!(data.valid && data.data)) {
                 return { eligible: false, credit: 0, name: undefined };
             }
 
@@ -203,8 +198,7 @@ export const FNBProvider = {
                 credit: parseFloat(data.data.lineaCredito || "0"),
                 name: data.data.nombre,
             };
-        } catch (error) {
-            console.error("FNB Provider Error:", error);
+        } catch (_error) {
             return { eligible: false, credit: 0, reason: "api_error" };
         }
     },
@@ -335,9 +329,6 @@ export const GasoProvider = {
     async checkEligibility(dni: string) {
         // Check if provider is blocked
         if (!isProviderAvailable(gasoHealth)) {
-            console.warn(
-                `Gaso provider is blocked until ${gasoHealth.blockedUntil?.toISOString()}`,
-            );
             return {
                 eligible: false,
                 credit: 0,
@@ -421,7 +412,6 @@ export const GasoProvider = {
                 reason: undefined,
             };
         } catch (error) {
-            console.error("Gaso Provider Error:", error);
 
             // Mark as blocked if it's a persistent auth/connection error
             if (error instanceof Error) {

@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db } from "../db/index.ts";
 import type { Product, Segment, StockStatus } from "@totem/types";
 
 type CreateProductData = {

@@ -1,5 +1,5 @@
-import { CatalogService } from "./catalog";
-import { db } from "../db";
+import { CatalogService } from "./catalog.ts";
+import { db } from "../db/index.ts";
 import type { Segment } from "@totem/types";
 
 export const BulkImportService = {
@@ -9,7 +9,7 @@ export const BulkImportService = {
         const dataRows = lines.slice(1);
 
         let successCount = 0;
-        let errors: string[] = [];
+        const errors: string[] = [];
 
         db.transaction(() => {
             dataRows.forEach((line, idx) => {
@@ -23,7 +23,7 @@ export const BulkImportService = {
                 const description = cols[4];
                 const image_filename = cols[5];
 
-                if (!segment || !category || !name || !price) {
+                if (!(((segment && category ) && name ) && price)) {
                     errors.push(`Row ${idx + 2}: Missing required fields`);
                     return;
                 }

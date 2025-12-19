@@ -1,7 +1,7 @@
 import type { Conversation, ConversationState, Segment } from "@totem/types";
-import { CatalogService } from "../services/catalog";
-import { FNBProvider, GasoProvider } from "../services/providers";
-import { classifyIntent, extractEntity } from "../services/llm";
+import { CatalogService } from "../services/catalog.ts";
+import { FNBProvider, GasoProvider } from "../services/providers.ts";
+import { classifyIntent, extractEntity } from "../services/llm.ts";
 
 type AgentResult = {
     nextState: ConversationState;
@@ -106,7 +106,7 @@ export async function runAgent(
 
     if (state === "COLLECT_AGE") {
         const ageStr = await extractEntity(message, "age");
-        const age = parseInt(ageStr || "0");
+        const age = parseInt(ageStr || "0", 10);
         const minAge = context.nse && context.nse <= 2 ? 40 : 30;
 
         if (age < minAge)
@@ -154,7 +154,7 @@ export async function runAgent(
                 context.segment as Segment,
             )
                 .filter((p) =>
-                    p.category.toLowerCase().includes(category!.toLowerCase()),
+                    p.category.toLowerCase().includes(category?.toLowerCase()),
                 )
                 .slice(0, 3);
 
