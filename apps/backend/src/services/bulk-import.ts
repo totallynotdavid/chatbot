@@ -1,10 +1,10 @@
-import { CatalogService } from './catalog';
-import { db } from '../db';
-import type { Segment } from '@totem/types';
+import { CatalogService } from "./catalog";
+import { db } from "../db";
+import type { Segment } from "@totem/types";
 
 export const BulkImportService = {
     processCsv: async (csvContent: string, userId: string) => {
-        const lines = csvContent.split('\n').filter(l => l.trim().length > 0);
+        const lines = csvContent.split("\n").filter((l) => l.trim().length > 0);
         // lines[0] is header
         const dataRows = lines.slice(1);
 
@@ -13,7 +13,7 @@ export const BulkImportService = {
 
         db.transaction(() => {
             dataRows.forEach((line, idx) => {
-                const cols = line.split(',').map(c => c.trim());
+                const cols = line.split(",").map((c) => c.trim());
                 if (cols.length < 6) return;
 
                 const segment = cols[0];
@@ -28,14 +28,14 @@ export const BulkImportService = {
                     return;
                 }
 
-                if (segment !== 'fnb' && segment !== 'gaso') {
+                if (segment !== "fnb" && segment !== "gaso") {
                     errors.push(`Row ${idx + 2}: Invalid segment ${segment}`);
                     return;
                 }
 
                 try {
                     const relativePath = `catalog/${segment}/${category}/${image_filename}`;
-                    const id = `${segment.toUpperCase()}-${category.slice(0,3).toUpperCase()}-${Date.now()}-${idx}`;
+                    const id = `${segment.toUpperCase()}-${category.slice(0, 3).toUpperCase()}-${Date.now()}-${idx}`;
 
                     CatalogService.create({
                         id,
@@ -46,7 +46,7 @@ export const BulkImportService = {
                         price: parseFloat(price),
                         image_main_path: relativePath,
                         image_specs_path: null,
-                        created_by: userId
+                        created_by: userId,
                     });
                     successCount++;
                 } catch (e: unknown) {
@@ -57,5 +57,5 @@ export const BulkImportService = {
         })();
 
         return { successCount, errors };
-    }
+    },
 };

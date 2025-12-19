@@ -1,5 +1,5 @@
-import { db } from '../db';
-import * as XLSX from 'xlsx';
+import { db } from "../db";
+import * as XLSX from "xlsx";
 
 export const ReportService = {
     generateDailyReport: (date: Date = new Date()) => {
@@ -8,7 +8,8 @@ export const ReportService = {
         const end = new Date(date);
         end.setHours(23, 59, 59, 999);
 
-        const rows = db.prepare(`
+        const rows = db
+            .prepare(`
             SELECT 
                 phone_number,
                 client_name,
@@ -20,12 +21,17 @@ export const ReportService = {
                 last_activity_at
             FROM conversations 
             WHERE last_activity_at BETWEEN ? AND ?
-        `).all(start.toISOString(), end.toISOString());
+        `)
+            .all(start.toISOString(), end.toISOString());
 
         const worksheet = XLSX.utils.json_to_sheet(rows);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, start.toISOString().split('T')[0]);
+        XLSX.utils.book_append_sheet(
+            workbook,
+            worksheet,
+            start.toISOString().split("T")[0],
+        );
 
-        return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    }
+        return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    },
 };

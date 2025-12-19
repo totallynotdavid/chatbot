@@ -1,17 +1,17 @@
-@import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
 
 @theme {
-    --color-cream-50: #FCFCFA;
-    --color-cream-100: #F3F3EF;
-    --color-cream-200: #E8E8E4;
-    --color-cream-300: #DCDCD8;
-    
+    --color-cream-50: #fcfcfa;
+    --color-cream-100: #f3f3ef;
+    --color-cream-200: #e8e8e4;
+    --color-cream-300: #dcdcd8;
+
     --color-ink-900: #121212;
-    --color-ink-600: #4A4A4A;
+    --color-ink-600: #4a4a4a;
     --color-ink-400: #888888;
-    
+
     --font-serif: "Besley", serif;
     --font-sans: "Inter", sans-serif;
 }
@@ -26,7 +26,12 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: var(--font-serif);
 }
 
