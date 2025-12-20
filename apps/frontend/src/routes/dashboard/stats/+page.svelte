@@ -4,8 +4,8 @@ import { auth } from "$lib/state/auth.svelte";
 import { fetchApi } from "$lib/utils/api";
 import PageHeader from "$lib/components/shared/page-header.svelte";
 import Button from "$lib/components/ui/button.svelte";
-import MetricsGrid from "$lib/components/analytics/metrics-grid.svelte";
-import EventsTable from "$lib/components/analytics/events-table.svelte";
+import MetricsGrid from "$lib/components/metrics/metrics-grid.svelte";
+import ActivityLog from "$lib/components/metrics/activity-log.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 
 let stats = $state<any>(null);
@@ -39,10 +39,10 @@ onMount(() => {
 });
 </script>
 
-<PageTitle title="Analytics" />
+<PageTitle title="Estadísticas" />
 
 <div class="max-w-7xl mx-auto p-8 md:p-12 min-h-screen">
-	<PageHeader title="Analytics" subtitle="Métricas operativas">
+	<PageHeader title="Estadísticas" subtitle="Métricas operativas">
 		{#snippet actions()}
 			<Button variant="secondary" onclick={loadData}>Actualizar</Button>
 		{/snippet}
@@ -69,6 +69,6 @@ onMount(() => {
 			</div>
 		</div>
 
-		<EventsTable {events} />
+		<ActivityLog {events} />
 	{/if}
 </div>

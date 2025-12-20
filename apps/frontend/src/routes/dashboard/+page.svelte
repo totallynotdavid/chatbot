@@ -67,7 +67,7 @@ onMount(async () => {
 			title="Simulador"
 		/>
 		<DashboardGridItem
-			href="/dashboard/analytics"
+			href="/dashboard/stats"
 			number="05"
 			category="Métricas"
 			title="Analytics"
