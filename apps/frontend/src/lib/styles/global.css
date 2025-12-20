@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/forms";
 @import "./tokens.css";
+@plugin "@tailwindcss/forms";
 
 :root {
     background-color: var(--color-cream-100);
