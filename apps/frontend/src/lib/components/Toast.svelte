@@ -1,5 +1,7 @@
 <script lang="ts">
 import { toasts } from "$lib/toast.svelte";
+import { fly } from "svelte/transition";
+import { cubicOut } from "svelte/easing";
 
 function dismiss(id: string) {
     toasts.remove(id);
@@ -8,7 +10,10 @@ function dismiss(id: string) {
 
 <div class="toast-container">
     {#each toasts.items as toast (toast.id)}
-        <div class="toast toast-{toast.type}">
+        <div 
+            class="toast toast-{toast.type}"
+            transition:fly={{ y: 20, duration: 400, easing: cubicOut }}
+        >
             <div class="toast-content">
                 {#if toast.type === "success"}
                     <div class="toast-icon text-green-600">
@@ -48,15 +53,14 @@ function dismiss(id: string) {
 .toast-container {
     position: fixed;
     bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 2rem;
     z-index: 9999;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     width: auto;
     pointer-events: none;
-    align-items: center;
+    align-items: flex-end;
 }
 
 .toast {
@@ -70,14 +74,8 @@ function dismiss(id: string) {
     border-radius: 9999px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     pointer-events: auto;
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     min-width: 300px;
     max-width: 450px;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
 }
 
 .toast-content {
