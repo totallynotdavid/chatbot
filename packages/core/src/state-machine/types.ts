@@ -21,6 +21,8 @@ export type StateContext = {
     isCaliddaClient?: boolean;
     offeredCategory?: string;
     objectionCount?: number;
+    cantProvideCount?: number;
+    askedToWait?: boolean;
     lastInterestCategory?: string;
     sessionStartedAt?: string;
 };

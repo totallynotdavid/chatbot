@@ -34,3 +34,7 @@ export const SESSION_TIMEOUT_CLOSING = `Noto que ha pasado un tiempo. Si necesit
 export const IMAGE_REJECTED = `Por tu seguridad y privacidad, solo aceptamos información por texto escrito. Por favor, escribe tu DNI (8 dígitos).`;
 
 export const NON_TEXT_REJECTED = `En este momento solo puedo procesar mensajes de texto. ¿En qué puedo ayudarte?`;
+
+export const DNI_NOT_AVAILABLE = `Entiendo. Puedo esperar mientras lo buscas, o si prefieres, un asesor humano puede contactarte más tarde. ¿Qué prefieres?`;
+
+export const DNI_WAITING = `Sin problema, tómate tu tiempo. Cuando tengas tu DNI a la mano, escríbelo aquí (8 dígitos).`;

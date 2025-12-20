@@ -126,26 +126,80 @@ function handleConfirmClient(message: string, context: any): StateOutput {
 function handleCollectDNI(message: string, context: any): StateOutput {
     const dni = extractDNI(message);
 
-    if (!dni) {
+    if (dni) {
+        return {
+            nextState: "WAITING_PROVIDER",
+            commands: [
+                { type: "SEND_MESSAGE", content: T.CHECKING_SYSTEM },
+                { type: "CHECK_FNB", dni },
+                {
+                    type: "TRACK_EVENT",
+                    eventType: "dni_collected",
+                    metadata: { dni },
+                },
+            ],
+            updatedContext: { dni },
+        };
+    }
+
+    const lower = message.toLowerCase();
+    
+    // Check if user is expressing they can't provide DNI right now or will send it later
+    const cantProvideNow = /\b(no\s+(lo\s+)?tengo|no\s+tengo\s+a\s+la\s+mano|voy\s+a\s+buscar|déjame\s+buscar|un\s+momento|espera|buscando|no\s+me\s+acuerdo|no\s+sé|no\s+se|no\s+lo\s+encuentro)\b/.test(lower);
+    const willSendLater = /\b(te\s+(mando|envío|envio|escribo)|en\s+un\s+rato|más\s+tarde|mas\s+tarde|luego|después|despues|ahora\s+no|ahorita\s+no)\b/.test(lower);
+    
+    // If they say they'll send it later, just wait silently
+    if (willSendLater) {
         return {
             nextState: "COLLECT_DNI",
-            commands: [{ type: "SEND_MESSAGE", content: T.INVALID_DNI }],
+            commands: [], // Don't send any message, just wait for them to send DNI
+            updatedContext: {},
+        };
+    }
+    
+    // If they can't provide it now, respond once with waiting message
+    if (cantProvideNow) {
+        // Only send the waiting message if we haven't already
+        if (!context.askedToWait) {
+            return {
+                nextState: "COLLECT_DNI",
+                commands: [{ type: "SEND_MESSAGE", content: T.DNI_WAITING }],
+                updatedContext: { askedToWait: true },
+            };
+        }
+        // If we already asked them to wait, just stay silent
+        return {
+            nextState: "COLLECT_DNI",
+            commands: [],
+            updatedContext: {},
+        };
+    }
+    
+    // Check for pure acknowledgment/conversational messages that don't need a response
+    const isAcknowledgment = /^(gracias|ok|vale|entendido|perfecto|bien|listo|ya|ahora|bueno|dale)[!.\s,]*$/i.test(message.trim());
+    if (isAcknowledgment) {
+        return {
+            nextState: "COLLECT_DNI",
+            commands: [], // Don't send any message, just wait
+            updatedContext: {},
+        };
+    }
+    
+    // Check for completely unclear/off-topic responses
+    const veryShort = message.trim().length <= 3;
+    if (veryShort) {
+        return {
+            nextState: "COLLECT_DNI",
+            commands: [], // Don't send any message for very short responses
             updatedContext: {},
         };
     }
 
+    // Invalid DNI format
     return {
-        nextState: "WAITING_PROVIDER",
-        commands: [
-            { type: "SEND_MESSAGE", content: T.CHECKING_SYSTEM },
-            { type: "CHECK_FNB", dni },
-            {
-                type: "TRACK_EVENT",
-                eventType: "dni_collected",
-                metadata: { dni },
-            },
-        ],
-        updatedContext: { dni },
+        nextState: "COLLECT_DNI",
+        commands: [{ type: "SEND_MESSAGE", content: T.INVALID_DNI }],
+        updatedContext: {},
     };
 }
 
