@@ -8,6 +8,7 @@ type CreateProductData = {
     name: string;
     description: string | null;
     price: number;
+    installments: number | null;
     image_main_path: string;
     image_specs_path: string | null;
     created_by: string;
@@ -32,9 +33,9 @@ export const CatalogService = {
     create: (data: CreateProductData) => {
         const stmt = db.prepare(`
             INSERT INTO catalog_products (
-                id, segment, category, name, description, price, 
+                id, segment, category, name, description, price, installments,
                 image_main_path, image_specs_path, is_active, stock_status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         stmt.run(
             data.id,
@@ -43,6 +44,7 @@ export const CatalogService = {
             data.name,
             data.description,
             data.price,
+            data.installments,
             data.image_main_path,
             data.image_specs_path,
             1,

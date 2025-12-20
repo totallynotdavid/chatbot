@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { CatalogService } from "../services/catalog.ts";
 import { BulkImportService } from "../services/bulk-import.ts";
+import { extractProductData } from "../services/vision-extractor.ts";
 import { logAction } from "../services/audit.ts";
 import sharp from "sharp";
 import fs from "node:fs";
@@ -39,18 +40,33 @@ catalog.post("/", async (c) => {
     return c.json({ error: "Missing required fields" }, 400);
   }
 
-  // Optimize image
+  // Optimize main image
   const buffer = await file.arrayBuffer();
   const optimized = await sharp(Buffer.from(buffer))
     .resize(1024, 1024, { fit: "inside" })
     .jpeg({ quality: 85 })
     .toBuffer();
 
-  // Save file
+  // Save main image
   const fileName = `${Date.now()}_${file.name.replace(/\.[^.]+$/, "")}.jpg`;
   const dir = path.join(process.cwd(), "data", "uploads", "catalog", segment, category);
   fs.mkdirSync(dir, { recursive: true });
   await Bun.write(path.join(dir, fileName), optimized);
+
+  // Handle specs image if provided
+  let specsPath: string | null = null;
+  const specsFile = body.specsImage as File | undefined;
+  if (specsFile) {
+    const specsBuffer = await specsFile.arrayBuffer();
+    const specsOptimized = await sharp(Buffer.from(specsBuffer))
+      .resize(1024, 1024, { fit: "inside" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    
+    const specsFileName = `${Date.now()}_specs_${specsFile.name.replace(/\.[^.]+$/, "")}.jpg`;
+    await Bun.write(path.join(dir, specsFileName), specsOptimized);
+    specsPath = `catalog/${segment}/${category}/${specsFileName}`;
+  }
 
   const id = `${segment.toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   const product = CatalogService.create({
@@ -62,7 +78,7 @@ catalog.post("/", async (c) => {
     price: parseFloat(price),
     installments: installments ? parseInt(installments, 10) : null,
     image_main_path: `catalog/${segment}/${category}/${fileName}`,
-    image_specs_path: null,
+    image_specs_path: specsPath,
     created_by: user.id,
   });
 
@@ -94,6 +110,34 @@ catalog.delete("/:id", (c) => {
   logAction(user.id, "delete_product", "product", id);
 
   return c.json({ success: true });
+});
+
+// Extract product data from images (AI preview)
+catalog.post("/extract-preview", async (c) => {
+  const body = await c.req.parseBody();
+
+  const mainImage = body.mainImage as File;
+  if (!mainImage) {
+    return c.json({ error: "Main image required" }, 400);
+  }
+
+  const specsImage = body.specsImage as File | undefined;
+
+  try {
+    // Convert images to buffers
+    const mainBuffer = Buffer.from(await mainImage.arrayBuffer());
+    const specsBuffer = specsImage
+      ? Buffer.from(await specsImage.arrayBuffer())
+      : undefined;
+
+    // Extract data using vision AI
+    const extractedData = await extractProductData(mainBuffer, specsBuffer);
+
+    return c.json(extractedData);
+  } catch (error) {
+    console.error("Vision extraction error:", error);
+    return c.json({ error: "Failed to extract data from images" }, 500);
+  }
 });
 
 // Bulk import from CSV
