@@ -13,7 +13,7 @@ export function seedDatabase(db: Database) {
     db.prepare(
       `INSERT INTO users (id, username, password_hash, role, name, created_by) 
        VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(adminId, "admin", hash, "admin", "Administrador del Sistema", null);
+    ).run(adminId, "admin", hash, "admin", "Administrador", null);
 
     console.log("Admin user created (username: admin, password: admin123)");
   }
