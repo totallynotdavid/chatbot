@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Product, StockStatus } from "@totem/types";
+import type { Product, StockStatus, Segment } from "@totem/types";
 import { toasts } from "$lib/toast.svelte";
 
 type Props = {
@@ -16,10 +16,10 @@ let name = $state("");
 let description = $state("");
 let price = $state("");
 let installments = $state("");
-let stockStatus = $state<"in_stock" | "low_stock" | "out_of_stock">("in_stock");
+let stockStatus = $state<StockStatus>("in_stock");
 let isActive = $state(true);
 let category = $state("");
-let segment = $state("fnb"); // Added segment for creation
+let segment = $state<Segment>("fnb"); // Added segment for creation
 
 // Image replacement state
 let newMainImage: File | null = $state(null);
@@ -98,6 +98,78 @@ function removeMainImage() {
 function removeSpecsImage() {
     newSpecsImage = null;
     specsImagePreview = null;
+}
+
+// Extraction state
+let isExtracting = $state(false);
+
+// Drag & Drop state
+let isDraggingMain = $state(false);
+let isDraggingSpecs = $state(false);
+
+function handleDragOver(e: DragEvent, type: 'main' | 'specs') {
+    e.preventDefault();
+    if (type === 'main') isDraggingMain = true;
+    else isDraggingSpecs = true;
+}
+
+function handleDragLeave(e: DragEvent, type: 'main' | 'specs') {
+    e.preventDefault();
+    if (type === 'main') isDraggingMain = false;
+    else isDraggingSpecs = false;
+}
+
+function handleDrop(e: DragEvent, type: 'main' | 'specs') {
+    e.preventDefault();
+    if (type === 'main') isDraggingMain = false;
+    else isDraggingSpecs = false;
+    
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+        if (type === 'main') {
+            newMainImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                mainImagePreview = e.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            newSpecsImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                specsImagePreview = e.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+}
+
+async function extractData() {
+    if (!newMainImage) return;
+    isExtracting = true;
+    try {
+        const form = new FormData();
+        form.append("mainImage", newMainImage);
+        if (newSpecsImage) form.append("specsImage", newSpecsImage);
+        
+        const res = await fetch("/api/catalog/extract-preview", { method: "POST", body: form });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.name) name = data.name;
+            if (data.price) price = String(data.price);
+            if (data.installments) installments = String(data.installments);
+            if (data.category) category = data.category;
+            if (data.description) description = data.description;
+            toasts.success("Datos extraídos correctamente");
+        } else {
+            toasts.error("No se pudo extraer los datos");
+        }
+    } catch(e) {
+        console.error(e);
+        toasts.error("Error al extraer datos");
+    } finally {
+        isExtracting = false;
+    }
 }
 
 function validate(): boolean {
@@ -309,32 +381,77 @@ function handleBackdropClick(e: MouseEvent) {
                     <span class="input-label mb-3 block">{product ? "Reemplazar imágenes (opcional)" : "Imágenes del producto"}</span>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="upload-button {errors.mainImage ? 'border-red-600' : ''}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                                {newMainImage ? "Cambiar principal" : (product ? "Nueva imagen principal" : "Imagen principal*")}
+                            <label 
+                                class="upload-button {errors.mainImage ? 'border-red-600' : ''} {isDraggingMain ? 'bg-ink-100 border-ink-900' : ''} {newMainImage ? 'border-solid bg-ink-50' : ''}"
+                                ondragover={(e) => handleDragOver(e, 'main')}
+                                ondragleave={(e) => handleDragLeave(e, 'main')}
+                                ondrop={(e) => handleDrop(e, 'main')}
+                            >
+                                {#if newMainImage}
+                                    <div class="flex flex-col items-center justify-center w-full overflow-hidden">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2 text-ink-900"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <span class="truncate max-w-full px-2 text-ink-900">{newMainImage.name}</span>
+                                        <span class="text-[10px] text-ink-400 mt-1">Clic para cambiar</span>
+                                    </div>
+                                {:else}
+                                    <div class="flex flex-col items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                        <span>{product ? "Nueva imagen principal" : "Imagen principal*"}</span>
+                                    </div>
+                                {/if}
                                 <input type="file" accept="image/*" onchange={handleMainImageChange} class="hidden" />
                             </label>
                             {#if newMainImage}
-                                <button onclick={removeMainImage} class="text-xs text-red-600 hover:underline mt-2 font-medium uppercase tracking-wide">
-                                    Cancelar cambio
-                                </button>
+                                <div class="flex justify-between items-center mt-2">
+                                    <button onclick={removeMainImage} class="text-xs text-red-600 hover:underline font-medium uppercase tracking-wide">
+                                        Cancelar cambio
+                                    </button>
+                                    {#if !product}
+                                        <button 
+                                            onclick={extractData} 
+                                            disabled={isExtracting}
+                                            class="text-xs text-ink-600 hover:text-ink-900 hover:underline font-medium uppercase tracking-wide flex items-center gap-1"
+                                        >
+                                            {#if isExtracting}
+                                                <span class="animate-spin">↻</span> Analizando...
+                                            {:else}
+                                                ✨ Autocompletar
+                                            {/if}
+                                        </button>
+                                    {/if}
+                                </div>
                             {/if}
                             {#if errors.mainImage}
                                 <span class="error-text">{errors.mainImage}</span>
                             {/if}
                         </div>
                         <div>
-                            <label class="upload-button">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                                {newSpecsImage ? "Cambiar specs" : "Imagen especificaciones"}
+                            <label 
+                                class="upload-button {isDraggingSpecs ? 'bg-ink-100 border-ink-900' : ''} {newSpecsImage ? 'border-solid bg-ink-50' : ''}"
+                                ondragover={(e) => handleDragOver(e, 'specs')}
+                                ondragleave={(e) => handleDragLeave(e, 'specs')}
+                                ondrop={(e) => handleDrop(e, 'specs')}
+                            >
+                                {#if newSpecsImage}
+                                    <div class="flex flex-col items-center justify-center w-full overflow-hidden">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2 text-ink-900"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <span class="truncate max-w-full px-2 text-ink-900">{newSpecsImage.name}</span>
+                                        <span class="text-[10px] text-ink-400 mt-1">Clic para cambiar</span>
+                                    </div>
+                                {:else}
+                                    <div class="flex flex-col items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                        <span>{newSpecsImage ? "Cambiar specs" : "Imagen especificaciones"}</span>
+                                    </div>
+                                {/if}
                                 <input type="file" accept="image/*" onchange={handleSpecsImageChange} class="hidden" />
                             </label>
                             {#if newSpecsImage}
