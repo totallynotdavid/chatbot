@@ -7,28 +7,28 @@ const analytics = new Hono();
 
 // Get funnel statistics
 analytics.get("/funnel", (c) => {
-  const startDate = c.req.query("start");
-  const endDate = c.req.query("end");
+    const startDate = c.req.query("start");
+    const endDate = c.req.query("end");
 
-  const stats = getFunnelStats(startDate, endDate);
+    const stats = getFunnelStats(startDate, endDate);
 
-  return c.json({
-    stats,
-    period: {
-      start: startDate || "7 days ago",
-      end: endDate || "now",
-    },
-  });
+    return c.json({
+        stats,
+        period: {
+            start: startDate || "7 days ago",
+            end: endDate || "now",
+        },
+    });
 });
 
 // Get recent events
 analytics.get("/events", (c) => {
-  const limitStr = c.req.query("limit");
-  const limit = limitStr ? parseInt(limitStr, 10) : 50;
+    const limitStr = c.req.query("limit");
+    const limit = limitStr ? parseInt(limitStr, 10) : 50;
 
-  const events = getRecentEvents(limit);
+    const events = getRecentEvents(limit);
 
-  return c.json({ events });
+    return c.json({ events });
 });
 
 export default analytics;

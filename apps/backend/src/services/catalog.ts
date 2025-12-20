@@ -89,9 +89,7 @@ export const CatalogService = {
 
     bulkUpdate: (
         ids: string[],
-        updates: Partial<
-            Pick<Product, "is_active" | "stock_status">
-        >,
+        updates: Partial<Pick<Product, "is_active" | "stock_status">>,
     ) => {
         const entries = Object.entries(updates);
         if (entries.length === 0 || ids.length === 0) return 0;
@@ -107,11 +105,7 @@ export const CatalogService = {
         return result.changes;
     },
 
-    updateImages: (
-        id: string,
-        mainPath?: string,
-        specsPath?: string,
-    ) => {
+    updateImages: (id: string, mainPath?: string, specsPath?: string) => {
         if (mainPath && specsPath) {
             db.prepare(
                 `UPDATE catalog_products SET image_main_path = ?, image_specs_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
