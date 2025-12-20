@@ -59,19 +59,75 @@ export const CatalogService = {
         updates: Partial<
             Pick<
                 Product,
-                "name" | "description" | "price" | "is_active" | "stock_status"
+                | "name"
+                | "description"
+                | "price"
+                | "installments"
+                | "category"
+                | "is_active"
+                | "stock_status"
             >
         >,
     ) => {
         const entries = Object.entries(updates);
-        if (entries.length === 0) return;
+        if (entries.length === 0) {
+            return db
+                .prepare("SELECT * FROM catalog_products WHERE id = ?")
+                .get(id) as Product;
+        }
         const fields = entries.map(([k]) => `${k} = ?`).join(", ");
-        const values: (string | number | StockStatus)[] = entries.map(
-            ([, v]) => v as string | number | StockStatus,
+        const values: (string | number | StockStatus | null)[] = entries.map(
+            ([, v]) => v as string | number | StockStatus | null,
         );
         db.prepare(
             `UPDATE catalog_products SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         ).run(...values, id);
+        return db
+            .prepare("SELECT * FROM catalog_products WHERE id = ?")
+            .get(id) as Product;
+    },
+
+    bulkUpdate: (
+        ids: string[],
+        updates: Partial<
+            Pick<Product, "is_active" | "stock_status">
+        >,
+    ) => {
+        const entries = Object.entries(updates);
+        if (entries.length === 0 || ids.length === 0) return 0;
+
+        const fields = entries.map(([k]) => `${k} = ?`).join(", ");
+        const values = entries.map(([, v]) => v);
+        const placeholders = ids.map(() => "?").join(",");
+
+        const stmt = db.prepare(
+            `UPDATE catalog_products SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
+        );
+        const result = stmt.run(...values, ...ids);
+        return result.changes;
+    },
+
+    updateImages: (
+        id: string,
+        mainPath?: string,
+        specsPath?: string,
+    ) => {
+        if (mainPath && specsPath) {
+            db.prepare(
+                `UPDATE catalog_products SET image_main_path = ?, image_specs_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+            ).run(mainPath, specsPath, id);
+        } else if (mainPath) {
+            db.prepare(
+                `UPDATE catalog_products SET image_main_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+            ).run(mainPath, id);
+        } else if (specsPath) {
+            db.prepare(
+                `UPDATE catalog_products SET image_specs_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+            ).run(specsPath, id);
+        }
+        return db
+            .prepare("SELECT * FROM catalog_products WHERE id = ?")
+            .get(id) as Product;
     },
 
     delete: (id: string) => {
