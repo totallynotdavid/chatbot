@@ -4,49 +4,51 @@ import { formatDate } from "$lib/utils/formatters";
 import { fetchApi } from "$lib/utils/api";
 
 type User = {
-	id: string;
-	username: string;
-	name: string;
-	role: string;
-	is_active: number;
-	created_at: string;
+    id: string;
+    username: string;
+    name: string;
+    role: string;
+    is_active: number;
+    created_at: string;
 };
 
 type Props = {
-	users: User[];
-	onUpdate: () => void;
+    users: User[];
+    onUpdate: () => void;
 };
 
 let { users, onUpdate }: Props = $props();
 
 const roleLabels = {
-	admin: "Administrador",
-	developer: "Desarrollador",
-	sales_agent: "Agente de ventas",
+    admin: "Administrador",
+    developer: "Desarrollador",
+    sales_agent: "Agente de ventas",
 };
 
 const roleVariants = {
-	admin: "error" as const,
-	developer: "warning" as const,
-	sales_agent: "success" as const,
+    admin: "error" as const,
+    developer: "warning" as const,
+    sales_agent: "success" as const,
 };
 
 async function toggleUserStatus(userId: string) {
-	await fetchApi(`/api/admin/users/${userId}/status`, { method: "PATCH" });
-	onUpdate();
+    await fetchApi(`/api/admin/users/${userId}/status`, { method: "PATCH" });
+    onUpdate();
 }
 
 async function resetPassword(userId: string) {
-	const newPass = prompt("Nueva contraseña:");
-	if (!newPass) return;
+    const newPass = prompt("Nueva contraseña:");
+    if (!newPass) return;
 
-	await fetchApi(`/api/admin/users/${userId}/password`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ newPassword: newPass }),
-	});
+    await fetchApi(`/api/admin/users/${userId}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: newPass }),
+    });
 
-	alert("Contraseña actualizada. Todas las sesiones del usuario fueron invalidadas.");
+    alert(
+        "Contraseña actualizada. Todas las sesiones del usuario fueron invalidadas.",
+    );
 }
 </script>
 

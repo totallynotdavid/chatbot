@@ -11,20 +11,20 @@ import StatsCard from "$lib/components/admin/stats-card.svelte";
 let users = $state<any[]>([]);
 
 async function loadUsers() {
-	const data = await fetchApi<{ users: any[] }>("/api/admin/users");
-	users = data.users;
+    const data = await fetchApi<{ users: any[] }>("/api/admin/users");
+    users = data.users;
 }
 
 onMount(() => {
-	if (!auth.isAuthenticated) {
-		goto("/login");
-		return;
-	}
-	if (!auth.isAdmin) {
-		goto("/dashboard");
-		return;
-	}
-	loadUsers();
+    if (!auth.isAuthenticated) {
+        goto("/login");
+        return;
+    }
+    if (!auth.isAdmin) {
+        goto("/dashboard");
+        return;
+    }
+    loadUsers();
 });
 </script>
 

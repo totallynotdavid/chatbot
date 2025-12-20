@@ -4,10 +4,10 @@ import StockBadge from "./stock-badge.svelte";
 import { formatPrice } from "$lib/utils/formatters";
 
 type Props = {
-	product: Product;
-	canEdit: boolean;
-	onStockUpdate: (newStatus: StockStatus) => void;
-	onclick?: () => void;
+    product: Product;
+    canEdit: boolean;
+    onStockUpdate: (newStatus: StockStatus) => void;
+    onclick?: () => void;
 };
 
 let { product, canEdit, onStockUpdate, onclick }: Props = $props();

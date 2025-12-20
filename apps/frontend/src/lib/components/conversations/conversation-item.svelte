@@ -3,9 +3,9 @@ import type { Conversation } from "@totem/types";
 import { formatPhone } from "$lib/utils/formatters";
 
 type Props = {
-	conversation: Conversation;
-	isSelected: boolean;
-	onclick: () => void;
+    conversation: Conversation;
+    isSelected: boolean;
+    onclick: () => void;
 };
 
 let { conversation, isSelected, onclick }: Props = $props();

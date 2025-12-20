@@ -4,25 +4,25 @@ import FileUpload from "$lib/components/ui/file-upload.svelte";
 import Button from "$lib/components/ui/button.svelte";
 
 type Props = {
-	product: Product | null;
-	mainImage: File | null;
-	specsImage: File | null;
-	mainImageError?: string;
-	isExtracting?: boolean;
-	onMainImageChange: (file: File | null) => void;
-	onSpecsImageChange: (file: File | null) => void;
-	onExtract?: () => void;
+    product: Product | null;
+    mainImage: File | null;
+    specsImage: File | null;
+    mainImageError?: string;
+    isExtracting?: boolean;
+    onMainImageChange: (file: File | null) => void;
+    onSpecsImageChange: (file: File | null) => void;
+    onExtract?: () => void;
 };
 
 let {
-	product,
-	mainImage = $bindable(null),
-	specsImage = $bindable(null),
-	mainImageError,
-	isExtracting = false,
-	onMainImageChange,
-	onSpecsImageChange,
-	onExtract,
+    product,
+    mainImage = $bindable(null),
+    specsImage = $bindable(null),
+    mainImageError,
+    isExtracting = false,
+    onMainImageChange,
+    onSpecsImageChange,
+    onExtract,
 }: Props = $props();
 </script>
 

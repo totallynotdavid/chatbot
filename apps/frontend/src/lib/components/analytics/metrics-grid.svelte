@@ -2,27 +2,27 @@
 import MetricCard from "./metric-card.svelte";
 
 type Stats = {
-	sessions_started: number;
-	dni_collected: number;
-	eligibility_passed: number;
-	eligibility_failed: number;
-	products_offered: number;
+    sessions_started: number;
+    dni_collected: number;
+    eligibility_passed: number;
+    eligibility_failed: number;
+    products_offered: number;
 };
 
 type Props = {
-	stats: Stats;
+    stats: Stats;
 };
 
 let { stats }: Props = $props();
 
 function getConversionRate(): string {
-	if (stats.sessions_started === 0) return "0.0";
-	return ((stats.products_offered / stats.sessions_started) * 100).toFixed(1);
+    if (stats.sessions_started === 0) return "0.0";
+    return ((stats.products_offered / stats.sessions_started) * 100).toFixed(1);
 }
 
 function getEligibilityRate(): string {
-	if (stats.dni_collected === 0) return "0.0";
-	return ((stats.eligibility_passed / stats.dni_collected) * 100).toFixed(1);
+    if (stats.dni_collected === 0) return "0.0";
+    return ((stats.eligibility_passed / stats.dni_collected) * 100).toFixed(1);
 }
 </script>
 

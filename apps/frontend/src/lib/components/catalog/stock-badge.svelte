@@ -4,45 +4,55 @@ import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
 
 type Props = {
-	productId: string;
-	productName: string;
-	stockStatus: StockStatus;
-	canEdit: boolean;
-	onUpdate: (newStatus: StockStatus) => void;
+    productId: string;
+    productName: string;
+    stockStatus: StockStatus;
+    canEdit: boolean;
+    onUpdate: (newStatus: StockStatus) => void;
 };
 
-let { productId, productName, stockStatus, canEdit, onUpdate }: Props = $props();
+let { productId, productName, stockStatus, canEdit, onUpdate }: Props =
+    $props();
 
 let showDropdown = $state(false);
 let isUpdating = $state(false);
 
 const statusConfig = {
-	in_stock: { label: "En stock", class: "bg-ink-900 text-white border-ink-900" },
-	low_stock: { label: "Stock bajo", class: "bg-white text-ink-900 border-ink-200" },
-	out_of_stock: { label: "Agotado", class: "bg-white text-ink-300 border-ink-100 line-through decoration-ink-300" },
+    in_stock: {
+        label: "En stock",
+        class: "bg-ink-900 text-white border-ink-900",
+    },
+    low_stock: {
+        label: "Stock bajo",
+        class: "bg-white text-ink-900 border-ink-200",
+    },
+    out_of_stock: {
+        label: "Agotado",
+        class: "bg-white text-ink-300 border-ink-100 line-through decoration-ink-300",
+    },
 };
 
 async function updateStatus(newStatus: StockStatus) {
-	if (isUpdating || newStatus === stockStatus) {
-		showDropdown = false;
-		return;
-	}
+    if (isUpdating || newStatus === stockStatus) {
+        showDropdown = false;
+        return;
+    }
 
-	isUpdating = true;
-	try {
-		await fetchApi(`/api/catalog/${productId}`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ stock_status: newStatus }),
-		});
-		onUpdate(newStatus);
-		toast.success(`${productName}: ${statusConfig[newStatus].label}`);
-	} catch (error) {
-		toast.error(`Error al actualizar ${productName}`);
-	} finally {
-		isUpdating = false;
-		showDropdown = false;
-	}
+    isUpdating = true;
+    try {
+        await fetchApi(`/api/catalog/${productId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stock_status: newStatus }),
+        });
+        onUpdate(newStatus);
+        toast.success(`${productName}: ${statusConfig[newStatus].label}`);
+    } catch (error) {
+        toast.error(`Error al actualizar ${productName}`);
+    } finally {
+        isUpdating = false;
+        showDropdown = false;
+    }
 }
 </script>
 
@@ -61,7 +71,7 @@ async function updateStatus(newStatus: StockStatus) {
 	</button>
 
 	{#if showDropdown && canEdit}
-		<div class="absolute top-full left-0 mt-2 min-w-[140px] bg-white border border-ink-200 shadow-lg rounded-lg overflow-hidden z-50">
+		<div class="absolute top-full left-0 mt-2 min-w-35 bg-white border border-ink-200 shadow-lg rounded-lg overflow-hidden z-50">
 			{#each Object.entries(statusConfig) as [status, config]}
 				<button
 					onclick={() => updateStatus(status as StockStatus)}

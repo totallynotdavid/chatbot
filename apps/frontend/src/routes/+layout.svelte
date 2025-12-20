@@ -7,7 +7,7 @@ import ToastContainer from "$lib/components/shared/toast-container.svelte";
 let { children } = $props();
 
 onMount(() => {
-	auth.checkAuth();
+    auth.checkAuth();
 });
 </script>
 

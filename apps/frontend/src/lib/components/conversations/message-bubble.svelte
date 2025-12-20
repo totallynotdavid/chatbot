@@ -2,11 +2,11 @@
 import { formatTime } from "$lib/utils/formatters";
 
 type Props = {
-	direction: "inbound" | "outbound";
-	type: "text" | "image";
-	content: string;
-	status?: string;
-	createdAt: string;
+    direction: "inbound" | "outbound";
+    type: "text" | "image";
+    content: string;
+    status?: string;
+    createdAt: string;
 };
 
 let { direction, type, content, status, createdAt }: Props = $props();

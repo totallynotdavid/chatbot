@@ -4,9 +4,9 @@ import { auth } from "$lib/state/auth.svelte";
 import DashboardGridItem from "$lib/components/shared/dashboard-grid-item.svelte";
 
 onMount(async () => {
-	if (!auth.isAuthenticated) {
-		window.location.href = "/login";
-	}
+    if (!auth.isAuthenticated) {
+        window.location.href = "/login";
+    }
 });
 </script>
 

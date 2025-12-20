@@ -2,29 +2,22 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-	open: boolean;
-	title?: string;
-	subtitle?: string;
-	onClose: () => void;
-	children: Snippet;
-	footer?: Snippet;
+    open: boolean;
+    title?: string;
+    subtitle?: string;
+    onClose: () => void;
+    children: Snippet;
+    footer?: Snippet;
 };
 
-let {
-	open,
-	title,
-	subtitle,
-	onClose,
-	children,
-	footer,
-}: Props = $props();
+let { open, title, subtitle, onClose, children, footer }: Props = $props();
 
 function handleBackdropClick(e: MouseEvent) {
-	if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) onClose();
 }
 
 function handleKeydown(e: KeyboardEvent) {
-	if (e.key === "Escape") onClose();
+    if (e.key === "Escape") onClose();
 }
 </script>
 

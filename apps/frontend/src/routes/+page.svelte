@@ -4,13 +4,13 @@ import { goto } from "$app/navigation";
 import { auth } from "$lib/state/auth.svelte";
 
 onMount(async () => {
-	await auth.checkAuth();
+    await auth.checkAuth();
 
-	if (auth.isAuthenticated) {
-		goto("/dashboard");
-	} else {
-		goto("/login");
-	}
+    if (auth.isAuthenticated) {
+        goto("/dashboard");
+    } else {
+        goto("/login");
+    }
 });
 </script>
 

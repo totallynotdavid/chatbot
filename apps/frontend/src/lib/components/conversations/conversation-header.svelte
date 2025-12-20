@@ -4,9 +4,9 @@ import Button from "$lib/components/ui/button.svelte";
 import { formatPhone, formatPrice } from "$lib/utils/formatters";
 
 type Props = {
-	conversation: Conversation;
-	phone: string;
-	onTakeover: () => void;
+    conversation: Conversation;
+    phone: string;
+    onTakeover: () => void;
 };
 
 let { conversation, phone, onTakeover }: Props = $props();

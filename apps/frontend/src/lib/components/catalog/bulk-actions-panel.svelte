@@ -6,9 +6,9 @@ import { fetchApi } from "$lib/utils/api";
 import { pluralize } from "$lib/utils/formatters";
 
 type Props = {
-	selectedProducts: Product[];
-	onClose: () => void;
-	onSuccess: () => void;
+    selectedProducts: Product[];
+    onClose: () => void;
+    onSuccess: () => void;
 };
 
 let { selectedProducts, onClose, onSuccess }: Props = $props();
@@ -18,30 +18,36 @@ let stockStatus = $state<StockStatus>("in_stock");
 let isProcessing = $state(false);
 
 async function handleBulkAction() {
-	if (selectedProducts.length === 0) return;
+    if (selectedProducts.length === 0) return;
 
-	isProcessing = true;
-	try {
-		const updates: Partial<Product> = bulkAction === "stock"
-			? { stock_status: stockStatus }
-			: { is_active: bulkAction === "activate" ? 1 : 0 };
+    isProcessing = true;
+    try {
+        const updates: Partial<Product> =
+            bulkAction === "stock"
+                ? { stock_status: stockStatus }
+                : { is_active: bulkAction === "activate" ? 1 : 0 };
 
-		const productIds = selectedProducts.map((p) => p.id);
+        const productIds = selectedProducts.map((p) => p.id);
 
-		const data = await fetchApi<{ count: number }>("/api/catalog/bulk-update", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ productIds, updates }),
-		});
+        const data = await fetchApi<{ count: number }>(
+            "/api/catalog/bulk-update",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds, updates }),
+            },
+        );
 
-		toast.success(`${data.count} ${pluralize(data.count, "producto actualizado", "productos actualizados")}`);
-		onSuccess();
-		onClose();
-	} catch (error) {
-		toast.error("Error al actualizar productos");
-	} finally {
-		isProcessing = false;
-	}
+        toast.success(
+            `${data.count} ${pluralize(data.count, "producto actualizado", "productos actualizados")}`,
+        );
+        onSuccess();
+        onClose();
+    } catch (error) {
+        toast.error("Error al actualizar productos");
+    } finally {
+        isProcessing = false;
+    }
 }
 </script>
 

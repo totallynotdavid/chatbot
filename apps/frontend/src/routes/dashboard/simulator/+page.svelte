@@ -15,75 +15,80 @@ let loading = $state(false);
 let messagesContainer: HTMLDivElement;
 
 async function loadConversation() {
-	const data = await fetchApi<any>(`/api/simulator/conversation/${testPhone}`);
-	conversation = data.conversation;
-	messages = data.messages;
-	setTimeout(scrollToBottom, 100);
+    const data = await fetchApi<any>(
+        `/api/simulator/conversation/${testPhone}`,
+    );
+    conversation = data.conversation;
+    messages = data.messages;
+    setTimeout(scrollToBottom, 100);
 }
 
 function scrollToBottom() {
-	if (messagesContainer) {
-		messagesContainer.scrollTop = messagesContainer.scrollHeight;
-	}
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 }
 
 async function sendMessage() {
-	if (!currentInput.trim()) return;
+    if (!currentInput.trim()) return;
 
-	loading = true;
-	const messageText = currentInput;
-	currentInput = "";
+    loading = true;
+    const messageText = currentInput;
+    currentInput = "";
 
-	messages = [
-		...messages,
-		{
-			id: Date.now().toString(),
-			direction: "inbound",
-			type: "text",
-			content: messageText,
-			created_at: new Date().toISOString(),
-		},
-	];
+    messages = [
+        ...messages,
+        {
+            id: Date.now().toString(),
+            direction: "inbound",
+            type: "text",
+            content: messageText,
+            created_at: new Date().toISOString(),
+        },
+    ];
 
-	setTimeout(scrollToBottom, 50);
+    setTimeout(scrollToBottom, 50);
 
-	try {
-		await fetchApi("/api/simulator/message", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ phoneNumber: testPhone, message: messageText }),
-		});
+    try {
+        await fetchApi("/api/simulator/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                phoneNumber: testPhone,
+                message: messageText,
+            }),
+        });
 
-		setTimeout(() => loadConversation(), 1000);
-	} catch (error) {
-		console.error("Send error:", error);
-	} finally {
-		loading = false;
-	}
+        setTimeout(() => loadConversation(), 1000);
+    } catch (error) {
+        console.error("Send error:", error);
+    } finally {
+        loading = false;
+    }
 }
 
 async function resetConversation() {
-	if (!confirm("¿Reiniciar la conversación?")) return;
+    if (!confirm("¿Reiniciar la conversación?")) return;
 
-	await fetchApi(`/api/simulator/reset/${testPhone}`, { method: "POST" });
-	messages = [];
-	conversation = null;
-	await loadConversation();
+    await fetchApi(`/api/simulator/reset/${testPhone}`, { method: "POST" });
+    messages = [];
+    conversation = null;
+    await loadConversation();
 }
 
 function handleKeydown(e: KeyboardEvent) {
-	if (e.key === "Enter" && !e.shiftKey) {
-		e.preventDefault();
-		sendMessage();
-	}
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 }
 
 onMount(() => {
-	if (!auth.isAuthenticated) {
-		window.location.href = "/login";
-		return;
-	}
-	loadConversation();
+    if (!auth.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
+    loadConversation();
 });
 </script>
 

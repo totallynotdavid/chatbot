@@ -15,54 +15,54 @@ let selectedProduct = $state<Product | null>(null);
 let showModal = $state(false);
 
 let selectedProducts = $derived(
-	products.filter((p) => catalogSelection.isSelected(p.id))
+    products.filter((p) => catalogSelection.isSelected(p.id)),
 );
 
 async function loadProducts() {
-	try {
-		products = await fetchApi<Product[]>("/api/catalog");
-		catalogSelection.clear();
-	} catch {
-		auth.logout();
-	}
+    try {
+        products = await fetchApi<Product[]>("/api/catalog");
+        catalogSelection.clear();
+    } catch {
+        auth.logout();
+    }
 }
 
 function handleProductClick(product: Product) {
-	if (auth.canEdit) {
-		selectedProduct = product;
-		showModal = true;
-	}
+    if (auth.canEdit) {
+        selectedProduct = product;
+        showModal = true;
+    }
 }
 
 function handleStockUpdate(productId: string, newStatus: StockStatus) {
-	const product = products.find((p) => p.id === productId);
-	if (product) {
-		product.stock_status = newStatus;
-		products = [...products];
-	}
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+        product.stock_status = newStatus;
+        products = [...products];
+    }
 }
 
 function openCreateModal() {
-	selectedProduct = null;
-	showModal = true;
+    selectedProduct = null;
+    showModal = true;
 }
 
 async function downloadReport() {
-	const res = await fetch("/api/reports/daily");
-	const blob = await res.blob();
-	const url = window.URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
-	a.click();
+    const res = await fetch("/api/reports/daily");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.click();
 }
 
 onMount(() => {
-	if (!auth.isAuthenticated) {
-		window.location.href = "/login";
-		return;
-	}
-	loadProducts();
+    if (!auth.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
+    loadProducts();
 });
 </script>
 

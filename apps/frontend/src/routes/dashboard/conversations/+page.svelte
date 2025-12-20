@@ -15,58 +15,60 @@ let messageText = $state("");
 let polling: Timer | null = null;
 
 async function loadConversations() {
-	try {
-		conversations = await fetchApi<Conversation[]>("/api/conversations");
-	} catch {
-		auth.logout();
-	}
+    try {
+        conversations = await fetchApi<Conversation[]>("/api/conversations");
+    } catch {
+        auth.logout();
+    }
 }
 
 async function loadConversationDetail(phone: string) {
-	conversationDetail = await fetchApi<any>(`/api/conversations/${phone}`);
+    conversationDetail = await fetchApi<any>(`/api/conversations/${phone}`);
 }
 
 async function handleTakeover() {
-	if (!selectedPhone) return;
-	await fetchApi(`/api/conversations/${selectedPhone}/takeover`, { method: "POST" });
-	await loadConversations();
-	await loadConversationDetail(selectedPhone);
+    if (!selectedPhone) return;
+    await fetchApi(`/api/conversations/${selectedPhone}/takeover`, {
+        method: "POST",
+    });
+    await loadConversations();
+    await loadConversationDetail(selectedPhone);
 }
 
 async function handleSendMessage() {
-	if (!selectedPhone || !messageText.trim()) return;
+    if (!selectedPhone || !messageText.trim()) return;
 
-	await fetchApi(`/api/conversations/${selectedPhone}/message`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ content: messageText }),
-	});
+    await fetchApi(`/api/conversations/${selectedPhone}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: messageText }),
+    });
 
-	messageText = "";
-	await loadConversationDetail(selectedPhone);
+    messageText = "";
+    await loadConversationDetail(selectedPhone);
 }
 
 $effect(() => {
-	if (selectedPhone) {
-		loadConversationDetail(selectedPhone);
-	}
+    if (selectedPhone) {
+        loadConversationDetail(selectedPhone);
+    }
 });
 
 onMount(() => {
-	if (!auth.isAuthenticated) {
-		window.location.href = "/login";
-		return;
-	}
+    if (!auth.isAuthenticated) {
+        window.location.href = "/login";
+        return;
+    }
 
-	loadConversations();
-	polling = setInterval(() => {
-		loadConversations();
-		if (selectedPhone) loadConversationDetail(selectedPhone);
-	}, 2000);
+    loadConversations();
+    polling = setInterval(() => {
+        loadConversations();
+        if (selectedPhone) loadConversationDetail(selectedPhone);
+    }, 2000);
 
-	return () => {
-		if (polling) clearInterval(polling);
-	};
+    return () => {
+        if (polling) clearInterval(polling);
+    };
 });
 </script>
 
