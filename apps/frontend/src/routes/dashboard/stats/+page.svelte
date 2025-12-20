@@ -39,10 +39,10 @@ onMount(() => {
 });
 </script>
 
-<PageTitle title="Estadísticas" />
+<PageTitle title="Analytics" />
 
 <div class="max-w-7xl mx-auto p-8 md:p-12 min-h-screen">
-	<PageHeader title="Estadísticas" subtitle="Métricas operativas">
+	<PageHeader title="Analytics" subtitle="Métricas operativas">
 		{#snippet actions()}
 			<Button variant="secondary" onclick={loadData}>Actualizar</Button>
 		{/snippet}
