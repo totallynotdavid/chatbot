@@ -6,6 +6,13 @@
       "correctness": {
         "recommended": true,
         "noUnusedImports": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "options": {
+            "maxAllowedComplexity": 17
+          }
+        }
       }
     }
   }
