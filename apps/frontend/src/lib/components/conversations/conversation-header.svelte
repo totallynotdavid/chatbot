@@ -11,7 +11,7 @@ type Props = {
 
 let { conversation, phone, onTakeover }: Props = $props();
 
-const isHumanTakeover = conversation.status === "human_takeover";
+const isHumanTakeover = $derived(conversation.status === "human_takeover");
 </script>
 
 <div class="p-6 border-b border-ink-900/10 bg-white/80 backdrop-blur flex justify-between items-center sticky top-0 z-10">

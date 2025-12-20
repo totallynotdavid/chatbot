@@ -11,7 +11,7 @@ type Props = {
 
 let { direction, type, content, status, createdAt }: Props = $props();
 
-const isInbound = direction === "inbound";
+const isInbound = $derived(direction === "inbound");
 </script>
 
 <div class="flex {isInbound ? 'justify-end' : 'justify-start'}">
