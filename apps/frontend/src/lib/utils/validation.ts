@@ -10,7 +10,7 @@ export function validatePositiveNumber(
     fieldName: string,
 ): string | null {
     const num = parseFloat(value);
-    if (isNaN(num)) return `${fieldName} debe ser un número`;
+    if (Number.isNaN(num)) return `${fieldName} debe ser un número`;
     if (num <= 0) return `${fieldName} debe ser mayor a 0`;
     return null;
 }

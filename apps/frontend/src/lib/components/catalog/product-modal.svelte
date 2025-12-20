@@ -87,7 +87,7 @@ function validate(): boolean {
 
     if (formData.installments) {
         const installmentsNum = parseInt(formData.installments, 10);
-        if (isNaN(installmentsNum) || installmentsNum <= 0) {
+        if (Number.isNaN(installmentsNum) || installmentsNum <= 0) {
             newErrors.installments = "Las cuotas deben ser un número válido";
         }
     }
@@ -170,7 +170,7 @@ async function handleSave() {
                     description: formData.description.trim() || null,
                     price: parseFloat(formData.price),
                     installments: formData.installments
-                        ? parseInt(formData.installments)
+                        ? parseInt(formData.installments, 10)
                         : null,
                     stock_status: formData.stockStatus,
                     is_active: formData.isActive ? 1 : 0,

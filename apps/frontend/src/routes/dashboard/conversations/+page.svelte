@@ -36,7 +36,7 @@ async function handleTakeover() {
 }
 
 async function handleSendMessage() {
-    if (!selectedPhone || !messageText.trim()) return;
+    if (!(selectedPhone && messageText.trim())) return;
 
     await fetchApi(`/api/conversations/${selectedPhone}/message`, {
         method: "POST",

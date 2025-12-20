@@ -30,7 +30,7 @@ function handleDrop(e: DragEvent) {
     e.preventDefault();
     isDragging = false;
     const droppedFile = e.dataTransfer?.files?.[0];
-    if (droppedFile && droppedFile.type.match(accept.replace("*", ".*"))) {
+    if (droppedFile?.type.match(accept.replace("*", ".*"))) {
         file = droppedFile;
         onchange?.(droppedFile);
     }

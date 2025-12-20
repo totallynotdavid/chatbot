@@ -45,7 +45,7 @@ function createAuthState() {
                     "/api/auth/me",
                 );
                 state.user = data.user;
-                state.isAuthenticated = !!data.user;
+                state.isAuthenticated = Boolean(data.user);
             } catch {
                 this.logout();
             } finally {

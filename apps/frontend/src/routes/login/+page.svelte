@@ -13,7 +13,7 @@ let error = $state("");
 let loading = $state(false);
 
 async function handleSubmit() {
-    if (!username || !password) {
+    if (!(username && password)) {
         error = "Usuario y contraseña son requeridos";
         return;
     }
