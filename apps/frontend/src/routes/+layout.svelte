@@ -1,13 +1,15 @@
 <script lang="ts">
-import "./layout.css";
+import "$lib/styles/global.css";
 import { onMount } from "svelte";
-import { user } from "$lib/state.svelte";
-
-onMount(() => {
-    user.checkAuth();
-});
+import { auth } from "$lib/state/auth.svelte";
+import ToastContainer from "$lib/components/shared/toast-container.svelte";
 
 let { children } = $props();
+
+onMount(() => {
+	auth.checkAuth();
+});
 </script>
 
 {@render children()}
+<ToastContainer />
