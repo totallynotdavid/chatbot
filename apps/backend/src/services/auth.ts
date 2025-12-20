@@ -21,6 +21,13 @@ export interface User {
     name: string;
 }
 
+declare module "hono" {
+    interface ContextVariableMap {
+        user: User;
+        session: Session;
+    }
+}
+
 export type SessionValidationResult =
     | { session: Session; user: User }
     | { session: null; user: null };

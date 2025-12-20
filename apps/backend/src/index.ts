@@ -16,8 +16,6 @@ import {
     invalidateSession,
     setSessionTokenCookie,
     deleteSessionTokenCookie,
-    type Session,
-    type User,
 } from "./services/auth.ts";
 
 import { requireAuth, requireRole } from "./middleware/auth.ts";
@@ -35,14 +33,7 @@ import { getProvidersHealth } from "./services/providers.ts";
 import { ReportService } from "./services/reports.ts";
 import { checkNotifierHealth } from "./services/notifier.ts";
 
-type Env = {
-    Variables: {
-        user: User;
-        session: Session;
-    };
-};
-
-const app = new Hono<Env>();
+const app = new Hono();
 
 // Initialize database schema and seed data on startup
 initializeDatabase(db);

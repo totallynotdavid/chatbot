@@ -44,6 +44,7 @@ export const BulkImportService = {
                         name,
                         description: description ?? null,
                         price: parseFloat(price),
+                        installments: null,
                         image_main_path: relativePath,
                         image_specs_path: null,
                         created_by: userId,
