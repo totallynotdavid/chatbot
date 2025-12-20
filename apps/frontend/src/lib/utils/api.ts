@@ -29,7 +29,7 @@ export async function fetchApi<T>(
 export function createFormData(data: Record<string, any>): FormData {
     const form = new FormData();
 
-    Object.entries(data).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(data)) {
         if (value !== null && value !== undefined) {
             if (value instanceof File) {
                 form.append(key, value);
@@ -39,7 +39,7 @@ export function createFormData(data: Record<string, any>): FormData {
                 form.append(key, String(value));
             }
         }
-    });
+    }
 
     return form;
 }
