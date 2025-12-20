@@ -23,7 +23,7 @@
         "@tailwindcss/vite": "^4.1.17",
         "@totem/tsconfig": "workspace:*",
         "svelte": "^5.45.6",
-        "svelte-check": "^4.3.4",
+        "svelte-check": "^4.3.5",
         "tailwindcss": "^4.1.17",
         "vite": "^7.2.6",
         "vite-plugin-devtools-json": "^1.0.0"
