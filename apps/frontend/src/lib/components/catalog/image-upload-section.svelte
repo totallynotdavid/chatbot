@@ -67,7 +67,7 @@ let {
 		<div>
 			<FileUpload
 				bind:file={specsImage}
-				placeholder="Imagen especificaciones"
+				placeholder="Imagen con especificaciones"
 				onchange={onSpecsImageChange}
 			/>
 			{#if specsImage}

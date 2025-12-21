@@ -38,10 +38,14 @@ let { product, formData = $bindable(), errors }: Props = $props();
 
 	<div class="grid grid-cols-2 gap-8">
 		<FormField label="Segmento*" for="segment">
-			<Select id="segment" bind:value={formData.segment}>
-				<option value="fnb">Financiera (FNB)</option>
-				<option value="gaso">Gasodomésticos</option>
-			</Select>
+			<Select
+				id="segment"
+				bind:value={formData.segment}
+				items={[
+					{ value: "fnb", label: "Financiera (FNB)" },
+					{ value: "gaso", label: "Gasodomésticos" },
+				]}
+			/>
 		</FormField>
 
 		<FormField label="Categoría*" for="category" error={errors.category}>
@@ -77,11 +81,15 @@ let { product, formData = $bindable(), errors }: Props = $props();
 	</div>
 
 	<FormField label="Estado de stock*" for="stock">
-		<Select id="stock" bind:value={formData.stockStatus}>
-			<option value="in_stock">En stock</option>
-			<option value="low_stock">Stock bajo</option>
-			<option value="out_of_stock">Agotado</option>
-		</Select>
+		<Select
+			id="stock"
+			bind:value={formData.stockStatus}
+			items={[
+				{ value: "in_stock", label: "En stock" },
+				{ value: "low_stock", label: "Stock bajo" },
+				{ value: "out_of_stock", label: "Agotado" },
+			]}
+		/>
 	</FormField>
 
 	<FormField label="Descripción" for="description">

@@ -9,7 +9,7 @@ const config = {
             inspector: {
                 toggleKeyCombo: "control-shift",
                 holdMode: true,
-                showToggleButton: "active",
+                showToggleButton: "always",
             },
         },
     }),

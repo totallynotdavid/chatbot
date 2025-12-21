@@ -23,6 +23,6 @@ let {
 	<Label for={htmlFor}>{label}</Label>
 	{@render children()}
 	{#if error}
-		<span class="block mt-1 text-xs text-red-600 font-medium">{error}</span>
+		<span role="alert" aria-live="polite" class="block mt-1 text-xs text-red-600 font-medium">{error}</span>
 	{/if}
 </div>

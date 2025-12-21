@@ -2,6 +2,10 @@
 import type { StockStatus } from "@totem/types";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
+import Dropdown from "$lib/components/ui/dropdown.svelte";
+import DropdownTrigger from "$lib/components/ui/dropdown-trigger.svelte";
+import DropdownMenu from "$lib/components/ui/dropdown-menu.svelte";
+import DropdownItem from "$lib/components/ui/dropdown-item.svelte";
 
 type Props = {
     productId: string;
@@ -14,7 +18,7 @@ type Props = {
 let { productId, productName, stockStatus, canEdit, onUpdate }: Props =
     $props();
 
-let showDropdown = $state(false);
+let open = $state(false);
 let isUpdating = $state(false);
 
 const statusConfig = {
@@ -34,7 +38,7 @@ const statusConfig = {
 
 async function updateStatus(newStatus: StockStatus) {
     if (isUpdating || newStatus === stockStatus) {
-        showDropdown = false;
+        open = false;
         return;
     }
 
@@ -51,14 +55,14 @@ async function updateStatus(newStatus: StockStatus) {
         toast.error(`Error al actualizar ${productName}`);
     } finally {
         isUpdating = false;
-        showDropdown = false;
+        open = false;
     }
 }
 </script>
 
-<div class="relative inline-block">
-	<button
-		onclick={() => canEdit && !isUpdating && (showDropdown = !showDropdown)}
+<Dropdown bind:open>
+	<DropdownTrigger
+		onclick={() => canEdit && !isUpdating && (open = !open)}
 		disabled={!canEdit || isUpdating}
 		class="inline-flex items-center gap-2 px-3 py-1 border text-[10px] font-bold uppercase tracking-wider rounded-full transition-all {statusConfig[stockStatus].class} {canEdit ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}"
 	>
@@ -68,19 +72,20 @@ async function updateStatus(newStatus: StockStatus) {
 				<polyline points="6 9 12 15 18 9"/>
 			</svg>
 		{/if}
-	</button>
+	</DropdownTrigger>
 
-	{#if showDropdown && canEdit}
-		<div class="absolute top-full left-0 mt-2 min-w-35 bg-white border border-ink-200 shadow-lg rounded-lg overflow-hidden z-50">
-			{#each Object.entries(statusConfig) as [status, config]}
-				<button
-					onclick={() => updateStatus(status as StockStatus)}
-					disabled={isUpdating}
-					class="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-600 hover:bg-ink-50 transition-colors border-b last:border-b-0 border-ink-50 disabled:opacity-50"
-				>
-					{config.label}
-				</button>
-			{/each}
-		</div>
-	{/if}
-</div>
+	<DropdownMenu
+		{open}
+		class="absolute top-full left-0 mt-2 min-w-35 bg-white border border-ink-200 shadow-lg rounded-lg overflow-hidden z-50"
+	>
+		{#each Object.entries(statusConfig) as [status, config]}
+			<DropdownItem
+				onclick={() => updateStatus(status as StockStatus)}
+				disabled={isUpdating || status === stockStatus}
+				class="w-full text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-600 hover:bg-ink-50 focus:bg-ink-50 transition-colors border-b last:border-b-0 border-ink-50 disabled:opacity-50 cursor-pointer outline-none"
+			>
+				{config.label}
+			</DropdownItem>
+		{/each}
+	</DropdownMenu>
+</Dropdown>

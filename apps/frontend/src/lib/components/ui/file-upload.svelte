@@ -36,7 +36,7 @@ function handleDrop(e: DragEvent) {
     }
 }
 
-const baseStyles = "flex flex-col items-center justify-center w-full p-4 border transition-all cursor-pointer";
+const baseStyles = "flex flex-col items-center justify-center w-full p-4 min-h-[100px] border transition-all cursor-pointer focus-within:outline-none focus-within:ring-2 focus-within:ring-ink-900 focus-within:ring-offset-2 touch-action-manipulation";
 const normalBorder = "border-dashed border-ink-300 bg-white hover:bg-ink-50 hover:border-ink-400";
 const errorBorder = "border-dashed border-red-600 bg-red-50";
 const activeBorder = "border-solid border-ink-900 bg-ink-50";

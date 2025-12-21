@@ -64,11 +64,15 @@ async function handleSubmit() {
 	</FormField>
 
 	<FormField label="Rol de acceso" for="role">
-		<Select id="role" bind:value={formData.role}>
-			<option value="sales_agent">Agente de ventas</option>
-			<option value="developer">Desarrollador</option>
-			<option value="admin">Administrador</option>
-		</Select>
+		<Select
+			id="role"
+			bind:value={formData.role}
+			items={[
+				{ value: "sales_agent", label: "Agente de ventas" },
+				{ value: "developer", label: "Desarrollador" },
+				{ value: "admin", label: "Administrador" },
+			]}
+		/>
 	</FormField>
 
 	{#if message}
