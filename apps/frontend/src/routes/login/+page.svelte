@@ -55,7 +55,7 @@ onMount(async () => {
 			Plataforma de gestión interna y control de operaciones.
 		</p>
 
-		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-2">
+		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-6">
 			<FormField label="Identificador" for="username">
 				<Input
 					id="username"
@@ -82,7 +82,7 @@ onMount(async () => {
 				</div>
 			{/if}
 
-			<Button type="submit" disabled={loading} class="w-full mt-8">
+			<Button type="submit" disabled={loading} class="w-full">
 				{loading ? "Verificando..." : "Acceder"}
 			</Button>
 		</form>
