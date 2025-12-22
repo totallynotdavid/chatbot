@@ -28,19 +28,127 @@ export function seedDatabase(db: Database) {
             .get() as { id: string };
 
         const sampleProducts = [
+            // FNB Products - Premium segment with flexible rules
             {
                 segment: "fnb",
                 category: "celulares",
-                name: "Smartphone Samsung Galaxy A54",
-                price: 1299,
+                name: "iPhone 14 128GB",
+                price: 3499,
+                installments: 18,
+            },
+            {
+                segment: "fnb",
+                category: "celulares",
+                name: "Samsung Galaxy S23",
+                price: 2899,
+                installments: 18,
+            },
+            {
+                segment: "fnb",
+                category: "celulares",
+                name: "Xiaomi Redmi Note 12 Pro",
+                price: 1199,
                 installments: 12,
             },
             {
                 segment: "fnb",
                 category: "laptops",
-                name: "Laptop HP 15.6'' Core i5",
+                name: "MacBook Air M2 256GB",
+                price: 4999,
+                installments: 24,
+            },
+            {
+                segment: "fnb",
+                category: "laptops",
+                name: "Laptop HP Pavilion 15'' i7",
+                price: 2799,
+                installments: 18,
+            },
+            {
+                segment: "fnb",
+                category: "laptops",
+                name: "Lenovo IdeaPad 3 i5",
+                price: 1899,
+                installments: 12,
+            },
+            {
+                segment: "fnb",
+                category: "televisores",
+                name: "Smart TV Samsung 55'' 4K",
                 price: 2199,
                 installments: 18,
+            },
+            {
+                segment: "fnb",
+                category: "televisores",
+                name: "Smart TV LG 43'' Full HD",
+                price: 1299,
+                installments: 12,
+            },
+            {
+                segment: "fnb",
+                category: "cocinas",
+                name: "Cocina Mabe 6 Hornillas Acero",
+                price: 1899,
+                installments: 12,
+            },
+            {
+                segment: "fnb",
+                category: "refrigeradoras",
+                name: "Refrigeradora Samsung Side by Side",
+                price: 3299,
+                installments: 18,
+            },
+
+            // GASO Products - Calidda gas clients, restrictive rules
+            {
+                segment: "gaso",
+                category: "celulares",
+                name: "Samsung Galaxy A14",
+                price: 699,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
+                category: "celulares",
+                name: "Xiaomi Redmi 12",
+                price: 549,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
+                category: "celulares",
+                name: "Motorola Moto G73",
+                price: 899,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
+                category: "laptops",
+                name: "Laptop HP 15.6'' i5 8GB",
+                price: 1799,
+                installments: 18,
+            },
+            {
+                segment: "gaso",
+                category: "laptops",
+                name: "Laptop Lenovo V14 i3",
+                price: 1299,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
+                category: "televisores",
+                name: "Smart TV LG 43'' Full HD",
+                price: 1199,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
+                category: "televisores",
+                name: "TV Samsung 32'' HD",
+                price: 799,
+                installments: 12,
             },
             {
                 segment: "gaso",
@@ -51,10 +159,24 @@ export function seedDatabase(db: Database) {
             },
             {
                 segment: "gaso",
+                category: "cocinas",
+                name: "Cocina Mabe 5 Hornillas",
+                price: 1199,
+                installments: 12,
+            },
+            {
+                segment: "gaso",
                 category: "refrigeradoras",
                 name: "Refrigeradora LG 250L",
                 price: 1499,
                 installments: 18,
+            },
+            {
+                segment: "gaso",
+                category: "refrigeradoras",
+                name: "Refrigeradora Indurama 170L",
+                price: 999,
+                installments: 12,
             },
         ];
 

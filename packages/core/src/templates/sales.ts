@@ -1,7 +1,13 @@
 export const FNB_APPROVED = (name: string, credit: number) =>
     `¡Excelente noticia, ${name}! Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}. Tenemos celulares, laptops, televisores, electrodomésticos y más. ¿Qué tipo de producto te interesa?`;
 
-export const GASO_OFFER_KITCHEN_BUNDLE = `¡Calificas para nuestro programa! Tenemos combos especiales que incluyen cocina + electrodomésticos con cuotas desde S/ 80 mensuales. ¿Te gustaría conocer las opciones?`;
+export const GASO_OFFER_KITCHEN_BUNDLE = `✓ ¡Excelente! Calificas para nuestro programa de financiamiento. 
+
+📦 Nuestro combo especial incluye: cocina + electrodomésticos con cuotas desde S/ 80 mensuales (hasta 18 meses).
+
+💡 *¿Por qué cocina?* Es un requisito de nuestro financista para darte las mejores tasas. Pero no te preocupes, puedes elegir el modelo que más te guste.
+
+¿Te gustaría conocer las opciones disponibles?`;
 
 export const KITCHEN_OBJECTION_RESPONSE = `Entiendo tu preferencia. Te comento que el combo con cocina es un requisito financiero de Cálidda para acceder a las mejores tasas. Las cuotas son accesibles y puedes financiar hasta 18 meses. ¿Quieres que te muestre las opciones disponibles?`;
 

@@ -5,7 +5,10 @@
     "private": true,
     "scripts": {
         "start": "bun run --env-file=../../.env src/index.ts",
-        "dev": "bun run --watch --env-file=../../.env src/index.ts"
+        "dev": "bun run --watch --env-file=../../.env src/index.ts",
+        "seed": "bun run --env-file=../../.env src/db/seed.ts",
+        "test": "bun test --env-file=../../.env",
+        "test:llm": "bun test --env-file=../../.env tests/llm-service.test.ts"
     },
     "devDependencies": {
         "@totem/tsconfig": "workspace:*"

@@ -7,6 +7,11 @@ export function checkGasoEligibility(
     nse: number,
     rawCredit: number,
 ): GasoEligibilityResult {
+    // Validate NSE range
+    if (nse < 1 || nse > 5) {
+        return { eligible: false, reason: "invalid_nse" };
+    }
+
     // Age and credit rules by NSE stratum
     if (nse <= 2) {
         // Stratum 1-2: min age 40, max credit 3000, max installments 18

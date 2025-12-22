@@ -127,4 +127,20 @@ export const CatalogService = {
     delete: (id: string) => {
         db.prepare("DELETE FROM catalog_products WHERE id = ?").run(id);
     },
+
+    getAvailableCategories: (segment?: Segment) => {
+        const query = segment
+            ? `SELECT DISTINCT category FROM catalog_products 
+               WHERE segment = ? AND is_active = 1 AND stock_status != 'out_of_stock'
+               ORDER BY category`
+            : `SELECT DISTINCT category FROM catalog_products 
+               WHERE is_active = 1 AND stock_status != 'out_of_stock'
+               ORDER BY category`;
+        
+        const rows = segment 
+            ? db.prepare(query).all(segment) as Array<{ category: string }>
+            : db.prepare(query).all() as Array<{ category: string }>;
+        
+        return rows.map(r => r.category);
+    },
 };

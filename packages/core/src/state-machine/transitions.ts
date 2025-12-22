@@ -74,28 +74,17 @@ function handleInit(context: any): StateOutput {
 }
 
 function handleConfirmClient(message: string, _context: any): StateOutput {
-    const lower = message.toLowerCase();
+    const lower = message.toLowerCase().trim();
 
-    // Positive responses
+    // Check if user volunteered DNI early (e.g., "Sí, mi DNI es 72345678")
+    const earlyDNI = extractDNI(message);
+    
+    // NEGATIVE CHECK FIRST - specific "no" + verb patterns
     if (
-        /\b(s[ií]|claro|ok|dale|afirmativo|correcto|exacto|sep)\b/.test(lower)
+        /no\s+(tengo|soy)/.test(lower) || // "no tengo" or "no soy"
+        /^no(\s|,|!|$)/.test(lower) || // just "no"
+        /\b(nada|negativo)(\s|,|!|$)/.test(lower) // "nada" or "negativo"
     ) {
-        return {
-            nextState: "COLLECT_DNI",
-            commands: [
-                { type: "SEND_MESSAGE", content: T.CONFIRM_CLIENT_YES },
-                {
-                    type: "TRACK_EVENT",
-                    eventType: "confirmed_calidda_client",
-                    metadata: { response: message },
-                },
-            ],
-            updatedContext: { isCaliddaClient: true },
-        };
-    }
-
-    // Negative responses
-    if (/\b(no|nada|negativo)\b/.test(lower)) {
         return {
             nextState: "CLOSING",
             commands: [
@@ -110,7 +99,44 @@ function handleConfirmClient(message: string, _context: any): StateOutput {
         };
     }
 
-    // Unclear
+    // POSITIVE CHECK - contains clear affirmations
+    if (
+        /\bs[ií](\s|,|!|\?|$)/.test(lower) || // "sí" or "si" as a word
+        /\b(claro|ok|vale|dale|afirmativo|correcto|sep|bueno)(\s|,|!|\?|$)/.test(lower) || // common affirmations
+        /(soy|tengo)\s+(cliente|c[ií]lidda|gas)/.test(lower) // "soy cliente" or "tengo cálidda"
+    ) {
+        // If they already provided DNI, skip straight to provider check
+        if (earlyDNI) {
+            return {
+                nextState: "WAITING_PROVIDER",
+                commands: [
+                    { type: "SEND_MESSAGE", content: T.CHECKING_SYSTEM },
+                    { type: "CHECK_FNB", dni: earlyDNI },
+                    {
+                        type: "TRACK_EVENT",
+                        eventType: "confirmed_calidda_client",
+                        metadata: { response: message },
+                    },
+                ],
+                updatedContext: { isCaliddaClient: true, dni: earlyDNI },
+            };
+        }
+        
+        return {
+            nextState: "COLLECT_DNI",
+            commands: [
+                { type: "SEND_MESSAGE", content: T.CONFIRM_CLIENT_YES },
+                {
+                    type: "TRACK_EVENT",
+                    eventType: "confirmed_calidda_client",
+                    metadata: { response: message },
+                },
+            ],
+            updatedContext: { isCaliddaClient: true },
+        };
+    }
+
+    // Unclear - user didn't clearly say yes or no
     return {
         nextState: "CONFIRM_CLIENT",
         commands: [
@@ -145,8 +171,9 @@ function handleCollectDNI(message: string, context: any): StateOutput {
     const lower = message.toLowerCase();
 
     // Check if user is expressing they can't provide DNI right now or will send it later
-    const cantProvideNow = /\b(no\s+(lo\s+)?tengo|no\s+tengo\s+a\s+la\s+mano|voy\s+a\s+buscar|déjame\s+buscar|un\s+momento|espera|buscando|no\s+me\s+acuerdo|no\s+sé|no\s+se|no\s+lo\s+encuentro)\b/.test(lower);
-    const willSendLater = /\b(te\s+(mando|envío|envio|escribo)|en\s+un\s+rato|más\s+tarde|mas\s+tarde|luego|después|despues|ahora\s+no|ahorita\s+no)\b/.test(lower);
+    // Use explicit Unicode for accented characters to ensure matching works
+    const cantProvideNow = /(no\s+(lo\s+)?tengo|no\s+tengo\s+a\s+la\s+mano|voy\s+a\s+busca|d[e\u00e9]jame\s+busca|un\s+momento|espera|buscando|no\s+me\s+acuerdo|no\s+s[e\u00e9]|no\s+lo\s+encuentro)/.test(lower);
+    const willSendLater = /(te\s+(mando|env[i\u00ed]o|escribo)|en\s+un\s+rato|m[a\u00e1]s\s+tarde|luego|despu[e\u00e9]s|ahora\s+no|ahorita\s+no)/.test(lower);
     
     // If they say they'll send it later, just wait silently
     if (willSendLater) {
@@ -185,6 +212,16 @@ function handleCollectDNI(message: string, context: any): StateOutput {
         };
     }
 
+    // Check for progress updates ("ya casi", "casi listo", etc.) - stay silent
+    const isProgressUpdate = /(ya\s+casi|casi|esperame|un\s+segundo)/.test(lower);
+    if (isProgressUpdate) {
+        return {
+            nextState: "COLLECT_DNI",
+            commands: [], // Don't send any message, they're working on it
+            updatedContext: {},
+        };
+    }
+
     // Check for completely unclear/off-topic responses
     const veryShort = message.trim().length <= 3;
     if (veryShort) {
@@ -203,13 +240,53 @@ function handleCollectDNI(message: string, context: any): StateOutput {
     };
 }
 
-function handleWaitingProvider(_context: any): StateOutput {
-    // This state is transitioned by backend after provider check
-    // If we somehow end up here with user input, just wait
+function handleWaitingProvider(context: any): StateOutput {
+    // If user is still messaging while waiting, they're getting impatient
+    // Check if they've been waiting too long or sent multiple messages
+    const messageCount = (context.waitingMessageCount || 0) + 1;
+    
+    // After 3 frustrated attempts to communicate, escalate
+    if (messageCount > 2) {
+        return {
+            nextState: "ESCALATED",
+            commands: [
+                { 
+                    type: "SEND_MESSAGE", 
+                    content: `Veo que sigues esperando. Un asesor se comunicará contigo en unos momentos para continuar. ¡Gracias por tu paciencia!` 
+                },
+                { 
+                    type: "ESCALATE", 
+                    reason: "provider_check_timeout_multiple_messages" 
+                },
+            ],
+            updatedContext: { waitingMessageCount: messageCount },
+        };
+    }
+    
+    // First or second message - acknowledge they're still here
+    if (messageCount === 1) {
+        return {
+            nextState: "WAITING_PROVIDER",
+            commands: [
+                { 
+                    type: "SEND_MESSAGE", 
+                    content: `Estoy consultando el sistema. Un momento por favor... ⏳` 
+                },
+            ],
+            updatedContext: { waitingMessageCount: messageCount },
+        };
+    }
+    
+    // Second message - promise quick resolution
     return {
         nextState: "WAITING_PROVIDER",
-        commands: [],
-        updatedContext: {},
+        commands: [
+            { 
+                type: "SEND_MESSAGE", 
+                content: `Casi listo, solo un momento más... 🔄` 
+            },
+        ],
+        updatedContext: { waitingMessageCount: messageCount },
     };
 }
 
@@ -304,6 +381,103 @@ function handleCollectAge(message: string, context: any): StateOutput {
 function handleOfferProducts(message: string, context: any): StateOutput {
     const lower = message.toLowerCase();
 
+    // Priority 1: Check if backend detected a question via LLM
+    if (context.llmDetectedQuestion) {
+        // If LLM says requires human (complex financial question)
+        if (context.llmRequiresHuman) {
+            return {
+                nextState: "ESCALATED",
+                commands: [
+                    {
+                        type: "SEND_MESSAGE",
+                        content: "Para darte información precisa sobre eso, te conectaré con un asesor.",
+                    },
+                    {
+                        type: "ESCALATE",
+                        reason: "complex_question_requires_human",
+                    },
+                    {
+                        type: "NOTIFY_TEAM",
+                        channel: "agent",
+                        message: `Cliente ${context.phoneNumber} pregunta sobre detalles financieros`,
+                    },
+                ],
+                updatedContext: {},
+            };
+        }
+
+        // LLM can answer - send LLM response + continue conversation
+        return {
+            nextState: "OFFER_PRODUCTS",
+            commands: [
+                {
+                    type: "SEND_MESSAGE",
+                    content: context.llmGeneratedAnswer || "Déjame explicarte...",
+                },
+                {
+                    type: "SEND_MESSAGE",
+                    content: "¿Qué producto te interesa? Tenemos celulares, cocinas, laptops, refrigeradoras, TVs y termas.",
+                },
+            ],
+            updatedContext: {},
+        };
+    }
+
+    // Check for purchase confirmation (customer wants to buy)
+    // Only trigger if they've already been shown products (offeredCategory exists)
+    if (context.offeredCategory && /\b(s[ií]|me lo llevo|lo quiero|comprarlo|comprar|lo compro|perfecto|dale)\b/.test(lower)) {
+        return {
+            nextState: "CLOSING",
+            commands: [
+                {
+                    type: "SEND_MESSAGE",
+                    content: "¡Excelente! Un asesor se comunicará contigo pronto para coordinar todo. 📞",
+                },
+                {
+                    type: "NOTIFY_TEAM",
+                    channel: "sales",
+                    message: `Cliente ${context.phoneNumber} confirmó interés de compra en ${context.offeredCategory || 'productos'}`,
+                },
+                {
+                    type: "TRACK_EVENT",
+                    eventType: "purchase_intent_confirmed",
+                    metadata: { category: context.offeredCategory, segment: context.segment },
+                },
+            ],
+            updatedContext: { purchaseConfirmed: true },
+        };
+    }
+
+    // Check for price objections BEFORE checking for rejection
+    // These contain 'no' but are not rejections
+    if (/(caro|costoso|precio|plata|dinero|pagar)/.test(lower)) {
+        return {
+            nextState: "OFFER_PRODUCTS",
+            commands: [
+                {
+                    type: "SEND_MESSAGE",
+                    content: "Entiendo. Lo bueno es que puedes pagarlo con financiamiento en cuotas mensuales que salen directo en tu recibo de Calidda. ¿Qué producto te llama la atención?",
+                },
+            ],
+            updatedContext: {},
+        };
+    }
+
+    // Check for uncertainty/confusion (not outright rejection)
+    const isUncertain = /(no\s+estoy\s+seguro|no\s+s[eé]|nose|mmm|ehh|tal\s+vez)/.test(lower);
+    if (isUncertain) {
+        return {
+            nextState: "OFFER_PRODUCTS",
+            commands: [
+                {
+                    type: "SEND_MESSAGE",
+                    content: S.ASK_PRODUCT_INTEREST,
+                },
+            ],
+            updatedContext: {},
+        };
+    }
+
     // Check for rejection
     if (/\b(no|nada|no gracias|paso)\b/.test(lower)) {
         if (context.segment === "gaso") {
@@ -323,31 +497,68 @@ function handleOfferProducts(message: string, context: any): StateOutput {
             commands: [
                 {
                     type: "SEND_MESSAGE",
-                    content: `Entiendo. Si cambias de opinión, aquí estaré. ¡Gracias!`,
+                    content: `Entiendo, sin problema. Si más adelante cambias de opinión, aquí estaré.`,
                 },
             ],
             updatedContext: {},
         };
     }
 
-    // Extract category interest
+    // Priority 2: Use LLM-extracted category if available (handles brands automatically)
+    if (context.llmExtractedCategory) {
+        return {
+            nextState: "OFFER_PRODUCTS",
+            commands: [
+                {
+                    type: "SEND_IMAGES",
+                    category: context.llmExtractedCategory,
+                    productIds: [],
+                },
+                {
+                    type: "TRACK_EVENT",
+                    eventType: "products_offered",
+                    metadata: { 
+                        category: context.llmExtractedCategory, 
+                        segment: context.segment,
+                        extractionMethod: "llm"
+                    },
+                },
+            ],
+            updatedContext: { offeredCategory: context.llmExtractedCategory },
+        };
+    }
+
+    // Priority 3: Fallback to regex category extraction
     const categoryMatch = lower.match(
-        /\b(celular|smartphone|cocina|laptop|refrigerad|refri|tv|television|terma)\w*/,
+        /\b(celular|smartphone|iphone|redmi|samsung|xiaomi|cocina|laptop|notebook|computadora|refrigerad|refri|heladera|televi|tv|television|pantalla|terma|calentador|modelo|opcion)\w*/,
     );
 
     if (categoryMatch) {
         let category = categoryMatch[0];
-        if (category.startsWith("celular") || category.startsWith("smartphone"))
+        
+        // Normalize brand names to category
+        if (category.startsWith("iphone") || category.startsWith("redmi") || 
+            category.startsWith("samsung") || category.startsWith("xiaomi") ||
+            category.startsWith("celular") || 
+            category.startsWith("smartphone"))
             category = "celulares";
-        else if (category.startsWith("cocina")) category = "cocinas";
-        else if (category.startsWith("laptop")) category = "laptops";
-        else if (category.startsWith("refri")) category = "refrigeradoras";
-        else if (category.startsWith("tv") || category.startsWith("television"))
+        else if (category.startsWith("cocina")) 
+            category = "cocinas";
+        else if (category.startsWith("laptop") || category.startsWith("notebook") ||
+                 category.startsWith("computadora"))
+            category = "laptops";
+        else if (category.startsWith("refri") || category.startsWith("heladera"))
+            category = "refrigeradoras";
+        else if (category.startsWith("tv") || category.startsWith("televi") || category.startsWith("television") ||
+                 category.startsWith("pantalla"))
             category = "televisores";
-        else if (category.startsWith("terma")) category = "termas";
+        else if (category.startsWith("terma") || category.startsWith("calentador"))
+            category = "termas";
+        else if (category.startsWith("modelo") || category.startsWith("opcion"))
+            category = "all"; // Show all available products
 
         return {
-            nextState: "CLOSING",
+            nextState: "OFFER_PRODUCTS", // Stay in this state, awaiting purchase confirmation
             commands: [
                 { type: "SEND_MESSAGE", content: S.OFFER_PRODUCTS(category) },
                 { type: "SEND_IMAGES", productIds: [], category },
@@ -358,7 +569,7 @@ function handleOfferProducts(message: string, context: any): StateOutput {
                 },
                 {
                     type: "SEND_MESSAGE",
-                    content: S.ASK_FOR_SPECS,
+                    content: "¿Te gustaría llevarte alguno de estos productos?",
                 },
             ],
             updatedContext: {
@@ -378,6 +589,48 @@ function handleOfferProducts(message: string, context: any): StateOutput {
 
 function handleObjection(message: string, context: any): StateOutput {
     const objectionCount = context.objectionCount || 0;
+
+    // Check if backend detected a question via LLM
+    if (context.llmDetectedQuestion) {
+        // If requires human, escalate; otherwise answer and continue
+        if (context.llmRequiresHuman) {
+            return {
+                nextState: "ESCALATED",
+                commands: [
+                    {
+                        type: "SEND_MESSAGE",
+                        content: "Te conecto con un asesor para que te ayude con eso.",
+                    },
+                    {
+                        type: "ESCALATE",
+                        reason: "customer_question_during_objection",
+                    },
+                    {
+                        type: "NOTIFY_TEAM",
+                        channel: "agent",
+                        message: `Cliente ${context.phoneNumber} tiene dudas durante objeción`,
+                    },
+                ],
+                updatedContext: {},
+            };
+        }
+
+        // Answer question and continue handling objection
+        return {
+            nextState: "HANDLE_OBJECTION",
+            commands: [
+                {
+                    type: "SEND_MESSAGE",
+                    content: context.llmGeneratedAnswer || "Déjame explicarte...",
+                },
+                {
+                    type: "SEND_MESSAGE",
+                    content: "¿Te gustaría ver alguna otra opción?",
+                },
+            ],
+            updatedContext: {},
+        };
+    }
 
     if (objectionCount >= 2) {
         // Escalate after second objection (third rejection total)
@@ -437,6 +690,7 @@ function handleObjection(message: string, context: any): StateOutput {
 }
 
 function handleClosing(_context: any): StateOutput {
+    // Customer has confirmed purchase - terminal state, team has been notified
     return {
         nextState: "CLOSING",
         commands: [],

@@ -5,7 +5,7 @@ export type Command =
     | { type: "CHECK_GASO"; dni: string }
     | { type: "SEND_MESSAGE"; content: string }
     | { type: "SEND_IMAGES"; productIds: string[]; category: string }
-    | { type: "NOTIFY_TEAM"; channel: "agent" | "dev"; message: string }
+    | { type: "NOTIFY_TEAM"; channel: "agent" | "dev" | "sales"; message: string }
     | { type: "TRACK_EVENT"; eventType: string; metadata: Record<string, any> }
     | { type: "ESCALATE"; reason: string };
 
@@ -25,6 +25,13 @@ export type StateContext = {
     askedToWait?: boolean;
     lastInterestCategory?: string;
     sessionStartedAt?: string;
+    waitingMessageCount?: number;
+    purchaseConfirmed?: boolean;
+    llmDetectedQuestion?: boolean;
+    llmGeneratedAnswer?: string;
+    llmRequiresHuman?: boolean;
+    llmExtractedCategory?: string;
+    llmObjectionIntensity?: "mild" | "strong";
 };
 
 export type StateOutput = {

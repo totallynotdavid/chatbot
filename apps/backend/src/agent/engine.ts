@@ -15,6 +15,7 @@ import { WhatsAppService } from "../services/whatsapp.ts";
 import { trackEvent } from "../services/analytics.ts";
 import { notifyTeam } from "../services/notifier.ts";
 import { CatalogService } from "../services/catalog.ts";
+import * as LLM from "../services/llm.ts";
 import * as T from "@totem/core";
 
 export async function processMessage(
@@ -39,7 +40,42 @@ async function executeTransition(
     message: string,
 ): Promise<void> {
     const context = buildStateContext(conv);
+    const state = conv.current_state;
 
+    // SELECTIVE LLM ENRICHMENT (backend pre-processing)
+
+    // 1. Detect questions at any state (except INIT)
+    if (state !== "INIT" && state !== "WAITING_PROVIDER") {
+        const intent = await LLM.classifyIntent(message);
+        
+        if (intent === "question") {
+            // Generate LLM answer for the question
+            const questionResponse = await LLM.answerQuestion(message, {
+                segment: context.segment,
+                creditLine: context.creditLine,
+                state,
+            });
+
+            context.llmDetectedQuestion = true;
+            context.llmGeneratedAnswer = questionResponse.answer;
+            context.llmRequiresHuman = questionResponse.requiresHuman;
+        }
+    }
+
+    // 2. Extract product category (in OFFER_PRODUCTS state)
+    if (state === "OFFER_PRODUCTS" && !context.offeredCategory) {
+        // Get available categories from database for this segment
+        const availableCategories = CatalogService.getAvailableCategories(context.segment);
+        
+        const category = await LLM.extractEntity(message, "product_category", {
+            availableCategories,
+        });
+        if (category) {
+            context.llmExtractedCategory = category;
+        }
+    }
+
+    // Core transition with enriched context
     const output = transition({
         currentState: conv.current_state,
         message,
@@ -169,9 +205,8 @@ async function handleSendImages(
     );
 
     // Filter by available credit for both FNB and Gaso clients
-    if (creditLine > 0) {
-        products = products.filter((p) => p.price <= creditLine);
-    }
+    // Note: creditLine of 0 means no credit, should return no products
+    products = products.filter((p) => p.price <= creditLine);
 
     // Take top 3 products
     products = products.slice(0, 3);
