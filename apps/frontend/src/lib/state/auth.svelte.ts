@@ -39,6 +39,11 @@ function createAuthState() {
         get canEdit() {
             return this.isAdmin || this.isDeveloper;
         },
+        hydrate(user: User | null) {
+            state.user = user;
+            state.isAuthenticated = Boolean(user);
+            state.isLoading = false;
+        },
         async checkAuth() {
             try {
                 const data = await fetchApi<{ user: User | null }>(

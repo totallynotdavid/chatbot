@@ -3,11 +3,12 @@ import "$lib/styles/global.css";
 import { onMount } from "svelte";
 import { auth } from "$lib/state/auth.svelte";
 import ToastContainer from "$lib/components/shared/toast-container.svelte";
+import type { LayoutData } from "./$types";
 
-let { children } = $props();
+let { children, data }: { children: any; data: LayoutData } = $props();
 
 onMount(() => {
-    auth.checkAuth();
+    auth.hydrate(data.user ?? null);
 });
 </script>
 
