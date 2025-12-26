@@ -3,12 +3,12 @@ import process from "node:process";
 const NOTIFIER_URL = process.env.NOTIFIER_URL || "http://localhost:3001";
 
 type NotifyRequest = {
-    channel: "agent" | "dev";
+    channel: "agent" | "dev" | "sales";
     message: string;
 };
 
 export async function notifyTeam(
-    channel: "agent" | "dev",
+    channel: "agent" | "dev" | "sales",
     message: string,
 ): Promise<boolean> {
     try {

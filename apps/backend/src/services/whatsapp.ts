@@ -7,53 +7,69 @@ const PUBLIC_URL = process.env.PUBLIC_URL || "http://localhost:3000";
 
 export const WhatsAppService = {
     async sendMessage(to: string, content: string): Promise<void> {
-        console.log(`[WHATSAPP] 📱 Sending message to ${to}`);
-        
         if (!TOKEN || !PHONE_ID) {
-            console.error("[WHATSAPP] ❌ Missing configuration:", { hasToken: !!TOKEN, hasPhoneId: !!PHONE_ID });
-            console.warn("WhatsApp not configured, message not sent:", content);
+            console.warn("WhatsApp not configured, message not sent");
             this.logMessage(to, "outbound", "text", content, "skipped");
             return;
         }
 
         try {
-            const url = `https://graph.facebook.com/v17.0/${PHONE_ID}/messages`;
-            const payload = {
-                messaging_product: "whatsapp",
-                to,
-                type: "text",
-                text: { body: content },
-            };
-            
-            console.log(`[WHATSAPP] Request URL: ${url}`);
-            console.log(`[WHATSAPP] Request payload:`, JSON.stringify(payload, null, 2));
-            
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${TOKEN}`,
-                    "Content-Type": "application/json",
+            const response = await fetch(
+                `https://graph.facebook.com/v17.0/${PHONE_ID}/messages`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        messaging_product: "whatsapp",
+                        to,
+                        type: "text",
+                        text: { body: content },
+                    }),
                 },
-                body: JSON.stringify(payload),
-            });
+            );
 
-            const responseData = await response.json();
-            console.log(`[WHATSAPP] Response status: ${response.status}`);
-            console.log(`[WHATSAPP] Response data:`, JSON.stringify(responseData, null, 2));
+            if (!response.ok) {
+                const error = await response.json();
+                console.error("WhatsApp API error:", error);
+            }
 
             const status = response.ok ? "sent" : "failed";
-            
-            if (!response.ok) {
-                console.error(`[WHATSAPP] ❌ Failed to send message:`, responseData);
-            } else {
-                console.log(`[WHATSAPP] ✅ Message sent successfully`);
-            }
-            
             this.logMessage(to, "outbound", "text", content, status);
         } catch (error) {
-            console.error("[WHATSAPP] ❌ Send error:", error);
-            console.error("[WHATSAPP] Stack:", error instanceof Error ? error.stack : "No stack");
+            console.error("WhatsApp send error:", error);
             this.logMessage(to, "outbound", "text", content, "failed");
+        }
+    },
+
+    async markAsReadAndShowTyping(messageId: string): Promise<void> {
+        if (!TOKEN || !PHONE_ID) {
+            return;
+        }
+
+        try {
+            await fetch(
+                `https://graph.facebook.com/v17.0/${PHONE_ID}/messages`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        messaging_product: "whatsapp",
+                        status: "read",
+                        message_id: messageId,
+                        typing_indicator: {
+                            type: "text"
+                        }
+                    }),
+                },
+            );
+        } catch (error) {
+            // Non-critical, don't log
         }
     },
 
