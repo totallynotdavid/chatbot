@@ -22,13 +22,10 @@ export async function processMessage(
     phoneNumber: string,
     message: string,
 ): Promise<void> {
-    console.log(`[ENGINE] 🎯 Processing message for ${phoneNumber}`);
     const conv = getOrCreateConversation(phoneNumber);
-    console.log(`[ENGINE] Current state: ${conv.current_state}`);
 
     // Check for session timeout (3 hours)
     if (checkSessionTimeout(conv) && conv.current_state !== "INIT") {
-        console.log(`[ENGINE] ⏰ Session timeout detected, resetting...`);
         resetSession(phoneNumber);
         const resetConv = getOrCreateConversation(phoneNumber);
         await executeTransition(resetConv, message);
@@ -36,28 +33,19 @@ export async function processMessage(
     }
 
     await executeTransition(conv, message);
-    console.log(`[ENGINE] ✅ Message processing complete`);
 }
 
 async function executeTransition(
     conv: Conversation,
     message: string,
 ): Promise<void> {
-    console.log(`[ENGINE] 🔄 Executing transition from state: ${conv.current_state}`);
     const context = buildStateContext(conv);
     const state = conv.current_state;
-    console.log(`[ENGINE] Context:`, { 
-        currentState: state, 
-        hasClientName: !!context.client_name,
-        hasDNI: !!context.dni,
-        segment: context.segment 
-    });
 
     // SELECTIVE LLM ENRICHMENT (backend pre-processing)
 
     // 1. Detect questions at any state (except INIT)
     if (state !== "INIT" && state !== "WAITING_PROVIDER") {
-        console.log(`[ENGINE] 🤖 Classifying intent...`);
         const intent = await LLM.classifyIntent(message);
         
         if (intent === "question") {
@@ -88,17 +76,10 @@ async function executeTransition(
     }
 
     // Core transition with enriched context
-    console.log(`[ENGINE] 🔄 Running state transition...`);
     const output = transition({
         currentState: conv.current_state,
         message,
         context,
-    });
-
-    console.log(`[ENGINE] Transition result:`, {
-        nextState: output.nextState,
-        commandCount: output.commands.length,
-        commands: output.commands.map(c => c.type)
     });
 
     // Update state first
@@ -109,12 +90,9 @@ async function executeTransition(
     );
 
     // Execute commands
-    console.log(`[ENGINE] 📤 Executing ${output.commands.length} commands...`);
     for (const command of output.commands) {
-        console.log(`[ENGINE] Executing command: ${command.type}`);
         await executeCommand(conv.phone_number, command, context);
     }
-    console.log(`[ENGINE] ✅ All commands executed`);
 }
 
 async function executeCommand(
@@ -122,8 +100,6 @@ async function executeCommand(
     command: Command,
     context: StateContext,
 ): Promise<void> {
-    console.log(`[COMMAND] Executing ${command.type} for ${phoneNumber}`);
-    
     switch (command.type) {
         case "CHECK_FNB":
             await handleCheckFNB(phoneNumber, command.dni, context);
@@ -134,9 +110,7 @@ async function executeCommand(
             break;
 
         case "SEND_MESSAGE":
-            console.log(`[COMMAND] 💬 Sending message: "${command.content.substring(0, 50)}..."`);
             await WhatsAppService.sendMessage(phoneNumber, command.content);
-            console.log(`[COMMAND] ✅ Message sent`);
             break;
 
         case "SEND_IMAGES":
