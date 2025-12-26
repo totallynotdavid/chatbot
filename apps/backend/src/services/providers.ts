@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import process from "node:process";
+import type { ProviderCheckResult } from "@totem/types";
 
 type FNBSession = { token: string; allyId: string; expiresAt: Date };
 let fnbSession: FNBSession | null = null;
@@ -158,7 +159,7 @@ async function getFNBSession(): Promise<FNBSession> {
 }
 
 export const FNBProvider = {
-    async checkCredit(dni: string) {
+    async checkCredit(dni: string): Promise<ProviderCheckResult> {
         // Check if provider is blocked
         if (!isProviderAvailable(fnbHealth)) {
             return {
@@ -324,7 +325,7 @@ async function queryPowerBI(
 }
 
 export const GasoProvider = {
-    async checkEligibility(dni: string) {
+    async checkEligibility(dni: string): Promise<ProviderCheckResult> {
         // Check if provider is blocked
         if (!isProviderAvailable(gasoHealth)) {
             return {

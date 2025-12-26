@@ -1,5 +1,6 @@
 import { db } from "../db/index.ts";
 import process from "node:process";
+import type { Message } from "@totem/types";
 
 const TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
@@ -135,14 +136,7 @@ export const WhatsAppService = {
     getMessageHistory(
         phoneNumber: string,
         limit: number = 50,
-    ): Array<{
-        id: string;
-        direction: string;
-        type: string;
-        content: string;
-        status: string;
-        created_at: string;
-    }> {
+    ): Message[] {
         return db
             .prepare(
                 `SELECT * FROM messages 
@@ -150,7 +144,7 @@ export const WhatsAppService = {
          ORDER BY created_at DESC, ROWID DESC 
          LIMIT ?`,
             )
-            .all(phoneNumber, limit) as any[];
+            .all(phoneNumber, limit) as Message[];
     },
 
     clearMessageHistory(phoneNumber: string): void {
