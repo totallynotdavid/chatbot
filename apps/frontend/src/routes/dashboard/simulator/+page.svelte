@@ -2,6 +2,7 @@
 import { onMount } from "svelte";
 import { auth } from "$lib/state/auth.svelte";
 import { fetchApi } from "$lib/utils/api";
+import { formatPhone } from "$lib/utils/formatters";
 import PageHeader from "$lib/components/shared/page-header.svelte";
 import Button from "$lib/components/ui/button.svelte";
 import Input from "$lib/components/ui/input.svelte";
@@ -104,7 +105,7 @@ onMount(() => {
 				</label>
 				<Input
 					id="test-phone"
-					bind:value={testPhone}
+					value={formatPhone(testPhone)}
 					class="text-sm font-mono py-1!"
 					disabled
 				/>
