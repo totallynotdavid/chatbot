@@ -9,23 +9,33 @@ export function trackEvent(
     const id = crypto.randomUUID();
     const metadataJson = JSON.stringify(metadata);
 
+    const conv = db
+        .prepare("SELECT is_simulation FROM conversations WHERE phone_number = ?")
+        .get(phoneNumber) as { is_simulation: number } | undefined;
+
+    const isSimulation = conv?.is_simulation || 0;
+
     db.prepare(
-        `INSERT INTO analytics_events (id, phone_number, event_type, metadata) 
-     VALUES (?, ?, ?, ?)`,
-    ).run(id, phoneNumber, eventType, metadataJson);
+        `INSERT INTO analytics_events (id, phone_number, event_type, metadata, is_simulation) 
+     VALUES (?, ?, ?, ?, ?)`,
+    ).run(id, phoneNumber, eventType, metadataJson, isSimulation);
 }
 
-export function getFunnelStats(startDate?: string, endDate?: string) {
+export function getFunnelStats(startDate?: string, endDate?: string, includeSimulations = false) {
     const start =
         startDate ||
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const end = endDate || new Date().toISOString();
 
+    const whereClause = includeSimulations
+        ? "WHERE created_at BETWEEN ? AND ?"
+        : "WHERE created_at BETWEEN ? AND ? AND is_simulation = 0";
+
     const events = db
         .prepare(
             `SELECT event_type, COUNT(*) as count 
              FROM analytics_events 
-             WHERE created_at BETWEEN ? AND ?
+             ${whereClause}
              GROUP BY event_type`,
         )
         .all(start, end) as Array<{ event_type: string; count: number }>;
@@ -45,10 +55,12 @@ export function getFunnelStats(startDate?: string, endDate?: string) {
     };
 }
 
-export function getRecentEvents(limit: number = 50): AnalyticsEvent[] {
+export function getRecentEvents(limit: number = 50, includeSimulations = false): AnalyticsEvent[] {
+    const whereClause = includeSimulations ? "" : "WHERE is_simulation = 0";
     return db
         .prepare(
             `SELECT * FROM analytics_events 
+       ${whereClause}
        ORDER BY created_at DESC 
        LIMIT ?`,
         )

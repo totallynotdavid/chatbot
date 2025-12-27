@@ -13,6 +13,8 @@ simulator.post("/message", async (c) => {
         return c.json({ error: "phoneNumber and message required" }, 400);
     }
 
+    getOrCreateConversation(phoneNumber, true);
+
     WhatsAppService.logMessage(
         phoneNumber,
         "inbound",
@@ -30,7 +32,7 @@ simulator.post("/message", async (c) => {
 // Get conversation state for simulator
 simulator.get("/conversation/:phone", (c) => {
     const phoneNumber = c.req.param("phone");
-    const conv = getOrCreateConversation(phoneNumber);
+    const conv = getOrCreateConversation(phoneNumber, true);
     const messages = WhatsAppService.getMessageHistory(phoneNumber, 100);
 
     return c.json({

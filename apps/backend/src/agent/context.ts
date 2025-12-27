@@ -2,15 +2,15 @@ import { db } from "../db/index.ts";
 import type { Conversation, ConversationState } from "@totem/types";
 import type { StateContext } from "@totem/core";
 
-export function getOrCreateConversation(phoneNumber: string): Conversation {
+export function getOrCreateConversation(phoneNumber: string, isSimulation = false): Conversation {
     let conv = db
         .prepare("SELECT * FROM conversations WHERE phone_number = ?")
         .get(phoneNumber) as Conversation | undefined;
 
     if (!conv) {
         db.prepare(
-            "INSERT INTO conversations (phone_number, current_state, status) VALUES (?, ?, ?)",
-        ).run(phoneNumber, "INIT", "active");
+            "INSERT INTO conversations (phone_number, current_state, status, is_simulation) VALUES (?, ?, ?, ?)",
+        ).run(phoneNumber, "INIT", "active", isSimulation ? 1 : 0);
 
         conv = {
             phone_number: phoneNumber,
@@ -24,6 +24,7 @@ export function getOrCreateConversation(phoneNumber: string): Conversation {
             status: "active",
             context_data: "{}",
             handover_reason: null,
+            is_simulation: isSimulation ? 1 : 0,
             last_activity_at: new Date().toISOString(),
         };
     }

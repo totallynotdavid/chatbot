@@ -28,6 +28,7 @@ export type Conversation = {
     last_activity_at: string;
     context_data: string;
     handover_reason: string | null;
+    is_simulation: number;
 };
 
 export type Product = {
@@ -72,6 +73,7 @@ export type AnalyticsEvent = {
     phone_number: string;
     event_type: string;
     metadata: string;
+    is_simulation: number;
     created_at: string;
 };
 
