@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     context_data TEXT DEFAULT '{}',
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'human_takeover', 'closed')),
     handover_reason TEXT,
+    is_simulation INTEGER DEFAULT 0 CHECK(is_simulation IN (0, 1)),
     last_activity_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS analytics_events (
     phone_number TEXT NOT NULL,
     event_type TEXT NOT NULL,
     metadata TEXT DEFAULT '{}',
+    is_simulation INTEGER DEFAULT 0 CHECK(is_simulation IN (0, 1)),
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 

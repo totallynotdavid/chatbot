@@ -9,8 +9,9 @@ const analytics = new Hono();
 analytics.get("/funnel", (c) => {
     const startDate = c.req.query("start");
     const endDate = c.req.query("end");
+    const includeSimulations = c.req.query("includeSimulations") === "true";
 
-    const stats = getFunnelStats(startDate, endDate);
+    const stats = getFunnelStats(startDate, endDate, includeSimulations);
 
     return c.json({
         stats,
@@ -25,8 +26,9 @@ analytics.get("/funnel", (c) => {
 analytics.get("/events", (c) => {
     const limitStr = c.req.query("limit");
     const limit = limitStr ? parseInt(limitStr, 10) : 50;
+    const includeSimulations = c.req.query("includeSimulations") === "true";
 
-    const events = getRecentEvents(limit);
+    const events = getRecentEvents(limit, includeSimulations);
 
     return c.json({ events });
 });
