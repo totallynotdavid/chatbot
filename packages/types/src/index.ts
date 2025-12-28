@@ -94,3 +94,20 @@ export type ProviderCheckResult = {
     nse?: number;
     reason?: string;
 };
+
+export type ReplayMetadata = {
+    conversationId: string;
+    clientName: string | null;
+    segment: Segment | null;
+    creditLine: number | null;
+    finalState: ConversationState;
+    messageCount: number;
+    timestamp: string;
+};
+
+export type ReplayData = {
+    conversation: Conversation;
+    messages: Message[];
+    initialContext: Record<string, any>;
+    metadata: ReplayMetadata;
+};

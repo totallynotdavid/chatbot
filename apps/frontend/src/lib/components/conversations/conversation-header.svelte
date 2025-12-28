@@ -2,14 +2,16 @@
 import type { Conversation } from "@totem/types";
 import Button from "$lib/components/ui/button.svelte";
 import { formatPhone, formatPrice } from "$lib/utils/formatters";
+import { auth } from "$lib/state/auth.svelte";
 
 type Props = {
     conversation: Conversation;
     phone: string;
     onTakeover: () => void;
+    onLoadInSimulator?: () => void;
 };
 
-let { conversation, phone, onTakeover }: Props = $props();
+let { conversation, phone, onTakeover, onLoadInSimulator }: Props = $props();
 
 const isHumanTakeover = $derived(conversation.status === "human_takeover");
 </script>
@@ -28,16 +30,24 @@ const isHumanTakeover = $derived(conversation.status === "human_takeover");
 		</p>
 	</div>
 
-	{#if !isHumanTakeover}
-		<Button variant="secondary" onclick={onTakeover} class="py-2 text-xs">
-			Intervenir
-		</Button>
-	{:else}
-		<div class="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200">
-			<span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-			<span class="text-xs font-bold text-red-800 uppercase tracking-wider">
-				Humano activo
-			</span>
-		</div>
-	{/if}
+	<div class="flex items-center gap-3">
+		{#if auth.canEdit && onLoadInSimulator}
+			<Button variant="secondary" onclick={onLoadInSimulator} class="py-2 text-xs">
+				Replay
+			</Button>
+		{/if}
+
+		{#if !isHumanTakeover}
+			<Button variant="secondary" onclick={onTakeover} class="py-2 text-xs">
+				Intervenir
+			</Button>
+		{:else}
+			<div class="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200">
+				<span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+				<span class="text-xs font-bold text-red-800 uppercase tracking-wider">
+					Humano activo
+				</span>
+			</div>
+		{/if}
+	</div>
 </div>

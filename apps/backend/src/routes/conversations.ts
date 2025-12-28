@@ -3,7 +3,8 @@ import { db } from "../db/index.ts";
 import { WhatsAppService } from "../services/whatsapp.ts";
 import { getEventsByPhone } from "../services/analytics.ts";
 import { logAction } from "../services/audit.ts";
-import type { Conversation } from "@totem/types";
+import { buildStateContext } from "../agent/context.ts";
+import type { Conversation, ReplayData, ReplayMetadata } from "@totem/types";
 
 const conversations = new Hono();
 
@@ -99,6 +100,49 @@ conversations.post("/:phone/release", (c) => {
     logAction(user.id, "release", "conversation", phoneNumber);
 
     return c.json({ success: true });
+});
+
+// Get conversation replay data (for debugging in simulator)
+conversations.get("/:phone/replay", (c) => {
+    const phoneNumber = c.req.param("phone");
+    const user = c.get("user");
+
+    // Only admins and developers can replay conversations
+    if (user.role !== "admin" && user.role !== "developer") {
+        return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const conv = db
+        .prepare("SELECT * FROM conversations WHERE phone_number = ?")
+        .get(phoneNumber) as Conversation | undefined;
+
+    if (!conv) {
+        return c.json({ error: "Conversation not found" }, 404);
+    }
+
+    const messages = WhatsAppService.getMessageHistory(phoneNumber, 1000);
+    const initialContext = buildStateContext(conv);
+
+    const metadata: ReplayMetadata = {
+        conversationId: phoneNumber,
+        clientName: conv.client_name,
+        segment: conv.segment,
+        creditLine: conv.credit_line,
+        finalState: conv.current_state,
+        messageCount: messages.length,
+        timestamp: new Date().toISOString(),
+    };
+
+    const replayData: ReplayData = {
+        conversation: conv,
+        messages: messages.reverse(), // chronological order
+        initialContext,
+        metadata,
+    };
+
+    logAction(user.id, "export_replay", "conversation", phoneNumber);
+
+    return c.json(replayData);
 });
 
 export default conversations;

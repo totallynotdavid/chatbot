@@ -53,6 +53,11 @@ async function handleSendMessage() {
     await loadConversationDetail(selectedPhone);
 }
 
+async function handleLoadInSimulator() {
+    if (!selectedPhone) return;
+    window.location.href = `/dashboard/simulator?load=${selectedPhone}`;
+}
+
 $effect(() => {
     if (selectedPhone) {
         loadConversationDetail(selectedPhone);
@@ -89,6 +94,7 @@ onMount(() => {
 				conversation={conv}
 				phone={selectedPhone}
 				onTakeover={handleTakeover}
+				onLoadInSimulator={handleLoadInSimulator}
 			/>
 
 			<MessageThread messages={msgs} />
