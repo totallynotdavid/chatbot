@@ -310,7 +310,14 @@ async function queryPowerBI(
         },
     );
 
-    if (!res.ok) return undefined;
+    if (!res.ok) {
+        const errorText = await res.text();
+        console.error(
+            `[PowerBI Error] ${res.status} ${res.statusText} - Property: ${propertyName}, DNI: ${dni}`,
+        );
+        console.error(`[PowerBI Error] Response: ${errorText}`);
+        return undefined;
+    }
 
     const data = (await res.json()) as PowerBIResponse;
     try {
@@ -391,6 +398,8 @@ export const GasoProvider = {
                 reason: undefined,
             };
         } catch (error) {
+            console.error("[GASO Provider Error]", error);
+            
             // Mark as blocked if it's a persistent auth/connection error
             if (error instanceof Error) {
                 const msg = error.message.toLowerCase();
@@ -401,6 +410,9 @@ export const GasoProvider = {
                     msg.includes("bloqueado")
                 ) {
                     markProviderBlocked(gasoHealth, error.message);
+                    console.error(
+                        `[GASO Provider] BLOCKED for 30min - Reason: ${error.message}`,
+                    );
                 }
             }
 

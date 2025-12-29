@@ -179,6 +179,33 @@ async function handleCheckGaso(
     const result = await GasoProvider.checkEligibility(dni);
 
     if (!result.eligible) {
+        // Check if it's an API error (provider unavailable)
+        if (result.reason === "api_error" || result.reason === "provider_unavailable") {
+            // Notify team about provider issues
+            await notifyTeam(
+                "dev",
+                `⚠️ GASO Provider unavailable\nDNI: ${dni}\nReason: ${result.reason}\nPhone: ${phoneNumber}`,
+            );
+
+            // Escalate to human since we can't verify eligibility
+            const { message: errorMsg, updatedContext: variantCtx } = selectVariant(
+                T.HANDOFF_TO_HUMAN,
+                "HANDOFF_TO_HUMAN",
+                context,
+            );
+            updateConversationState(phoneNumber, "ESCALATED", variantCtx);
+            await WhatsAppService.sendMessage(
+                phoneNumber,
+                "Disculpa, estamos teniendo problemas técnicos para verificar tu información. Un agente se comunicará contigo pronto. 🙏",
+            );
+            escalateConversation(phoneNumber, "gaso_provider_unavailable");
+            trackEvent(phoneNumber, "provider_error", {
+                provider: "gaso",
+                reason: result.reason,
+            });
+            return;
+        }
+
         // Not eligible in either system
         const { message: notEligibleMsg, updatedContext: variantCtx } = selectVariant(
             T.NOT_ELIGIBLE,
