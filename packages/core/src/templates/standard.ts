@@ -5,12 +5,12 @@ export const GREETING = [
     "¡Hola! Somos Tótem, aliados de Cálidda. ¿Eres el titular de tu servicio Cálidda?",
     "Hola, te escribe Tótem. Trabajamos con Cálidda. ¿El servicio de gas está a tu nombre?",
     "¡Qué tal! Soy de Tótem, aliado de Cálidda. ¿Tú eres el titular de la cuenta de gas?",
-    "Hola 👋 Soy de Tótem, trabajamos con Cálidda. ¿Tienes el servicio de gas a tu nombre?",
+    "Hola, soy de Tótem, trabajamos con Cálidda. ¿Tienes el servicio de gas a tu nombre?",
 ];
 
 export const GREETING_RETURNING = (category: string) => [
     `¡Hola de nuevo! Veo que anteriormente te interesaron nuestros ${category}. ¿Quieres continuar donde lo dejamos?`,
-    `Hola otra vez 👋 La última vez preguntaste por ${category}. ¿Seguimos con eso?`,
+    `Hola otra vez. La última vez preguntaste por ${category}. ¿Seguimos con eso?`,
     `¡Qué bueno verte de nuevo! ¿Todavía te interesan los ${category}?`,
 ];
 

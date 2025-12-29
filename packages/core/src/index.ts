@@ -1,5 +1,6 @@
 export * from "./validation/regex.ts";
 export * from "./validation/input-sanitizer.ts";
+export * from "./validation/format-name.ts";
 export * from "./state-machine/types.ts";
 export * from "./state-machine/transitions.ts";
 export * from "./eligibility/fnb-logic.ts";

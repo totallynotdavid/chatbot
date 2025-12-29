@@ -17,7 +17,7 @@ import { notifyTeam } from "../services/notifier.ts";
 import { CatalogService } from "../services/catalog.ts";
 import * as LLM from "../services/llm.ts";
 import * as T from "@totem/core";
-import { selectVariant, selectVariantWithContext } from "@totem/core";
+import { selectVariant, selectVariantWithContext, formatFirstName } from "@totem/core";
 
 export async function processMessage(
     phoneNumber: string,
@@ -48,7 +48,7 @@ async function executeTransition(
     // 1. Detect questions at any state (except INIT)
     if (state !== "INIT" && state !== "WAITING_PROVIDER") {
         const intent = await LLM.classifyIntent(message);
-        
+
         if (intent === "question") {
             // Generate LLM answer for the question
             const questionResponse = await LLM.answerQuestion(message, {
@@ -67,7 +67,7 @@ async function executeTransition(
     if (state === "OFFER_PRODUCTS" && !context.offeredCategory) {
         // Get available categories from database for this segment
         const availableCategories = CatalogService.getAvailableCategories(context.segment);
-        
+
         const category = await LLM.extractEntity(message, "product_category", {
             availableCategories,
         });
@@ -154,13 +154,14 @@ async function handleCheckFNB(
 
     if (result.eligible && checkFNBEligibility(result.credit)) {
         // FNB eligible - select variant for message
-        const fnbVariants = T.FNB_APPROVED(result.name || "Cliente", result.credit);
+        const firstName = formatFirstName(result.name);
+        const fnbVariants = T.FNB_APPROVED(firstName, result.credit);
         const { message: approvedMsg, updatedContext: variantCtx } = selectVariant(
             fnbVariants,
             "FNB_APPROVED",
             context,
         );
-        
+
         // Update state with variant tracking
         updateConversationState(phoneNumber, "OFFER_PRODUCTS", {
             segment: "fnb",
@@ -225,13 +226,13 @@ async function handleCheckGaso(
                 context,
             );
             updateConversationState(phoneNumber, "ESCALATED", variantCtx);
-            
+
             if (isSimulation) {
                 WhatsAppService.logMessage(phoneNumber, "outbound", "text", handoffMsg, "sent");
             } else {
                 await WhatsAppService.sendMessage(phoneNumber, handoffMsg);
             }
-            
+
             escalateConversation(phoneNumber, "gaso_provider_unavailable");
             trackEvent(phoneNumber, "provider_error", {
                 provider: "gaso",
@@ -247,13 +248,13 @@ async function handleCheckGaso(
             context,
         );
         updateConversationState(phoneNumber, "CLOSING", variantCtx);
-        
+
         if (isSimulation) {
             WhatsAppService.logMessage(phoneNumber, "outbound", "text", notEligibleMsg, "sent");
         } else {
             await WhatsAppService.sendMessage(phoneNumber, notEligibleMsg);
         }
-        
+
         trackEvent(phoneNumber, "eligibility_failed", {
             reason: result.reason || "not_found",
         });
@@ -261,13 +262,14 @@ async function handleCheckGaso(
     }
 
     // Check Gaso eligibility matrix (need age first)
-    const ageVariants = T.ASK_AGE(result.name || "Cliente");
+    const firstName = formatFirstName(result.name);
+    const ageVariants = T.ASK_AGE(firstName);
     const { message: ageMsg, updatedContext: variantCtx } = selectVariant(
         ageVariants,
         "ASK_AGE",
         context,
     );
-    
+
     updateConversationState(phoneNumber, "COLLECT_AGE", {
         segment: "gaso",
         clientName: result.name,
@@ -311,7 +313,7 @@ async function handleSendImages(
             context,
         );
         updateConversationState(phoneNumber, conv.current_state, variantCtx);
-        
+
         if (isSimulation) {
             WhatsAppService.logMessage(phoneNumber, "outbound", "text", noStockMsg, "sent");
         } else {

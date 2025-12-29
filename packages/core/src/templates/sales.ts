@@ -9,9 +9,9 @@ export const FNB_APPROVED = (name: string, credit: number) => [
 ];
 
 export const GASO_OFFER_KITCHEN_BUNDLE = [
-    `✓ ¡Excelente! Calificas para nuestro programa de financiamiento.\n\n📦 Nuestro combo especial incluye: cocina + electrodomésticos con cuotas desde S/ 80 mensuales (hasta 18 meses).\n\n💡 *¿Por qué cocina?* Es un requisito de nuestro financista para darte las mejores tasas. Pero no te preocupes, puedes elegir el modelo que más te guste.\n\n¿Te gustaría conocer las opciones disponibles?`,
-    `¡Perfecto! Calificas para el programa.\n\n📦 Combo disponible: cocina + otros electrodomésticos desde S/ 80 al mes (hasta 18 meses).\n\n💡 La cocina es parte del requisito de Cálidda para darte buenas tasas, pero hay varios modelos.\n\n¿Quieres ver las opciones?`,
-    `Genial, estás aprobado.\n\n📦 Tenemos un combo cocina + electrodomésticos con cuotas desde S/ 80 mensuales (18 meses máximo).\n\n💡 El requisito de incluir cocina viene de Cálidda para ofrecerte mejores condiciones.\n\n¿Te muestro qué hay disponible?`,
+    `Excelente, calificas para nuestro programa de financiamiento.\n\nNuestro combo especial incluye: cocina + electrodomésticos con cuotas desde S/ 80 mensuales (hasta 18 meses).\n\n💡 *¿Por qué cocina?* Es un requisito de nuestro financista para darte las mejores tasas. Pero no te preocupes, puedes elegir el modelo que más te guste.\n\n¿Te gustaría conocer las opciones disponibles?`,
+    `Perfecto, calificas para el programa.\n\nCombo disponible: cocina + otros electrodomésticos desde S/ 80 al mes (hasta 18 meses).\n\nLa cocina es parte del requisito de Cálidda para darte buenas tasas, pero hay varios modelos.\n\n¿Quieres ver las opciones?`,
+    `Genial, estás aprobado.\n\nTenemos un combo cocina + electrodomésticos con cuotas desde S/ 80 mensuales (18 meses máximo).\n\nEl requisito de incluir cocina viene de Cálidda para ofrecerte mejores condiciones.\n\n¿Te muestro qué hay disponible?`,
 ];
 
 export const KITCHEN_OBJECTION_RESPONSE = [
@@ -34,14 +34,14 @@ export const OFFER_PRODUCTS = (category: string) => [
 
 export const ASK_PRODUCT_INTEREST = [
     `¿Qué producto te gustaría conocer? Tenemos celulares, cocinas, laptops, refrigeradoras, televisores y más.`,
-    `¿Qué te llama la atención? Celulares, laptops, TVs, cocinas, refrigeradoras...,`,
+    `¿Qué te llama la atención? Celulares, laptops, TVs, cocinas, refrigeradoras...`,
     `¿En qué producto estás pensando? Tenemos celulares, laptops, electrodomésticos...`,
 ];
 
 export const CONFIRM_PURCHASE = [
-    `¡Excelente! Un asesor se comunicará contigo pronto para coordinar todo. 📞`,
-    `Perfecto, te contactamos pronto para coordinar la entrega. 📞`,
-    `¡Genial! Un asesor te llamará para finalizar. 📞`,
+    `¡Excelente! Un asesor se comunicará contigo pronto para coordinar todo.`,
+    `Perfecto, te contactamos pronto para coordinar la entrega.`,
+    `¡Genial! Un asesor te llamará para finalizar.`,
 ];
 
 export const ASK_FOR_SPECS = [
@@ -54,10 +54,10 @@ export const INSTALLMENTS_INFO = (
     installments: number,
     monthlyPayment: number,
 ) => [
-    `Este producto se puede pagar en ${installments} cuotas mensuales de aproximadamente S/ ${monthlyPayment.toFixed(2)} cada una.`,
-    `Puedes pagarlo en ${installments} meses, alrededor de S/ ${monthlyPayment.toFixed(2)} por mes.`,
-    `Lo pagas en ${installments} cuotas de S/ ${monthlyPayment.toFixed(2)} mensuales.`,
-];
+        `Este producto se puede pagar en ${installments} cuotas mensuales de aproximadamente S/ ${monthlyPayment.toFixed(2)} cada una.`,
+        `Puedes pagarlo en ${installments} meses, alrededor de S/ ${monthlyPayment.toFixed(2)} por mes.`,
+        `Lo pagas en ${installments} cuotas de S/ ${monthlyPayment.toFixed(2)} mensuales.`,
+    ];
 
 export const PRICE_CONCERN = {
     standard: [
