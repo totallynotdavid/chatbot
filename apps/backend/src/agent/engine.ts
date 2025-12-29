@@ -17,6 +17,7 @@ import { notifyTeam } from "../services/notifier.ts";
 import { CatalogService } from "../services/catalog.ts";
 import * as LLM from "../services/llm.ts";
 import * as T from "@totem/core";
+import { selectVariant } from "@totem/core";
 
 export async function processMessage(
     phoneNumber: string,
@@ -139,16 +140,25 @@ async function handleCheckFNB(
     const result = await FNBProvider.checkCredit(dni);
 
     if (result.eligible && checkFNBEligibility(result.credit)) {
-        // FNB eligible - update and transition
+        // FNB eligible - select variant for message
+        const fnbVariants = T.FNB_APPROVED(result.name || "Cliente", result.credit);
+        const { message: approvedMsg, updatedContext: variantCtx } = selectVariant(
+            fnbVariants,
+            "FNB_APPROVED",
+            context,
+        );
+        
+        // Update state with variant tracking
         updateConversationState(phoneNumber, "OFFER_PRODUCTS", {
             segment: "fnb",
             clientName: result.name,
             creditLine: result.credit,
+            ...variantCtx,
         });
 
         await WhatsAppService.sendMessage(
             phoneNumber,
-            T.FNB_APPROVED(result.name || "Cliente", result.credit),
+            approvedMsg,
         );
 
         trackEvent(phoneNumber, "eligibility_passed", {
@@ -164,14 +174,19 @@ async function handleCheckFNB(
 async function handleCheckGaso(
     phoneNumber: string,
     dni: string,
-    _context: StateContext,
+    context: StateContext,
 ): Promise<void> {
     const result = await GasoProvider.checkEligibility(dni);
 
     if (!result.eligible) {
         // Not eligible in either system
-        updateConversationState(phoneNumber, "CLOSING", {});
-        await WhatsAppService.sendMessage(phoneNumber, T.NOT_ELIGIBLE);
+        const { message: notEligibleMsg, updatedContext: variantCtx } = selectVariant(
+            T.NOT_ELIGIBLE,
+            "NOT_ELIGIBLE",
+            context,
+        );
+        updateConversationState(phoneNumber, "CLOSING", variantCtx);
+        await WhatsAppService.sendMessage(phoneNumber, notEligibleMsg);
         trackEvent(phoneNumber, "eligibility_failed", {
             reason: result.reason || "not_found",
         });
@@ -179,16 +194,24 @@ async function handleCheckGaso(
     }
 
     // Check Gaso eligibility matrix (need age first)
+    const ageVariants = T.ASK_AGE(result.name || "Cliente");
+    const { message: ageMsg, updatedContext: variantCtx } = selectVariant(
+        ageVariants,
+        "ASK_AGE",
+        context,
+    );
+    
     updateConversationState(phoneNumber, "COLLECT_AGE", {
         segment: "gaso",
         clientName: result.name,
         creditLine: result.credit,
         nse: result.nse,
+        ...variantCtx,
     });
 
     await WhatsAppService.sendMessage(
         phoneNumber,
-        T.ASK_AGE(result.name || "Cliente"),
+        ageMsg,
     );
 }
 

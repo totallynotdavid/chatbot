@@ -32,6 +32,13 @@ export type StateContext = {
     llmRequiresHuman?: boolean;
     llmExtractedCategory?: string;
     llmObjectionIntensity?: "mild" | "strong";
+    // Variation tracking to prevent repetition
+    usedVariantKeys?: Record<string, number>;
+    // Context-aware signals for intelligent response selection
+    messageCountInState?: number;           // Messages sent in current state
+    lastBotMessageTime?: string;            // ISO timestamp of last bot message
+    userTone?: "formal" | "casual" | "neutral";  // Detected user formality
+    isFrustrated?: boolean;                 // User showing frustration signals
 };
 
 export type StateOutput = {

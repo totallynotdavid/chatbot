@@ -298,7 +298,9 @@ describe("End-to-End Conversation Flows", () => {
             const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
             expect(msg?.type).toBe("SEND_MESSAGE");
             if (msg?.type === "SEND_MESSAGE") {
-                expect(msg.content).toContain("financi");
+                // Should mention financing/payment options
+                const mentionsFinancing = /financi|cuota|pag/i.test(msg.content);
+                expect(mentionsFinancing).toBe(true);
             }
         });
     });
@@ -351,7 +353,7 @@ describe("End-to-End Conversation Flows", () => {
             const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
             expect(msg?.type).toBe("SEND_MESSAGE");
             if (msg?.type === "SEND_MESSAGE") {
-                expect(msg.content).toContain("clientes de Cálidda");
+                expect(msg.content).toMatch(/clientes.*C[aá]lidda|servicio.*C[aá]lidda/i);
             }
         });
     });

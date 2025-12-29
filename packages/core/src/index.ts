@@ -6,3 +6,6 @@ export * from "./eligibility/fnb-logic.ts";
 export * from "./eligibility/gaso-logic.ts";
 export * from "./templates/standard.ts";
 export * from "./templates/sales.ts";
+export * from "./messaging/variation-selector.ts";
+export * from "./messaging/context-analyzer.ts";
+export * from "./messaging/tone-detector.ts";
