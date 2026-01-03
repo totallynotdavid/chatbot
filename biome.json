@@ -9,9 +9,9 @@
         "ignoreUnknown": false
     },
     "formatter": {
-        "enabled": false,
+        "enabled": true,
         "indentStyle": "space",
-        "indentWidth": 4
+        "indentWidth": 2
     },
     "linter": {
         "enabled": true,
@@ -19,8 +19,8 @@
             "recommended": true,
             "a11y": "on",
             "complexity": {
-              "recommended": true,
-              "noExcessiveCognitiveComplexity": "off"
+                "recommended": true,
+                "noExcessiveCognitiveComplexity": "off"
             },
             "correctness": {
                 "recommended": true,
@@ -54,6 +54,11 @@
     "javascript": {
         "formatter": {
             "quoteStyle": "double"
+        }
+    },
+    "json": {
+        "formatter": {
+            "indentWidth": 4
         }
     },
     "assist": {
