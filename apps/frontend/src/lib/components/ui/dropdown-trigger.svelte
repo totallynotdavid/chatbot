@@ -2,14 +2,20 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-	onclick?: () => void;
-	disabled?: boolean;
-	open?: boolean;
-	class?: string;
-	children: Snippet;
+  onclick?: () => void;
+  disabled?: boolean;
+  open?: boolean;
+  class?: string;
+  children: Snippet;
 };
 
-let { onclick, disabled = false, open = false, class: className = "", children }: Props = $props();
+let {
+  onclick,
+  disabled = false,
+  open = false,
+  class: className = "",
+  children,
+}: Props = $props();
 </script>
 
 <button

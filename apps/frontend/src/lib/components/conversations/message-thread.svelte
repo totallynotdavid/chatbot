@@ -2,16 +2,16 @@
 import MessageBubble from "./message-bubble.svelte";
 
 type Message = {
-    id: string;
-    direction: "inbound" | "outbound";
-    type: "text" | "image";
-    content: string;
-    status?: string;
-    created_at: string;
+  id: string;
+  direction: "inbound" | "outbound";
+  type: "text" | "image";
+  content: string;
+  status?: string;
+  created_at: string;
 };
 
 type Props = {
-    messages: Message[];
+  messages: Message[];
 };
 
 let { messages }: Props = $props();

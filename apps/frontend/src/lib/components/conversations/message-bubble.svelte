@@ -3,12 +3,12 @@ import { formatTime } from "$lib/utils/formatters";
 import type { Snippet } from "svelte";
 
 type Props = {
-    direction: "inbound" | "outbound";
-    type: "text" | "image";
-    content: string;
-    status?: string;
-    createdAt: string;
-    actions?: Snippet;
+  direction: "inbound" | "outbound";
+  type: "text" | "image";
+  content: string;
+  status?: string;
+  createdAt: string;
+  actions?: Snippet;
 };
 
 let { direction, type, content, status, createdAt, actions }: Props = $props();

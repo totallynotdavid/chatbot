@@ -1,39 +1,39 @@
 <script lang="ts">
 type Props = {
-    accept?: string;
-    file?: File | null;
-    error?: boolean;
-    placeholder?: string;
-    class?: string;
-    onchange?: (file: File | null) => void;
+  accept?: string;
+  file?: File | null;
+  error?: boolean;
+  placeholder?: string;
+  class?: string;
+  onchange?: (file: File | null) => void;
 };
 
 let {
-    accept = "image/*",
-    file = $bindable(null),
-    error = false,
-    placeholder = "Subir archivo",
-    class: className = "",
-    onchange,
+  accept = "image/*",
+  file = $bindable(null),
+  error = false,
+  placeholder = "Subir archivo",
+  class: className = "",
+  onchange,
 }: Props = $props();
 
 let isDragging = $state(false);
 
 function handleFileChange(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const selectedFile = input.files?.[0] || null;
-    file = selectedFile;
-    onchange?.(selectedFile);
+  const input = e.target as HTMLInputElement;
+  const selectedFile = input.files?.[0] || null;
+  file = selectedFile;
+  onchange?.(selectedFile);
 }
 
 function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    isDragging = false;
-    const droppedFile = e.dataTransfer?.files?.[0];
-    if (droppedFile?.type.match(accept.replace("*", ".*"))) {
-        file = droppedFile;
-        onchange?.(droppedFile);
-    }
+  e.preventDefault();
+  isDragging = false;
+  const droppedFile = e.dataTransfer?.files?.[0];
+  if (droppedFile?.type.match(accept.replace("*", ".*"))) {
+    file = droppedFile;
+    onchange?.(droppedFile);
+  }
 }
 
 const baseStyles = "flex flex-col items-center justify-center w-full p-4 min-h-[100px] border transition-all cursor-pointer focus-within:outline-none focus-within:ring-2 focus-within:ring-ink-900 focus-within:ring-offset-2 touch-action-manipulation";

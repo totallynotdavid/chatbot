@@ -2,9 +2,9 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-    title: string;
-    subtitle: string;
-    actions?: Snippet;
+  title: string;
+  subtitle: string;
+  actions?: Snippet;
 };
 
 let { title, subtitle, actions }: Props = $props();

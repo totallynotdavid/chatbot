@@ -1,32 +1,32 @@
 <script lang="ts">
 type Props = {
-    href: string;
-    number: string;
-    category: string;
-    title: string;
-    variant?: "default" | "dark";
+  href: string;
+  number: string;
+  category: string;
+  title: string;
+  variant?: "default" | "dark";
 };
 
 let { href, number, category, title, variant = "default" }: Props = $props();
 
 const variantStyles = {
-    default: "hover:bg-white",
-    dark: "hover:bg-ink-900",
+  default: "hover:bg-white",
+  dark: "hover:bg-ink-900",
 };
 
 const numberStyles = {
-    default: "text-cream-300 group-hover:text-ink-100",
-    dark: "text-cream-300 group-hover:text-ink-800",
+  default: "text-cream-300 group-hover:text-ink-100",
+  dark: "text-cream-300 group-hover:text-ink-800",
 };
 
 const categoryStyles = {
-    default: "text-ink-400 group-hover:text-ink-400",
-    dark: "text-ink-400 group-hover:text-ink-500",
+  default: "text-ink-400 group-hover:text-ink-400",
+  dark: "text-ink-400 group-hover:text-ink-500",
 };
 
 const titleStyles = {
-    default: "text-ink-900 group-hover:underline",
-    dark: "text-ink-900 group-hover:text-cream-50 group-hover:underline",
+  default: "text-ink-900 group-hover:underline",
+  dark: "text-ink-900 group-hover:text-cream-50 group-hover:underline",
 };
 </script>
 

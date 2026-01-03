@@ -3,19 +3,19 @@ import type { Snippet } from "svelte";
 import Label from "./label.svelte";
 
 type Props = {
-    label: string;
-    for?: string;
-    error?: string;
-    class?: string;
-    children: Snippet;
+  label: string;
+  for?: string;
+  error?: string;
+  class?: string;
+  children: Snippet;
 };
 
 let {
-    label,
-    for: htmlFor,
-    error,
-    class: className = "",
-    children,
+  label,
+  for: htmlFor,
+  error,
+  class: className = "",
+  children,
 }: Props = $props();
 </script>
 

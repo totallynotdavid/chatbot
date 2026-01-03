@@ -3,10 +3,10 @@ import type { Product, StockStatus } from "@totem/types";
 import ProductCard from "./product-card.svelte";
 
 type Props = {
-    products: Product[];
-    canEdit: boolean;
-    onProductClick?: (product: Product) => void;
-    onStockUpdate: (productId: string, newStatus: StockStatus) => void;
+  products: Product[];
+  canEdit: boolean;
+  onProductClick?: (product: Product) => void;
+  onStockUpdate: (productId: string, newStatus: StockStatus) => void;
 };
 
 let { products, canEdit, onProductClick, onStockUpdate }: Props = $props();

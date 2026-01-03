@@ -1,8 +1,8 @@
 <script lang="ts">
 interface Props {
-    title: string;
-    separator?: string;
-    brand?: string;
+  title: string;
+  separator?: string;
+  brand?: string;
 }
 
 let { title, separator = " | ", brand = "Totem" }: Props = $props();

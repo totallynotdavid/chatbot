@@ -7,20 +7,20 @@ import Select from "$lib/components/ui/select.svelte";
 import Checkbox from "$lib/components/ui/checkbox.svelte";
 
 type FormData = {
-    name: string;
-    description: string;
-    price: string;
-    installments: string;
-    stockStatus: StockStatus;
-    isActive: boolean;
-    category: string;
-    segment: Segment;
+  name: string;
+  description: string;
+  price: string;
+  installments: string;
+  stockStatus: StockStatus;
+  isActive: boolean;
+  category: string;
+  segment: Segment;
 };
 
 type Props = {
-    product: Product | null;
-    formData: FormData;
-    errors: Record<string, string>;
+  product: Product | null;
+  formData: FormData;
+  errors: Record<string, string>;
 };
 
 let { product, formData = $bindable(), errors }: Props = $props();

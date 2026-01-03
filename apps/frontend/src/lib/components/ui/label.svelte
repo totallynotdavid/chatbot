@@ -2,9 +2,9 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-    for?: string;
-    class?: string;
-    children: Snippet;
+  for?: string;
+  class?: string;
+  children: Snippet;
 };
 
 let { for: htmlFor, class: className = "", children }: Props = $props();

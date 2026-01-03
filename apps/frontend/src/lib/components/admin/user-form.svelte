@@ -7,46 +7,45 @@ import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
 
 type Props = {
-    onSuccess: () => void;
+  onSuccess: () => void;
 };
 
 let { onSuccess }: Props = $props();
 
 let formData = $state({
-    name: "",
-    username: "",
-    password: "",
-    role: "sales_agent",
+  name: "",
+  username: "",
+  password: "",
+  role: "sales_agent",
 });
 
 let message = $state("");
 
 async function handleSubmit() {
-    if (!formData.name || !formData.username || !formData.password) {
-        message = "Todos los campos son obligatorios";
-        return;
-    }
+  if (!formData.name || !formData.username || !formData.password) {
+    message = "Todos los campos son obligatorios";
+    return;
+  }
 
-    try {
-        await fetchApi("/api/admin/users", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
-        });
+  try {
+    await fetchApi("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-        message = `Usuario ${formData.username} creado correctamente.`;
-        toast.success(message);
-        formData = {
-            name: "",
-            username: "",
-            password: "",
-            role: "sales_agent",
-        };
-        onSuccess();
-    } catch (error) {
-        message =
-            error instanceof Error ? error.message : "Error al crear usuario";
-    }
+    message = `Usuario ${formData.username} creado correctamente.`;
+    toast.success(message);
+    formData = {
+      name: "",
+      username: "",
+      password: "",
+      role: "sales_agent",
+    };
+    onSuccess();
+  } catch (error) {
+    message = error instanceof Error ? error.message : "Error al crear usuario";
+  }
 }
 </script>
 

@@ -3,9 +3,9 @@ import type { Conversation } from "@totem/types";
 import ConversationItem from "./conversation-item.svelte";
 
 type Props = {
-    conversations: Conversation[];
-    selectedPhone: string | null;
-    onSelect: (phone: string) => void;
+  conversations: Conversation[];
+  selectedPhone: string | null;
+  onSelect: (phone: string) => void;
 };
 
 let { conversations, selectedPhone, onSelect }: Props = $props();

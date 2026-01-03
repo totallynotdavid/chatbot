@@ -3,23 +3,23 @@ import Badge from "$lib/components/ui/badge.svelte";
 import { formatDateTime } from "$lib/utils/formatters";
 
 type Event = {
-    id: string;
-    phone_number: string;
-    event_type: string;
-    metadata: string | null;
-    created_at: string;
+  id: string;
+  phone_number: string;
+  event_type: string;
+  metadata: string | null;
+  created_at: string;
 };
 
 type Props = {
-    events: Event[];
+  events: Event[];
 };
 
 let { events }: Props = $props();
 
 function getEventVariant(eventType: string) {
-    if (eventType.includes("failed")) return "error" as const;
-    if (eventType.includes("passed")) return "success" as const;
-    return "default" as const;
+  if (eventType.includes("failed")) return "error" as const;
+  if (eventType.includes("passed")) return "success" as const;
+  return "default" as const;
 }
 </script>
 

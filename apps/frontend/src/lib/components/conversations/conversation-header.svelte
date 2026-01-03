@@ -5,10 +5,10 @@ import { formatPhone, formatPrice } from "$lib/utils/formatters";
 import { auth } from "$lib/state/auth.svelte";
 
 type Props = {
-    conversation: Conversation;
-    phone: string;
-    onTakeover: () => void;
-    onLoadInSimulator?: () => void;
+  conversation: Conversation;
+  phone: string;
+  onTakeover: () => void;
+  onLoadInSimulator?: () => void;
 };
 
 let { conversation, phone, onTakeover, onLoadInSimulator }: Props = $props();

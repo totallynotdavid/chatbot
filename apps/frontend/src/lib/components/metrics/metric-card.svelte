@@ -1,17 +1,17 @@
 <script lang="ts">
 type Props = {
-    label: string;
-    value: string | number;
-    subtitle?: string;
-    variant?: "default" | "success" | "warning";
+  label: string;
+  value: string | number;
+  subtitle?: string;
+  variant?: "default" | "success" | "warning";
 };
 
 let { label, value, subtitle, variant = "default" }: Props = $props();
 
 const variantColors = {
-    default: "text-ink-900",
-    success: "text-green-700",
-    warning: "text-blue-700",
+  default: "text-ink-900",
+  success: "text-green-700",
+  warning: "text-blue-700",
 };
 </script>
 

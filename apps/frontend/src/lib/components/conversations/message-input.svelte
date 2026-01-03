@@ -2,18 +2,18 @@
 import Button from "$lib/components/ui/button.svelte";
 
 type Props = {
-    value: string;
-    disabled?: boolean;
-    onSend: () => void;
+  value: string;
+  disabled?: boolean;
+  onSend: () => void;
 };
 
 let { value = $bindable(""), disabled = false, onSend }: Props = $props();
 
 function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        onSend();
-    }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    onSend();
+  }
 }
 </script>
 

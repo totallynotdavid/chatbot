@@ -1,30 +1,30 @@
 <script lang="ts">
 type SelectItem = {
-    value: string;
-    label: string;
-    disabled?: boolean;
+  value: string;
+  label: string;
+  disabled?: boolean;
 };
 
 type Props = {
-    id?: string;
-    value?: string;
-    disabled?: boolean;
-    error?: boolean;
-    class?: string;
-    placeholder?: string;
-    items: SelectItem[];
-    onchange?: (e: Event & { currentTarget: HTMLSelectElement }) => void;
+  id?: string;
+  value?: string;
+  disabled?: boolean;
+  error?: boolean;
+  class?: string;
+  placeholder?: string;
+  items: SelectItem[];
+  onchange?: (e: Event & { currentTarget: HTMLSelectElement }) => void;
 };
 
 let {
-    id,
-    value = $bindable(""),
-    disabled = false,
-    error = false,
-    class: className = "",
-    placeholder = "Seleccionar...",
-    items,
-    onchange,
+  id,
+  value = $bindable(""),
+  disabled = false,
+  error = false,
+  class: className = "",
+  placeholder = "Seleccionar...",
+  items,
+  onchange,
 }: Props = $props();
 
 let open = $state(false);
@@ -36,73 +36,73 @@ const normalBorder = "border-ink-900/30 data-[open]:border-ink-900";
 const errorBorder = "border-red-600 data-[open]:border-red-600";
 
 const selectedLabel = $derived(
-    items.find((item) => item.value === value)?.label
+  items.find((item) => item.value === value)?.label,
 );
 
 function handleSelect(v: string) {
-    if (v !== value) {
-        value = v;
-        if (onchange) {
-            const fakeEvent = {
-                currentTarget: { value: v } as HTMLSelectElement,
-            } as Event & { currentTarget: HTMLSelectElement };
-            onchange(fakeEvent);
-        }
+  if (v !== value) {
+    value = v;
+    if (onchange) {
+      const fakeEvent = {
+        currentTarget: { value: v } as HTMLSelectElement,
+      } as Event & { currentTarget: HTMLSelectElement };
+      onchange(fakeEvent);
     }
-    open = false;
+  }
+  open = false;
 }
 
 function handleKeydown(e: KeyboardEvent) {
-    const availableItems = items.filter(item => !item.disabled);
-    
-    switch (e.key) {
-        case "ArrowDown":
-            e.preventDefault();
-            selectedIndex = Math.min(selectedIndex + 1, availableItems.length - 1);
-            break;
-        case "ArrowUp":
-            e.preventDefault();
-            selectedIndex = Math.max(selectedIndex - 1, 0);
-            break;
-        case "Enter":
-            e.preventDefault();
-            if (selectedIndex >= 0 && selectedIndex < availableItems.length) {
-                const item = availableItems[selectedIndex];
-                if (item) {
-                    handleSelect(item.value);
-                }
-            }
-            break;
-    }
+  const availableItems = items.filter((item) => !item.disabled);
+
+  switch (e.key) {
+    case "ArrowDown":
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, availableItems.length - 1);
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+      break;
+    case "Enter":
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < availableItems.length) {
+        const item = availableItems[selectedIndex];
+        if (item) {
+          handleSelect(item.value);
+        }
+      }
+      break;
+  }
 }
 
 // ESC key and click outside handler
 $effect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    const handleKeydown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-            e.preventDefault();
-            open = false;
-        }
-    };
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      open = false;
+    }
+  };
 
-    const handleClickOutside = (e: MouseEvent) => {
-        if (triggerRef && !triggerRef.contains(e.target as Node)) {
-            const dropdown = document.querySelector("[data-select-dropdown]");
-            if (dropdown && !dropdown.contains(e.target as Node)) {
-                open = false;
-            }
-        }
-    };
+  const handleClickOutside = (e: MouseEvent) => {
+    if (triggerRef && !triggerRef.contains(e.target as Node)) {
+      const dropdown = document.querySelector("[data-select-dropdown]");
+      if (dropdown && !dropdown.contains(e.target as Node)) {
+        open = false;
+      }
+    }
+  };
 
-    document.addEventListener("keydown", handleKeydown);
-    document.addEventListener("click", handleClickOutside);
-    
-    return () => {
-        document.removeEventListener("keydown", handleKeydown);
-        document.removeEventListener("click", handleClickOutside);
-    };
+  document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("click", handleClickOutside);
+
+  return () => {
+    document.removeEventListener("keydown", handleKeydown);
+    document.removeEventListener("click", handleClickOutside);
+  };
 });
 </script>
 

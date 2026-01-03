@@ -2,15 +2,22 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-    open: boolean;
-    title?: string;
-    subtitle?: string;
-    onClose: () => void;
-    children: Snippet;
-    footer?: Snippet;
+  open: boolean;
+  title?: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: Snippet;
+  footer?: Snippet;
 };
 
-let { open = $bindable(), title, subtitle, onClose, children, footer }: Props = $props();
+let {
+  open = $bindable(),
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+}: Props = $props();
 let modalRef: HTMLDivElement | undefined = $state();
 let previousActiveElement: Element | null = null;
 
@@ -19,51 +26,51 @@ const titleId = $derived(title ? `${modalId}-title` : undefined);
 
 // Focus management and ESC key handler
 $effect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    // Store previous active element
-    previousActiveElement = document.activeElement;
+  // Store previous active element
+  previousActiveElement = document.activeElement;
 
-    const handleKeydown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-            e.preventDefault();
-            onClose();
-        }
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+    }
 
-        // Basic focus trap
-        if (e.key === "Tab" && modalRef) {
-            const focusableElements = modalRef.querySelectorAll<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
-            const firstElement = focusableElements[0];
-            const lastElement = focusableElements[focusableElements.length - 1];
+    // Basic focus trap
+    if (e.key === "Tab" && modalRef) {
+      const focusableElements = modalRef.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
 
-            if (e.shiftKey && document.activeElement === firstElement) {
-                e.preventDefault();
-                lastElement?.focus();
-            } else if (!e.shiftKey && document.activeElement === lastElement) {
-                e.preventDefault();
-                firstElement?.focus();
-            }
-        }
-    };
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    }
+  };
 
-    document.addEventListener("keydown", handleKeydown);
-    
-    return () => {
-        document.removeEventListener("keydown", handleKeydown);
-        // Return focus to previous element
-        if (previousActiveElement && previousActiveElement instanceof HTMLElement) {
-            previousActiveElement.focus();
-        }
-    };
+  document.addEventListener("keydown", handleKeydown);
+
+  return () => {
+    document.removeEventListener("keydown", handleKeydown);
+    // Return focus to previous element
+    if (previousActiveElement && previousActiveElement instanceof HTMLElement) {
+      previousActiveElement.focus();
+    }
+  };
 });
 
 // Click outside handler
 function handleOverlayClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) {
-        onClose();
-    }
+  if (e.target === e.currentTarget) {
+    onClose();
+  }
 }
 </script>
 
