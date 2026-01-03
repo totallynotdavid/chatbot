@@ -17,38 +17,38 @@ let error = $state("");
 let healthStatus = $state<any>(null);
 
 async function loadHealth() {
-    try {
-        healthStatus = await fetchApi<any>("/api/health");
-    } catch (err) {
-        console.error("Health check failed:", err);
-    }
+  try {
+    healthStatus = await fetchApi<any>("/api/health");
+  } catch (err) {
+    console.error("Health check failed:", err);
+  }
 }
 
 async function handleQuery() {
-    const dniError = validateDni(dni);
-    if (dniError) {
-        error = dniError;
-        return;
-    }
+  const dniError = validateDni(dni);
+  if (dniError) {
+    error = dniError;
+    return;
+  }
 
-    loading = true;
-    error = "";
-    result = null;
+  loading = true;
+  error = "";
+  result = null;
 
-    try {
-        const data = await fetchApi<any>(`/api/providers/${dni}`);
-        result = data.result;
-        provider = data.provider;
-    } catch (err) {
-        error = err instanceof Error ? err.message : "Error de conexión";
-    } finally {
-        loading = false;
-        await loadHealth();
-    }
+  try {
+    const data = await fetchApi<any>(`/api/providers/${dni}`);
+    result = data.result;
+    provider = data.provider;
+  } catch (err) {
+    error = err instanceof Error ? err.message : "Error de conexión";
+  } finally {
+    loading = false;
+    await loadHealth();
+  }
 }
 
 onMount(async () => {
-    await loadHealth();
+  await loadHealth();
 });
 </script>
 

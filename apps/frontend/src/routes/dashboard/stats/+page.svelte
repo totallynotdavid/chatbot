@@ -17,21 +17,21 @@ let stats = $derived(loading ? localStats : data.stats);
 let events = $derived(loading ? localEvents : data.events);
 
 async function loadData() {
-    loading = true;
+  loading = true;
 
-    const [statsData, eventsData] = await Promise.all([
-        fetchApi<{ stats: any }>("/api/analytics/funnel"),
-        fetchApi<{ events: any[] }>("/api/analytics/events?limit=100"),
-    ]);
+  const [statsData, eventsData] = await Promise.all([
+    fetchApi<{ stats: any }>("/api/analytics/funnel"),
+    fetchApi<{ events: any[] }>("/api/analytics/events?limit=100"),
+  ]);
 
-    localStats = statsData.stats;
-    localEvents = eventsData.events;
-    loading = false;
+  localStats = statsData.stats;
+  localEvents = eventsData.events;
+  loading = false;
 }
 
 function getFailureRate(): string {
-    if (!stats || stats.dni_collected === 0) return "0.0";
-    return ((stats.eligibility_failed / stats.dni_collected) * 100).toFixed(1);
+  if (!stats || stats.dni_collected === 0) return "0.0";
+  return ((stats.eligibility_failed / stats.dni_collected) * 100).toFixed(1);
 }
 </script>
 

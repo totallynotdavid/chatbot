@@ -14,20 +14,20 @@ let { data }: { data: PageData } = $props();
 let users = $state<any[]>([]);
 
 async function loadUsers() {
-    const response = await fetchApi<{ users: any[] }>("/api/admin/users");
-    users = response.users;
+  const response = await fetchApi<{ users: any[] }>("/api/admin/users");
+  users = response.users;
 }
 
 onMount(() => {
-    if (!data.user) {
-        goto("/login");
-        return;
-    }
-    if (data.user.role !== "admin") {
-        goto("/dashboard");
-        return;
-    }
-    loadUsers();
+  if (!data.user) {
+    goto("/login");
+    return;
+  }
+  if (data.user.role !== "admin") {
+    goto("/dashboard");
+    return;
+  }
+  loadUsers();
 });
 </script>
 

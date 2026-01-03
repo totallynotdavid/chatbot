@@ -14,35 +14,35 @@ let error = $state("");
 let loading = $state(false);
 
 async function handleSubmit() {
-    if (!(username && password)) {
-        error = "Usuario y contraseña son requeridos";
-        return;
-    }
+  if (!(username && password)) {
+    error = "Usuario y contraseña son requeridos";
+    return;
+  }
 
-    loading = true;
-    error = "";
+  loading = true;
+  error = "";
 
-    try {
-        const data = await fetchApi<{ user: any }>("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
-        });
+  try {
+    const data = await fetchApi<{ user: any }>("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
 
-        await auth.checkAuth();
-        goto("/dashboard");
-    } catch {
-        error = "Credenciales no válidas";
-    } finally {
-        loading = false;
-    }
+    await auth.checkAuth();
+    goto("/dashboard");
+  } catch {
+    error = "Credenciales no válidas";
+  } finally {
+    loading = false;
+  }
 }
 
 onMount(async () => {
-    await auth.checkAuth();
-    if (auth.isAuthenticated) {
-        goto("/dashboard");
-    }
+  await auth.checkAuth();
+  if (auth.isAuthenticated) {
+    goto("/dashboard");
+  }
 });
 </script>
 

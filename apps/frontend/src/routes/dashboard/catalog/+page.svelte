@@ -18,57 +18,59 @@ let localProducts = $state<Product[]>([]);
 let selectedProduct = $state<Product | null>(null);
 let showModal = $state(false);
 
-let products = $derived(localProducts.length > 0 ? localProducts : data.products);
+let products = $derived(
+  localProducts.length > 0 ? localProducts : data.products,
+);
 
 let selectedProducts = $derived(
-    products.filter((p: Product) => catalogSelection.isSelected(p.id)),
+  products.filter((p: Product) => catalogSelection.isSelected(p.id)),
 );
 
 async function loadProducts() {
-    try {
-        localProducts = await fetchApi<Product[]>("/api/catalog");
-        catalogSelection.clear();
-    } catch (error) {
-        console.error("Failed to load products:", error);
-    }
+  try {
+    localProducts = await fetchApi<Product[]>("/api/catalog");
+    catalogSelection.clear();
+  } catch (error) {
+    console.error("Failed to load products:", error);
+  }
 }
 
 function handleProductClick(product: Product) {
-    if (auth.canEdit) {
-        selectedProduct = product;
-        showModal = true;
-    }
+  if (auth.canEdit) {
+    selectedProduct = product;
+    showModal = true;
+  }
 }
 
 function handleStockUpdate(productId: string, newStatus: StockStatus) {
-    const product = products.find((p: Product) => p.id === productId);
-    if (product) {
-        product.stock_status = newStatus;
-        products = [...products];
-    }
+  const product = products.find((p: Product) => p.id === productId);
+  if (product) {
+    product.stock_status = newStatus;
+    products = [...products];
+  }
 }
 
 function openCreateModal() {
-    selectedProduct = null;
-    showModal = true;
+  selectedProduct = null;
+  showModal = true;
 }
 
 async function downloadReport() {
-    const res = await fetch("/api/reports/daily");
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
-    a.click();
+  const res = await fetch("/api/reports/daily");
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
+  a.click();
 }
 
 onMount(() => {
-    if (!data.user) {
-        window.location.href = "/login";
-        return;
-    }
-    loadProducts();
+  if (!data.user) {
+    window.location.href = "/login";
+    return;
+  }
+  loadProducts();
 });
 </script>
 

@@ -5,13 +5,13 @@ import { auth } from "$lib/state/auth.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 
 onMount(async () => {
-    await auth.checkAuth();
+  await auth.checkAuth();
 
-    if (auth.isAuthenticated) {
-        goto("/dashboard");
-    } else {
-        goto("/login");
-    }
+  if (auth.isAuthenticated) {
+    goto("/dashboard");
+  } else {
+    goto("/login");
+  }
 });
 </script>
 

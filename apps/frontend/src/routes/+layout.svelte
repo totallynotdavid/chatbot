@@ -8,7 +8,7 @@ import type { LayoutData } from "./$types";
 let { children, data }: { children: any; data: LayoutData } = $props();
 
 onMount(() => {
-    auth.hydrate(data.user ?? null);
+  auth.hydrate(data.user ?? null);
 });
 </script>
 

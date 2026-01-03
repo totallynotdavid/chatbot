@@ -28,267 +28,271 @@ let editingMessageIndex = $state<number | null>(null);
 let editedContent = $state("");
 
 async function loadTestConversations() {
-    testConversations = await fetchApi<Conversation[]>("/api/simulator/conversations");
+  testConversations = await fetchApi<Conversation[]>(
+    "/api/simulator/conversations",
+  );
 }
 
 async function loadConversation(phone: string) {
-    const data = await fetchApi<any>(`/api/simulator/conversation/${phone}`);
-    conversation = data.conversation;
-    messages = data.messages;
-    setTimeout(scrollToBottom, 100);
+  const data = await fetchApi<any>(`/api/simulator/conversation/${phone}`);
+  conversation = data.conversation;
+  messages = data.messages;
+  setTimeout(scrollToBottom, 100);
 }
 
 function scrollToBottom() {
-    if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+  if (messagesContainer) {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 }
 
 async function createNewConversation() {
-    loading = true;
-    try {
-        // Auto-generate phone number based on existing count
-        const phoneNumber = `519${String(testConversations.length + 1).padStart(8, '0')}`;
-        
-        await fetchApi("/api/simulator/conversations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phoneNumber }),
-        });
-        
-        await loadTestConversations();
-        selectedPhone = phoneNumber;
-    } catch (error) {
-        console.error("Failed to create conversation:", error);
-        alert("Error al crear simulación");
-    } finally {
-        loading = false;
-    }
+  loading = true;
+  try {
+    // Auto-generate phone number based on existing count
+    const phoneNumber = `519${String(testConversations.length + 1).padStart(8, "0")}`;
+
+    await fetchApi("/api/simulator/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber }),
+    });
+
+    await loadTestConversations();
+    selectedPhone = phoneNumber;
+  } catch (error) {
+    console.error("Failed to create conversation:", error);
+    alert("Error al crear simulación");
+  } finally {
+    loading = false;
+  }
 }
 
 async function deleteConversation(phone: string) {
-    if (!confirm("¿Eliminar esta simulación?")) return;
-    
-    loading = true;
-    try {
-        await fetchApi(`/api/simulator/conversations/${phone}`, { method: "DELETE" });
-        
-        if (selectedPhone === phone) {
-            selectedPhone = null;
-            messages = [];
-            conversation = null;
-        }
-        
-        await loadTestConversations();
-    } catch (error) {
-        console.error("Failed to delete conversation:", error);
-        alert("Error al eliminar simulación");
-    } finally {
-        loading = false;
+  if (!confirm("¿Eliminar esta simulación?")) return;
+
+  loading = true;
+  try {
+    await fetchApi(`/api/simulator/conversations/${phone}`, {
+      method: "DELETE",
+    });
+
+    if (selectedPhone === phone) {
+      selectedPhone = null;
+      messages = [];
+      conversation = null;
     }
+
+    await loadTestConversations();
+  } catch (error) {
+    console.error("Failed to delete conversation:", error);
+    alert("Error al eliminar simulación");
+  } finally {
+    loading = false;
+  }
 }
 
 async function sendMessage(messageText?: string) {
-    if (!selectedPhone) return;
-    
-    const textToSend = messageText || currentInput.trim();
-    if (!textToSend) return;
+  if (!selectedPhone) return;
 
-    loading = true;
-    if (!messageText) currentInput = "";
+  const textToSend = messageText || currentInput.trim();
+  if (!textToSend) return;
 
-    messages = [
-        ...messages,
-        {
-            id: Date.now().toString(),
-            direction: "inbound",
-            type: "text",
-            content: textToSend,
-            created_at: new Date().toISOString(),
-        },
-    ];
+  loading = true;
+  if (!messageText) currentInput = "";
 
-    setTimeout(scrollToBottom, 50);
+  messages = [
+    ...messages,
+    {
+      id: Date.now().toString(),
+      direction: "inbound",
+      type: "text",
+      content: textToSend,
+      created_at: new Date().toISOString(),
+    },
+  ];
 
-    try {
-        await fetchApi("/api/simulator/message", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                phoneNumber: selectedPhone,
-                message: textToSend,
-            }),
-        });
+  setTimeout(scrollToBottom, 50);
 
-        if (selectedPhone) {
-            setTimeout(() => loadConversation(selectedPhone!), 1000);
-        }
-    } catch (error) {
-        console.error("Send error:", error);
-    } finally {
-        loading = false;
+  try {
+    await fetchApi("/api/simulator/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phoneNumber: selectedPhone,
+        message: textToSend,
+      }),
+    });
+
+    if (selectedPhone) {
+      setTimeout(() => loadConversation(selectedPhone!), 1000);
     }
+  } catch (error) {
+    console.error("Send error:", error);
+  } finally {
+    loading = false;
+  }
 }
 
 async function resetConversation() {
-    if (!selectedPhone) return;
-    if (!confirm("¿Reiniciar la conversación?")) return;
+  if (!selectedPhone) return;
+  if (!confirm("¿Reiniciar la conversación?")) return;
 
-    await fetchApi(`/api/simulator/reset/${selectedPhone}`, { method: "POST" });
-    messages = [];
-    conversation = null;
-    replayMode = false;
-    replayMetadata = null;
-    await loadConversation(selectedPhone);
+  await fetchApi(`/api/simulator/reset/${selectedPhone}`, { method: "POST" });
+  messages = [];
+  conversation = null;
+  replayMode = false;
+  replayMetadata = null;
+  await loadConversation(selectedPhone);
 }
 
 async function loadReplayConversation(sourcePhone: string) {
-    try {
-        // Fetch replay data
-        const replayData = await fetchApi<ReplayData>(
-            `/api/conversations/${sourcePhone}/replay`
-        );
+  try {
+    // Fetch replay data
+    const replayData = await fetchApi<ReplayData>(
+      `/api/conversations/${sourcePhone}/replay`,
+    );
 
-        replayMode = true;
-        replayMetadata = replayData.metadata;
+    replayMode = true;
+    replayMetadata = replayData.metadata;
 
-        // Load into simulator backend
-        await fetchApi("/api/simulator/load", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sourcePhone }),
-        });
+    // Load into simulator backend
+    await fetchApi("/api/simulator/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourcePhone }),
+    });
 
-        // Set to fixed test phone and reload
-        selectedPhone = "51900000001";
-        await loadTestConversations();
-        await loadConversation(selectedPhone);
-    } catch (error) {
-        console.error("Failed to load replay:", error);
-        alert("No se pudo cargar la conversación");
-    }
+    // Set to fixed test phone and reload
+    selectedPhone = "51900000001";
+    await loadTestConversations();
+    await loadConversation(selectedPhone);
+  } catch (error) {
+    console.error("Failed to load replay:", error);
+    alert("No se pudo cargar la conversación");
+  }
 }
 
 function startEditing(index: number) {
-    const msg = messages[index];
-    if (msg.direction !== "inbound") return;
-    
-    editingMessageIndex = index;
-    editedContent = msg.content;
+  const msg = messages[index];
+  if (msg.direction !== "inbound") return;
+
+  editingMessageIndex = index;
+  editedContent = msg.content;
 }
 
 function cancelEditing() {
-    editingMessageIndex = null;
-    editedContent = "";
+  editingMessageIndex = null;
+  editedContent = "";
 }
 
 async function applyEdit(index: number) {
-    if (!selectedPhone) return;
-    
-    const originalMsg = messages[index];
-    const newContent = editedContent.trim();
+  if (!selectedPhone) return;
 
-    if (!newContent) {
-        cancelEditing();
-        return;
-    }
+  const originalMsg = messages[index];
+  const newContent = editedContent.trim();
 
-    if (newContent === originalMsg.content) {
-        cancelEditing();
-        return;
-    }
-
-    // Count messages after edit point
-    const futureMessagesCount = messages.length - index - 1;
-    
-    if (futureMessagesCount > 0) {
-        const confirmed = confirm(
-            `Editar este mensaje descartará los ${futureMessagesCount} mensajes siguientes. ¿Continuar?`
-        );
-        if (!confirmed) {
-            cancelEditing();
-            return;
-        }
-    }
-
-    loading = true;
+  if (!newContent) {
     cancelEditing();
+    return;
+  }
 
-    try {
-        // Reset conversation
-        await fetchApi(`/api/simulator/reset/${selectedPhone}`, { method: "POST" });
+  if (newContent === originalMsg.content) {
+    cancelEditing();
+    return;
+  }
 
-        // Replay messages up to and including edit point
-        for (let i = 0; i <= index; i++) {
-            const msg = messages[i];
-            if (msg.direction === "inbound") {
-                const content = i === index ? newContent : msg.content;
-                
-                // Send and wait for response
-                await fetchApi("/api/simulator/message", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        phoneNumber: selectedPhone,
-                        message: content,
-                    }),
-                });
+  // Count messages after edit point
+  const futureMessagesCount = messages.length - index - 1;
 
-                // Wait between messages to ensure proper processing
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-        }
-
-        // Reload conversation to see new state
-        await loadConversation(selectedPhone);
-    } catch (error) {
-        console.error("Failed to apply edit:", error);
-        alert("Error al aplicar la edición");
-    } finally {
-        loading = false;
+  if (futureMessagesCount > 0) {
+    const confirmed = confirm(
+      `Editar este mensaje descartará los ${futureMessagesCount} mensajes siguientes. ¿Continuar?`,
+    );
+    if (!confirmed) {
+      cancelEditing();
+      return;
     }
+  }
+
+  loading = true;
+  cancelEditing();
+
+  try {
+    // Reset conversation
+    await fetchApi(`/api/simulator/reset/${selectedPhone}`, { method: "POST" });
+
+    // Replay messages up to and including edit point
+    for (let i = 0; i <= index; i++) {
+      const msg = messages[i];
+      if (msg.direction === "inbound") {
+        const content = i === index ? newContent : msg.content;
+
+        // Send and wait for response
+        await fetchApi("/api/simulator/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber: selectedPhone,
+            message: content,
+          }),
+        });
+
+        // Wait between messages to ensure proper processing
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    // Reload conversation to see new state
+    await loadConversation(selectedPhone);
+  } catch (error) {
+    console.error("Failed to apply edit:", error);
+    alert("Error al aplicar la edición");
+  } finally {
+    loading = false;
+  }
 }
 
 function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 }
 
 function exitReplayMode() {
-    replayMode = false;
-    replayMetadata = null;
-    resetConversation();
+  replayMode = false;
+  replayMetadata = null;
+  resetConversation();
 }
 
 $effect(() => {
-    if (selectedPhone) {
-        loadConversation(selectedPhone);
-    }
+  if (selectedPhone) {
+    loadConversation(selectedPhone);
+  }
 });
 
 onMount(() => {
-    // Check if we should load a replay conversation (from server data)
-    if (data.loadPhone) {
-        loadReplayConversation(data.loadPhone);
-    } else {
-        loadTestConversations().then(() => {
-            // Select first conversation if available
-            if (testConversations.length > 0 && !selectedPhone) {
-                selectedPhone = testConversations[0]?.phone_number ?? null;
-            }
-        });
-    }
+  // Check if we should load a replay conversation (from server data)
+  if (data.loadPhone) {
+    loadReplayConversation(data.loadPhone);
+  } else {
+    loadTestConversations().then(() => {
+      // Select first conversation if available
+      if (testConversations.length > 0 && !selectedPhone) {
+        selectedPhone = testConversations[0]?.phone_number ?? null;
+      }
+    });
+  }
 
-    polling = setInterval(() => {
-        loadTestConversations();
-        if (selectedPhone) loadConversation(selectedPhone);
-    }, 2000);
+  polling = setInterval(() => {
+    loadTestConversations();
+    if (selectedPhone) loadConversation(selectedPhone);
+  }, 2000);
 
-    return () => {
-        if (polling) clearInterval(polling);
-    };
+  return () => {
+    if (polling) clearInterval(polling);
+  };
 });
 </script>
 

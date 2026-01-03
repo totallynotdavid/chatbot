@@ -17,62 +17,64 @@ let conversationDetail = $state<any>(null);
 let messageText = $state("");
 let polling: Timer | null = null;
 
-let conversations = $derived(localConversations.length > 0 ? localConversations : data.conversations);
+let conversations = $derived(
+  localConversations.length > 0 ? localConversations : data.conversations,
+);
 
 async function loadConversations() {
-    try {
-        localConversations = await fetchApi<Conversation[]>("/api/conversations");
-    } catch (error) {
-        console.error("Failed to load conversations:", error);
-    }
+  try {
+    localConversations = await fetchApi<Conversation[]>("/api/conversations");
+  } catch (error) {
+    console.error("Failed to load conversations:", error);
+  }
 }
 
 async function loadConversationDetail(phone: string) {
-    conversationDetail = await fetchApi<any>(`/api/conversations/${phone}`);
+  conversationDetail = await fetchApi<any>(`/api/conversations/${phone}`);
 }
 
 async function handleTakeover() {
-    if (!selectedPhone) return;
-    await fetchApi(`/api/conversations/${selectedPhone}/takeover`, {
-        method: "POST",
-    });
-    await loadConversations();
-    await loadConversationDetail(selectedPhone);
+  if (!selectedPhone) return;
+  await fetchApi(`/api/conversations/${selectedPhone}/takeover`, {
+    method: "POST",
+  });
+  await loadConversations();
+  await loadConversationDetail(selectedPhone);
 }
 
 async function handleSendMessage() {
-    if (!(selectedPhone && messageText.trim())) return;
+  if (!(selectedPhone && messageText.trim())) return;
 
-    await fetchApi(`/api/conversations/${selectedPhone}/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: messageText }),
-    });
+  await fetchApi(`/api/conversations/${selectedPhone}/message`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: messageText }),
+  });
 
-    messageText = "";
-    await loadConversationDetail(selectedPhone);
+  messageText = "";
+  await loadConversationDetail(selectedPhone);
 }
 
 async function handleLoadInSimulator() {
-    if (!selectedPhone) return;
-    window.location.href = `/dashboard/simulator?load=${selectedPhone}`;
+  if (!selectedPhone) return;
+  window.location.href = `/dashboard/simulator?load=${selectedPhone}`;
 }
 
 $effect(() => {
-    if (selectedPhone) {
-        loadConversationDetail(selectedPhone);
-    }
+  if (selectedPhone) {
+    loadConversationDetail(selectedPhone);
+  }
 });
 
 onMount(() => {
-    polling = setInterval(() => {
-        loadConversations();
-        if (selectedPhone) loadConversationDetail(selectedPhone);
-    }, 2000);
+  polling = setInterval(() => {
+    loadConversations();
+    if (selectedPhone) loadConversationDetail(selectedPhone);
+  }, 2000);
 
-    return () => {
-        if (polling) clearInterval(polling);
-    };
+  return () => {
+    if (polling) clearInterval(polling);
+  };
 });
 </script>
 
