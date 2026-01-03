@@ -3,7 +3,7 @@ import { auth } from "$lib/state/auth.svelte";
 </script>
 
 <nav class="border-b border-ink-900/10 bg-cream-50 px-8 py-4 flex justify-between items-center sticky top-0 z-50">
-	<a href="/dashboard" class="flex items-center gap-2 group">
+	<a href="/dashboard" class="flex items-baseline gap-2 group">
 		<span class="font-serif font-bold italic text-xl group-hover:text-ink-600 transition-colors">
 			totem
 		</span>
