@@ -13,7 +13,8 @@
         "dev:notifier": "cd apps/notifier && bun run dev",
         "seed": "cd apps/backend && bun run seed",
         "format": "biome format --write",
-        "format:md": "bun x prettier \"**/*.{md,yml,yaml}\" --write --print-width=80 --prose-wrap=always"
+        "format:md": "bun x prettier \"**/*.{md,yml,yaml}\" --write --print-width=80 --prose-wrap=always",
+        "preview": "cloudflared tunnel --url http://localhost:3000"
     },
     "devDependencies": {
         "@totem/tsconfig": "workspace:*",
