@@ -103,6 +103,71 @@ conversations.post("/:phone/release", (c) => {
   return c.json({ success: true });
 });
 
+// Update agent data (notes, sale status, delivery info)
+conversations.patch("/:phone/agent-data", async (c) => {
+  const phoneNumber = c.req.param("phone");
+  const user = c.get("user");
+  const updates = await c.req.json();
+
+  const allowedFields = [
+    "agent_notes",
+    "sale_status",
+    "delivery_address",
+    "delivery_reference",
+    "products_interested",
+  ];
+
+  const validUpdates: Record<string, any> = {};
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      validUpdates[field] = updates[field];
+    }
+  }
+
+  // Validate sale_status
+  if (
+    validUpdates.sale_status &&
+    !["pending", "confirmed", "rejected", "no_answer"].includes(
+      validUpdates.sale_status,
+    )
+  ) {
+    return c.json({ error: "Invalid sale_status" }, 400);
+  }
+
+  // Auto-assign agent if not already assigned
+  const conv = db
+    .prepare("SELECT assigned_agent FROM conversations WHERE phone_number = ?")
+    .get(phoneNumber) as { assigned_agent: string | null } | undefined;
+
+  if (conv && !conv.assigned_agent) {
+    validUpdates.assigned_agent = user.id;
+  }
+
+  if (Object.keys(validUpdates).length === 0) {
+    return c.json({ success: true });
+  }
+
+  const fields = Object.keys(validUpdates)
+    .map((k) => `${k} = ?`)
+    .join(", ");
+  const values = Object.values(validUpdates);
+
+  db.prepare(`UPDATE conversations SET ${fields} WHERE phone_number = ?`).run(
+    ...values,
+    phoneNumber,
+  );
+
+  logAction(
+    user.id,
+    "update_agent_data",
+    "conversation",
+    phoneNumber,
+    validUpdates,
+  );
+
+  return c.json({ success: true });
+});
+
 // Get conversation replay data (for debugging in simulator)
 conversations.get("/:phone/replay", (c) => {
   const phoneNumber = c.req.param("phone");

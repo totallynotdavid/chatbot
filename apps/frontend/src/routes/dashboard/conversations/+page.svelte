@@ -3,18 +3,12 @@ import { onMount } from "svelte";
 import type { Conversation } from "@totem/types";
 import { fetchApi } from "$lib/utils/api";
 import ConversationList from "$lib/components/conversations/conversation-list.svelte";
-import ConversationHeader from "$lib/components/conversations/conversation-header.svelte";
-import MessageThread from "$lib/components/conversations/message-thread.svelte";
-import MessageInput from "$lib/components/conversations/message-input.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
 let localConversations = $state<Conversation[]>([]);
-let selectedPhone = $state<string | null>(null);
-let conversationDetail = $state<any>(null);
-let messageText = $state("");
 let polling: Timer | null = null;
 
 let conversations = $derived(
@@ -29,47 +23,9 @@ async function loadConversations() {
   }
 }
 
-async function loadConversationDetail(phone: string) {
-  conversationDetail = await fetchApi<any>(`/api/conversations/${phone}`);
-}
-
-async function handleTakeover() {
-  if (!selectedPhone) return;
-  await fetchApi(`/api/conversations/${selectedPhone}/takeover`, {
-    method: "POST",
-  });
-  await loadConversations();
-  await loadConversationDetail(selectedPhone);
-}
-
-async function handleSendMessage() {
-  if (!(selectedPhone && messageText.trim())) return;
-
-  await fetchApi(`/api/conversations/${selectedPhone}/message`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: messageText }),
-  });
-
-  messageText = "";
-  await loadConversationDetail(selectedPhone);
-}
-
-async function handleLoadInSimulator() {
-  if (!selectedPhone) return;
-  window.location.href = `/dashboard/simulator?load=${selectedPhone}`;
-}
-
-$effect(() => {
-  if (selectedPhone) {
-    loadConversationDetail(selectedPhone);
-  }
-});
-
 onMount(() => {
   polling = setInterval(() => {
     loadConversations();
-    if (selectedPhone) loadConversationDetail(selectedPhone);
   }, 2000);
 
   return () => {
@@ -83,37 +39,13 @@ onMount(() => {
 <div class="flex h-[calc(100vh-65px)] overflow-hidden bg-white">
 	<ConversationList
 		{conversations}
-		{selectedPhone}
-		onSelect={(phone) => selectedPhone = phone}
+		selectedPhone={null}
 	/>
 
 	<div class="hidden md:flex flex-col flex-1 bg-cream-100 relative min-w-0">
-		{#if selectedPhone && conversationDetail}
-			{@const conv = conversationDetail.conversation}
-			{@const msgs = conversationDetail.messages}
-
-            <div class="flex flex-1 min-h-0 flex-col">
-                <ConversationHeader
-                    conversation={conv}
-                    phone={selectedPhone}
-                    onTakeover={handleTakeover}
-                    onLoadInSimulator={handleLoadInSimulator}
-                />
-
-                <MessageThread messages={msgs} />
-
-                {#if conv.status === "human_takeover"}
-                    <MessageInput
-                        bind:value={messageText}
-                        onSend={handleSendMessage}
-                    />
-                {/if}
-            </div>
-		{:else}
-			<div class="flex-1 flex flex-col items-center justify-center text-ink-300 opacity-50">
-				<span class="text-9xl mb-4 font-serif italic">&larr;</span>
-				<p class="font-serif text-lg">Seleccione un cliente.</p>
-			</div>
-		{/if}
+		<div class="flex-1 flex flex-col items-center justify-center text-ink-300 opacity-50">
+			<span class="text-9xl mb-4 font-serif italic">&larr;</span>
+			<p class="font-serif text-lg">Seleccione una conversación.</p>
+		</div>
 	</div>
 </div>

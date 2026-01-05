@@ -49,7 +49,14 @@ CREATE TABLE IF NOT EXISTS conversations (
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'human_takeover', 'closed')),
     handover_reason TEXT,
     is_simulation INTEGER DEFAULT 0 CHECK(is_simulation IN (0, 1)),
-    last_activity_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+    last_activity_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    -- Agent workflow fields
+    products_interested TEXT DEFAULT '[]',
+    delivery_address TEXT,
+    delivery_reference TEXT,
+    assigned_agent TEXT REFERENCES users(id),
+    agent_notes TEXT,
+    sale_status TEXT DEFAULT 'pending' CHECK(sale_status IN ('pending', 'confirmed', 'rejected', 'no_answer'))
 );
 
 CREATE TABLE IF NOT EXISTS messages (

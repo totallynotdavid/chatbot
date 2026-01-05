@@ -5,10 +5,9 @@ import ConversationItem from "./conversation-item.svelte";
 type Props = {
   conversations: Conversation[];
   selectedPhone: string | null;
-  onSelect: (phone: string) => void;
 };
 
-let { conversations, selectedPhone, onSelect }: Props = $props();
+let { conversations, selectedPhone }: Props = $props();
 </script>
 
 <div class="w-full md:w-96 xl:w-96 border-r border-ink-900/10 bg-white flex flex-col shrink-0">
@@ -24,7 +23,7 @@ let { conversations, selectedPhone, onSelect }: Props = $props();
 			<ConversationItem
 				conversation={conv}
 				isSelected={selectedPhone === conv.phone_number}
-				onclick={() => onSelect(conv.phone_number)}
+				href="/dashboard/conversations/{conv.phone_number}"
 			/>
 		{/each}
 

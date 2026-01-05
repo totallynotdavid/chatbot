@@ -149,6 +149,46 @@ app.get("/api/reports/daily", requireAuth, (c) => {
   return c.body(buffer);
 });
 
+app.get("/api/reports/today-count", requireAuth, (c) => {
+  const count = ReportService.getTodayContactCount();
+  return c.json({ count });
+});
+
+app.get("/api/reports/activity", requireAuth, (c) => {
+  const startDateStr = c.req.query("startDate");
+  const endDateStr = c.req.query("endDate");
+  const segmentsStr = c.req.query("segments") || "fnb,gaso,none";
+  const saleStatusesStr = c.req.query("saleStatuses") || "all";
+
+  // Parse dates
+  const startDate = startDateStr ? new Date(startDateStr) : new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+  endDate.setHours(23, 59, 59, 999);
+
+  // Parse arrays
+  const segments = segmentsStr.split(",").filter(Boolean);
+  const saleStatuses = saleStatusesStr.split(",").filter(Boolean);
+
+  const buffer = ReportService.generateActivityReport({
+    startDate,
+    endDate,
+    segments,
+    saleStatuses,
+  });
+
+  const filename = `reporte-actividad-${startDate.toISOString().split("T")[0]}-a-${endDate.toISOString().split("T")[0]}.xlsx`;
+
+  c.header(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  c.header("Content-Disposition", `attachment; filename="${filename}"`);
+
+  return c.body(buffer);
+});
+
 // Provider check endpoint
 app.get("/api/providers/:dni", requireAuth, async (c) => {
   const dni = c.req.param("dni");

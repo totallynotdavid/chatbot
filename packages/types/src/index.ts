@@ -14,6 +14,7 @@ export type ConversationState =
   | "ESCALATED";
 
 export type ConversationStatus = "active" | "human_takeover" | "closed";
+export type SaleStatus = "pending" | "confirmed" | "rejected" | "no_answer";
 
 export type Conversation = {
   phone_number: string;
@@ -29,6 +30,13 @@ export type Conversation = {
   context_data: string;
   handover_reason: string | null;
   is_simulation: number;
+  // Agent workflow fields
+  products_interested: string;
+  delivery_address: string | null;
+  delivery_reference: string | null;
+  assigned_agent: string | null;
+  agent_notes: string | null;
+  sale_status: SaleStatus;
 };
 
 export type Product = {

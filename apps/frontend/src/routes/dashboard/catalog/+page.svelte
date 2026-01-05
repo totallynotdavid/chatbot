@@ -55,16 +55,6 @@ function openCreateModal() {
   showModal = true;
 }
 
-async function downloadReport() {
-  const res = await fetch("/api/reports/daily");
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `reporte-${new Date().toISOString().split("T")[0]}.xlsx`;
-  a.click();
-}
-
 onMount(() => {
   if (!data.user) {
     window.location.href = "/login";
@@ -79,9 +69,6 @@ onMount(() => {
 <div class="max-w-7xl mx-auto p-8 md:p-12 min-h-screen">
 	<PageHeader title="Catálogo de productos" subtitle="Inventario">
 		{#snippet actions()}
-			<Button variant="secondary" onclick={downloadReport}>
-				Descargar reporte
-			</Button>
 			{#if auth.canEdit}
 				<Button onclick={openCreateModal}>Nuevo producto</Button>
 			{/if}
