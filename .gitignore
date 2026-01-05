@@ -4,7 +4,6 @@ node_modules
 
 # build and dev generated files
 *.tsbuildinfo
-.wwebjs_cache
 dist
 data
 
