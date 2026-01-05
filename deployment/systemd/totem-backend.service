@@ -1,0 +1,17 @@
+[Unit]
+Description=Totem Backend
+After=network.target
+
+[Service]
+Type=simple
+User=DEPLOY_USER
+WorkingDirectory=PROJECT_ROOT/apps/backend
+Environment="NODE_ENV=production"
+ExecStart=/usr/local/bin/bun run --env-file=PROJECT_ROOT/.env.production src/index.ts
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

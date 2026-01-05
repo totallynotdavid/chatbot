@@ -1,0 +1,17 @@
+[Unit]
+Description=Totem Notifier
+After=network.target
+
+[Service]
+Type=simple
+User=DEPLOY_USER
+WorkingDirectory=PROJECT_ROOT/apps/notifier
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node src/index.ts
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
