@@ -65,7 +65,7 @@ async function updateStatus(newStatus: StockStatus) {
 	<DropdownTrigger
 		onclick={() => canEdit && !isUpdating && (open = !open)}
 		disabled={!canEdit || isUpdating}
-		class="inline-flex items-center gap-2 px-3 py-1 border text-[10px] font-bold uppercase tracking-wider rounded-full transition-all {statusConfig[stockStatus].class} {canEdit ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}"
+		class="inline-flex items-center gap-2 px-3 py-1 border text-[10px] font-bold uppercase tracking-wider rounded-full transition-all min-h-7! {statusConfig[stockStatus].class} {canEdit ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}"
 	>
 		<span>{statusConfig[stockStatus].label}</span>
 		{#if canEdit}
