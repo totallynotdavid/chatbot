@@ -3,7 +3,24 @@ import type { Message } from "whatsapp-web.js";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3000";
 
+// Deduplication cache for WhatsApp Web JS (can fire duplicate events)
+const forwardedMessages = new Set<string>();
+const FORWARD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function forwardToBackend(msg: Message): Promise<void> {
+  const messageId = msg.id._serialized;
+  
+  // Skip if already forwarded
+  if (forwardedMessages.has(messageId)) {
+    return;
+  }
+  
+  forwardedMessages.add(messageId);
+  
+  // Cleanup old entries after TTL
+  setTimeout(() => {
+    forwardedMessages.delete(messageId);
+  }, FORWARD_CACHE_TTL_MS);
   // Extract phone number - handle both @c.us and @lid formats
   let phoneNumber = msg.from.replace("@c.us", "").replace("@lid", "");
   
