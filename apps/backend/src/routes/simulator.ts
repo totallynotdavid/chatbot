@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { processMessage } from "../agent/engine.ts";
-import { WhatsAppService } from "../services/whatsapp.ts";
+import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { PersonasService } from "../services/personas.ts";
 import {
   getOrCreateConversation,

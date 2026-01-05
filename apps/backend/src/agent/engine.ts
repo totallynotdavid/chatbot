@@ -11,7 +11,7 @@ import {
   resetSession,
 } from "./context.ts";
 import { FNBProvider, GasoProvider } from "../services/providers.ts";
-import { WhatsAppService } from "../services/whatsapp.ts";
+import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { trackEvent } from "../services/analytics.ts";
 import { notifyTeam } from "../services/notifier.ts";
 import { CatalogService } from "../services/catalog.ts";

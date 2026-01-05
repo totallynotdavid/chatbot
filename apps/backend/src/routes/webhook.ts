@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import process from "node:process";
 import { debounceMessage } from "../agent/debouncer.ts";
 import { processMessage } from "../agent/engine.ts";
-import { WhatsAppService } from "../services/whatsapp.ts";
+import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { IMAGE_REJECTED, NON_TEXT_REJECTED } from "@totem/core";
 
 const webhook = new Hono();

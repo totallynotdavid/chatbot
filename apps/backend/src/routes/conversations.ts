@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/index.ts";
-import { WhatsAppService } from "../services/whatsapp.ts";
+import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { getEventsByPhone } from "../services/analytics.ts";
 import { logAction } from "../services/audit.ts";
 import { buildStateContext } from "../agent/context.ts";

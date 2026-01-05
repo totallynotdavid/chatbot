@@ -1,10 +1,46 @@
 import { Hono } from "hono";
 import { enqueueMessage } from "./queue.ts";
+import { sendDirectMessage, sendDirectImage } from "./direct-messaging.ts";
 import { client } from "./client.ts";
 import process from "node:process";
 
 const app = new Hono();
 
+// Direct message endpoint (used by backend dev adapter)
+app.post("/send", async (c) => {
+  const { phoneNumber, content } = await c.req.json();
+
+  if (!phoneNumber || !content) {
+    return c.json({ error: "phoneNumber and content required" }, 400);
+  }
+
+  try {
+    await sendDirectMessage(phoneNumber, content);
+    return c.json({ status: "sent" });
+  } catch (error) {
+    console.error("[/send] Error:", error);
+    return c.json({ error: "Failed to send message" }, 500);
+  }
+});
+
+// Direct image endpoint (used by backend dev adapter)
+app.post("/send-image", async (c) => {
+  const { phoneNumber, imageUrl, caption } = await c.req.json();
+
+  if (!phoneNumber || !imageUrl) {
+    return c.json({ error: "phoneNumber and imageUrl required" }, 400);
+  }
+
+  try {
+    await sendDirectImage(phoneNumber, imageUrl, caption);
+    return c.json({ status: "sent" });
+  } catch (error) {
+    console.error("[/send-image] Error:", error);
+    return c.json({ error: "Failed to send image" }, 500);
+  }
+});
+
+// Team notifications endpoint (existing)
 app.post("/notify", async (c) => {
   const { channel, message, phoneNumber } = await c.req.json();
 

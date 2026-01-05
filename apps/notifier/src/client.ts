@@ -3,8 +3,10 @@ import qrcode from "qrcode-terminal";
 import process from "node:process";
 import fs from "node:fs";
 import path from "node:path";
+import { forwardToBackend } from "./message-forwarder.ts";
 
 const DATA_PATH = process.env.NOTIFIER_DATA_PATH || "./data/notifier";
+const IS_DEV = process.env.NODE_ENV === "development";
 
 // Ensure data directory exists
 fs.mkdirSync(DATA_PATH, { recursive: true });
@@ -59,6 +61,13 @@ export async function initializeWhatsAppClient() {
 
   // Auto-register groups with @activate command
   client.on("message", async (msg) => {
+    // Forward messages to backend in dev mode (skip group messages and commands)
+    if (IS_DEV && msg.from.endsWith("@c.us") && !msg.body.startsWith("@")) {
+      console.log(`[DevMode] Forwarding message from ${msg.from}: ${msg.body.substring(0, 50)}...`);
+      await forwardToBackend(msg);
+      return;
+    }
+
     if (msg.body === "@activate" && msg.from.endsWith("@g.us")) {
       const chat = await msg.getChat();
       const groupName = chat.name || "unknown";
