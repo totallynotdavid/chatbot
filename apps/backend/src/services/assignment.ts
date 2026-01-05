@@ -40,7 +40,7 @@ export async function assignNextAgent(
   }
 
   const assignedAgent = agents[currentIndex];
-  
+
   if (!assignedAgent) {
     console.warn("Failed to get agent from index");
     return null;

@@ -19,24 +19,30 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
     const userData = userRes.ok ? await userRes.json() : { user: null };
 
     if (!convRes.ok) {
-      return { conversation: null, messages: [], events: [], order: null, user: userData.user };
+      return {
+        conversation: null,
+        messages: [],
+        events: [],
+        order: null,
+        user: userData.user,
+      };
     }
 
     const data = await convRes.json();
-    
+
     // Load order if conversation exists
     let orderData = null;
     if (data.conversation) {
       const orderRes = await fetch(
         `http://localhost:3000/api/orders/by-conversation/${params.phone}`,
-        { headers: { cookie: `session=${sessionToken}` } }
+        { headers: { cookie: `session=${sessionToken}` } },
       );
       if (orderRes.ok) {
         const orderJson = await orderRes.json();
         orderData = orderJson.order;
       }
     }
-    
+
     return {
       conversation: data.conversation,
       messages: data.messages,
@@ -45,6 +51,12 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
       user: userData.user,
     };
   } catch {
-    return { conversation: null, messages: [], events: [], order: null, user: null };
+    return {
+      conversation: null,
+      messages: [],
+      events: [],
+      order: null,
+      user: null,
+    };
   }
 };

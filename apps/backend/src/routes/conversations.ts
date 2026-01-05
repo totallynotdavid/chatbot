@@ -12,7 +12,7 @@ const conversations = new Hono();
 conversations.get("/", (c) => {
   const user = c.get("user");
   const status = c.req.query("status");
-  
+
   // Sales agents only see their assigned conversations
   if (user.role === "sales_agent") {
     let query =
@@ -128,8 +128,12 @@ conversations.post("/:phone/decline-assignment", async (c) => {
   const user = c.get("user");
 
   const conv = db
-    .prepare("SELECT assigned_agent, client_name FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as { assigned_agent: string | null; client_name: string | null } | undefined;
+    .prepare(
+      "SELECT assigned_agent, client_name FROM conversations WHERE phone_number = ?",
+    )
+    .get(phoneNumber) as
+    | { assigned_agent: string | null; client_name: string | null }
+    | undefined;
 
   if (!conv || conv.assigned_agent !== user.id) {
     return c.json({ error: "Not assigned to you" }, 403);

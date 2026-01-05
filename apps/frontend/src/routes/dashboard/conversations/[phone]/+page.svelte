@@ -57,11 +57,11 @@ $effect(() => {
 const isHumanTakeover = $derived(conversation?.status === "human_takeover");
 const isPendingAssignment = $derived(
   conversation?.assigned_agent &&
-  conversation?.assignment_notified_at &&
-  !conversation?.handover_reason
+    conversation?.assignment_notified_at &&
+    !conversation?.handover_reason,
 );
 const isAssignedToCurrentUser = $derived(
-  conversation?.assigned_agent === data.user?.id
+  conversation?.assigned_agent === data.user?.id,
 );
 
 const saleStatusOptions: { value: SaleStatus; label: string }[] = [
@@ -92,9 +92,12 @@ async function handleAcceptAssignment() {
 async function handleDeclineAssignment() {
   if (!conversation) return;
   try {
-    await fetchApi(`/api/conversations/${conversation.phone_number}/decline-assignment`, {
-      method: "POST",
-    });
+    await fetchApi(
+      `/api/conversations/${conversation.phone_number}/decline-assignment`,
+      {
+        method: "POST",
+      },
+    );
     toast.info("Asignación rechazada. Se asignará a otro agente.");
     goto("/dashboard/conversations");
   } catch (error) {

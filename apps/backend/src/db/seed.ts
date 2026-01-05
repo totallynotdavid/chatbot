@@ -50,9 +50,7 @@ export function seedDatabase(db: Database) {
       adminId,
     );
 
-    console.log(
-      "Sample agents created (agent1/agent2, password: agent123)",
-    );
+    console.log("Sample agents created (agent1/agent2, password: agent123)");
 
     // Create sample conversations for testing
     const now = Date.now();

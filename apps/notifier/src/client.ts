@@ -75,9 +75,7 @@ export async function initializeWhatsAppClient() {
   await client.initialize();
 }
 
-export function getGroupJID(
-  channel: "agent" | "dev" | "sales",
-): string | null {
+export function getGroupJID(channel: "agent" | "dev" | "sales"): string | null {
   const envKeyMap = {
     agent: "WHATSAPP_GROUP_AGENT",
     dev: "WHATSAPP_GROUP_DEV",
