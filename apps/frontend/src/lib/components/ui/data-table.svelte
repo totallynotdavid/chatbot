@@ -1,30 +1,29 @@
 <script lang="ts" generics="T extends Record<string, any>">
 type Column<T> = {
-    header: string;
-    key?: keyof T;
-    render?: (item: T) => string | any; 
-    class?: string;
-    align?: "left" | "center" | "right";
+  header: string;
+  key?: keyof T;
+  render?: (item: T) => string | any;
+  class?: string;
+  align?: "left" | "center" | "right";
 };
 
 type Props<T> = {
-    data: T[];
-    columns: Column<T>[];
-    keyField?: keyof T;
-    emptyMessage?: string;
-    loading?: boolean;
-    onRowClick?: (item: T) => void;
+  data: T[];
+  columns: Column<T>[];
+  keyField?: keyof T;
+  emptyMessage?: string;
+  loading?: boolean;
+  onRowClick?: (item: T) => void;
 };
 
-let { 
-    data, 
-    columns, 
-    keyField = "id" as keyof T,
-    emptyMessage = "No hay datos disponibles",
-    loading = false,
-    onRowClick 
+let {
+  data,
+  columns,
+  keyField = "id" as keyof T,
+  emptyMessage = "No hay datos disponibles",
+  loading = false,
+  onRowClick,
 }: Props<T> = $props();
-
 </script>
 
 <div class="overflow-x-auto">
