@@ -1,7 +1,6 @@
 <script lang="ts">
 import Badge from "$lib/components/ui/badge.svelte";
 import { formatDate } from "$lib/utils/formatters";
-import { fetchApi } from "$lib/utils/api";
 
 type User = {
   id: string;
@@ -14,42 +13,23 @@ type User = {
 
 type Props = {
   users: User[];
-  onUpdate: () => void;
 };
 
-let { users, onUpdate }: Props = $props();
+let { users }: Props = $props();
 
 const roleLabels = {
   admin: "Administrador",
   developer: "Desarrollador",
+  supervisor: "Supervisor",
   sales_agent: "Agente de ventas",
 };
 
 const roleVariants = {
   admin: "error" as const,
   developer: "warning" as const,
+  supervisor: "default" as const,
   sales_agent: "success" as const,
 };
-
-async function toggleUserStatus(userId: string) {
-  await fetchApi(`/api/admin/users/${userId}/status`, { method: "PATCH" });
-  onUpdate();
-}
-
-async function resetPassword(userId: string) {
-  const newPass = prompt("Nueva contraseña:");
-  if (!newPass) return;
-
-  await fetchApi(`/api/admin/users/${userId}/password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ newPassword: newPass }),
-  });
-
-  alert(
-    "Contraseña actualizada. Todas las sesiones del usuario fueron invalidadas.",
-  );
-}
 </script>
 
 <div class="bg-white border border-cream-200 shadow-sm">
@@ -85,18 +65,12 @@ async function resetPassword(userId: string) {
 						</td>
 						<td class="p-4 text-ink-400">{formatDate(user.created_at)}</td>
 						<td class="p-4 text-right space-x-2">
-							<button
-								onclick={() => toggleUserStatus(user.id)}
-								class="text-xs hover:underline text-ink-600"
+							<a
+								href="/dashboard/admin/users/{user.id}"
+								class="inline-block px-3 py-1 bg-ink-900 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-ink-700 transition-colors rounded"
 							>
-								{user.is_active === 1 ? "Desactivar" : "Activar"}
-							</button>
-							<button
-								onclick={() => resetPassword(user.id)}
-								class="text-xs hover:underline text-blue-600"
-							>
-								Restablecer
-							</button>
+								Gestionar
+							</a>
 						</td>
 					</tr>
 				{/each}

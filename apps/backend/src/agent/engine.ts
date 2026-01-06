@@ -10,7 +10,11 @@ import {
   checkSessionTimeout,
   resetSession,
 } from "./context.ts";
-import { FNBProvider, GasoProvider } from "../services/providers.ts";
+import {
+  FNBProvider,
+  GasoProvider,
+  isMaintenanceMode,
+} from "../services/providers.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { trackEvent } from "../services/analytics.ts";
 import { notifyTeam } from "../services/notifier.ts";
@@ -20,10 +24,20 @@ import * as T from "@totem/core";
 import { selectVariant, formatFirstName } from "@totem/core";
 import { assignNextAgent } from "../services/assignment.ts";
 
+const MAINTENANCE_MESSAGE =
+  "¡Hola! 👋 En este momento estamos realizando mejoras en nuestro sistema. " +
+  "Por favor, inténtalo de nuevo en unos minutos. ¡Gracias por tu paciencia!";
+
 export async function processMessage(
   phoneNumber: string,
   message: string,
 ): Promise<void> {
+  // Check maintenance mode before processing
+  if (isMaintenanceMode()) {
+    await WhatsAppService.sendMessage(phoneNumber, MAINTENANCE_MESSAGE);
+    return;
+  }
+
   const conv = getOrCreateConversation(phoneNumber);
 
   // Reset terminal states immediately on new user message

@@ -1,63 +1,43 @@
 <script lang="ts">
-import { onMount } from "svelte";
-import { goto } from "$app/navigation";
-import { fetchApi } from "$lib/utils/api";
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import UserForm from "$lib/components/admin/user-form.svelte";
-import UserTable from "$lib/components/admin/user-table.svelte";
-import StatsCard from "$lib/components/admin/stats-card.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
-import type { PageData } from "./$types";
+import PageHeader from "$lib/components/shared/page-header.svelte";
 
-let { data }: { data: PageData } = $props();
+import UsersTab from "./users-tab.svelte";
+import AuditTab from "./audit-tab.svelte";
+import SettingsTab from "./settings-tab.svelte";
 
-let users = $state<any[]>([]);
+let activeTab = $state("users");
 
-async function loadUsers() {
-  const response = await fetchApi<{ users: any[] }>("/api/admin/users");
-  users = response.users;
-}
-
-onMount(() => {
-  if (!data.user) {
-    goto("/login");
-    return;
-  }
-  if (data.user.role !== "admin") {
-    goto("/dashboard");
-    return;
-  }
-  loadUsers();
-});
+const tabs = [
+  { id: "users", label: "Usuarios" },
+  { id: "audit", label: "Auditoría" },
+  { id: "settings", label: "Configuración" },
+];
 </script>
 
 <PageTitle title="Administración" />
 
 <div class="max-w-7xl mx-auto p-8 md:p-12 min-h-screen">
-	<PageHeader title="Gestión de usuarios" subtitle="Configuración" />
+    <PageHeader title="Panel de Administración" subtitle="Control y Gestión" />
 
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-		<div class="bg-white p-8 border border-cream-200 shadow-sm">
-			<h2 class="text-xl font-serif mb-6">Registrar nuevo usuario</h2>
-			<UserForm onSuccess={loadUsers} />
-		</div>
+    <!-- Tabs -->
+    <div class="flex gap-1 border-b border-cream-200 mb-8 overflow-x-auto">
+        {#each tabs as tab}
+            <button
+                class="px-6 py-3 text-sm font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap {activeTab === tab.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-400 hover:text-ink-600'}"
+                onclick={() => activeTab = tab.id}
+            >
+                {tab.label}
+            </button>
+        {/each}
+    </div>
 
-		<div class="bg-cream-50 p-8 border border-cream-200">
-			<h2 class="text-xl font-serif mb-6">Estadísticas del sistema</h2>
-			<div class="space-y-4">
-				<StatsCard label="Total de usuarios" value={users.length} />
-				<StatsCard
-					label="Usuarios activos"
-					value={users.filter((u) => u.is_active === 1).length}
-					variant="success"
-				/>
-				<StatsCard
-					label="Administradores"
-					value={users.filter((u) => u.role === "admin").length}
-				/>
-			</div>
-		</div>
-	</div>
-
-	<UserTable {users} onUpdate={loadUsers} />
+    <!-- Content -->
+    {#if activeTab === "users"}
+        <UsersTab />
+    {:else if activeTab === "audit"}
+        <AuditTab />
+    {:else if activeTab === "settings"}
+        <SettingsTab />
+    {/if}
 </div>

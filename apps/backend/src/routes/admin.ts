@@ -118,6 +118,39 @@ admin.post("/users/:id/password", async (c) => {
   return c.json({ success: true });
 });
 
+// Update user role
+admin.patch("/users/:id/role", async (c) => {
+  const userId = c.req.param("id");
+  const { role } = await c.req.json();
+  const admin = c.get("user");
+
+  if (!["admin", "developer", "supervisor", "sales_agent"].includes(role)) {
+    return c.json({ error: "Invalid role" }, 400);
+  }
+
+  const user = db.prepare("SELECT role FROM users WHERE id = ?").get(userId) as
+    | { role: string }
+    | undefined;
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  const oldRole = user.role;
+
+  db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
+
+  // Invalidate sessions so user gets new permissions on next request
+  db.prepare("DELETE FROM session WHERE user_id = ?").run(userId);
+
+  logAction(admin.id, "update_user_role", "user", userId, {
+    oldRole,
+    newRole: role,
+  });
+
+  return c.json({ success: true, role });
+});
+
 // Get audit trail
 admin.get("/audit", (c) => {
   const userIdFilter = c.req.query("user_id");
@@ -126,7 +159,66 @@ admin.get("/audit", (c) => {
 
   const logs = getAuditTrail(userIdFilter, limit);
 
-  return c.json({ logs });
+  // Resolve user names
+  const userIds = [...new Set(logs.map((l) => l.user_id))];
+  const users = db
+    .prepare(
+      `SELECT id, username, name FROM users WHERE id IN (${userIds.map(() => "?").join(",")})`,
+    )
+    .all(...userIds) as { id: string; username: string; name: string }[];
+
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  const logsWithNames = logs.map((log) => ({
+    ...log,
+    user_name: userMap.get(log.user_id)?.name || "Usuario eliminado",
+    user_username: userMap.get(log.user_id)?.username || log.user_id,
+  }));
+
+  return c.json({ logs: logsWithNames });
+});
+
+// Get system settings
+admin.get("/settings", (c) => {
+  const settings = db.prepare("SELECT * FROM system_settings").all() as {
+    key: string;
+    value: string;
+    updated_at: number;
+  }[];
+
+  const formatted = settings.reduce(
+    (acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+
+  return c.json(formatted);
+});
+
+// Update system settings
+admin.post("/settings", async (c) => {
+  const user = c.get("user");
+  const settings = await c.req.json();
+  const timestamp = Date.now();
+
+  const insert = db.prepare(
+    "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)",
+  );
+
+  const updates: Record<string, string> = {};
+
+  db.transaction(() => {
+    for (const [key, value] of Object.entries(settings)) {
+      insert.run(key, String(value), timestamp);
+      updates[key] = String(value);
+    }
+  })();
+
+  logAction(user.id, "update_settings", "system", null, updates);
+
+  return c.json({ success: true, updates });
 });
 
 export default admin;

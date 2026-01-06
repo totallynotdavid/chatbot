@@ -73,6 +73,23 @@ const powerBIHealth: ProviderHealth = {
 
 let powerBIDownNotified = false; // Track if we've already notified about PowerBI being down
 
+// Check admin settings for provider force-down toggles
+function getSystemSetting(key: string): string | null {
+  const row = db
+    .prepare("SELECT value FROM system_settings WHERE key = ?")
+    .get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+function isProviderForcedDown(provider: "fnb" | "gaso"): boolean {
+  const key = provider === "fnb" ? "force_fnb_down" : "force_gaso_down";
+  return getSystemSetting(key) === "true";
+}
+
+export function isMaintenanceMode(): boolean {
+  return getSystemSetting("maintenance_mode") === "true";
+}
+
 function markProviderBlocked(health: ProviderHealth, errorMsg: string) {
   const wasHealthy = health.status === "healthy";
   health.status = "blocked";
@@ -210,6 +227,16 @@ export const FNBProvider = {
           return PersonasService.toProviderResult(persona);
         }
       }
+    }
+
+    // Check if admin has forced provider down
+    if (isProviderForcedDown("fnb")) {
+      console.log(`[FNB] Provider forced down by admin for DNI ${dni}`);
+      return {
+        eligible: false,
+        credit: 0,
+        reason: "provider_forced_down",
+      };
     }
 
     // Check if provider is blocked
@@ -427,6 +454,16 @@ export const GasoProvider = {
           return PersonasService.toProviderResult(persona);
         }
       }
+    }
+
+    // Check if admin has forced provider down
+    if (isProviderForcedDown("gaso")) {
+      console.log(`[GASO] Provider forced down by admin for DNI ${dni}`);
+      return {
+        eligible: false,
+        credit: 0,
+        reason: "provider_forced_down",
+      };
     }
 
     // Check if provider is blocked
