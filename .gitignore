@@ -5,9 +5,12 @@ node_modules
 
 # build and dev generated files
 *.tsbuildinfo
-.wwebjs_cache
 dist
-data
+
+# database
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # dev tools
 *.ps1
