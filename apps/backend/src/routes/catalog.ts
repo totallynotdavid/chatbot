@@ -19,6 +19,12 @@ catalog.get("/products/categories", (c) => {
   return c.json(ProductService.getCategories());
 });
 
+catalog.get("/products/:id", (c) => {
+  const product = ProductService.getById(c.req.param("id"));
+  if (!product) return c.json({ error: "Product not found" }, 404);
+  return c.json(product);
+});
+
 catalog.post("/products", requireCatalogWrite, async (c) => {
   const user = c.get("user");
   const { name, category, brand, model, specs_json } = await c.req.json();
@@ -31,6 +37,16 @@ catalog.post("/products", requireCatalogWrite, async (c) => {
   const product = ProductService.create({ id, name, category, brand, model, specs_json });
 
   logAction(user.id, "create_product", "product", id, { name, category });
+  return c.json(product);
+});
+
+catalog.patch("/products/:id", requireCatalogWrite, async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const updates = await c.req.json();
+
+  const product = ProductService.update(id, updates);
+  logAction(user.id, "update_product", "product", id, updates);
   return c.json(product);
 });
 

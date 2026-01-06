@@ -31,6 +31,38 @@ export const ProductService = {
     return ProductService.getById(data.id)!;
   },
 
+  update: (id: string, data: Partial<Product>): Product => {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (data.name !== undefined) {
+      fields.push("name = ?");
+      values.push(data.name);
+    }
+    if (data.category !== undefined) {
+      fields.push("category = ?");
+      values.push(data.category);
+    }
+    if (data.brand !== undefined) {
+      fields.push("brand = ?");
+      values.push(data.brand);
+    }
+    if (data.model !== undefined) {
+      fields.push("model = ?");
+      values.push(data.model);
+    }
+    if (data.specs_json !== undefined) {
+      fields.push("specs_json = ?");
+      values.push(data.specs_json);
+    }
+
+    if (fields.length === 0) return ProductService.getById(id)!;
+
+    values.push(id);
+    db.prepare(`UPDATE products SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    return ProductService.getById(id)!;
+  },
+
   getCategories: (): string[] => {
     const rows = db.prepare("SELECT DISTINCT category FROM products ORDER BY category").all() as Array<{ category: string }>;
     return rows.map((r) => r.category);

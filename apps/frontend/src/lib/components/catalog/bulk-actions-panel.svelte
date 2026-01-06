@@ -22,7 +22,7 @@ async function handleBulkAction() {
 
   isProcessing = true;
   try {
-    const updates: Partial<Product> =
+    const updates: any =
       bulkAction === "stock"
         ? { stock_status: stockStatus }
         : { is_active: bulkAction === "activate" ? 1 : 0 };

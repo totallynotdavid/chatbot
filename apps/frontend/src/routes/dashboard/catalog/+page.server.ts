@@ -4,7 +4,13 @@ import { fetchBackend } from "$lib/utils/server-fetch";
 export const load: PageServerLoad = async ({ cookies, url }) => {
   const sessionToken = cookies.get("session");
   if (!sessionToken) {
-    return { products: [], periods: [], activePeriod: null };
+    return {
+      baseProducts: [],
+      bundles: [],
+      fnbOfferings: [],
+      periods: [],
+      activePeriod: null,
+    };
   }
 
   const headers = { cookie: `session=${sessionToken}` };
@@ -24,18 +30,34 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
       if (selected) activePeriod = selected;
     }
 
-    // Load products for the selected period
-    let products: any[] = [];
-    if (activePeriod) {
-      const productsRes = await fetchBackend(
-        `/api/catalog?period_id=${activePeriod.id}`,
-        { headers },
-      );
-      products = productsRes.ok ? await productsRes.json() : [];
-    }
+    // Load data in parallel
+    const [productsRes, bundlesRes, fnbRes] = await Promise.all([
+      fetchBackend("/api/catalog/products", { headers }),
+      activePeriod
+        ? fetchBackend(`/api/catalog/bundles?period_id=${activePeriod.id}`, {
+            headers,
+          })
+        : Promise.resolve({ ok: false, json: () => [] }),
+      activePeriod
+        ? fetchBackend(`/api/catalog/fnb?period_id=${activePeriod.id}`, {
+            headers,
+          })
+        : Promise.resolve({ ok: false, json: () => [] }),
+    ]);
 
-    return { products, periods, activePeriod };
-  } catch {
-    return { products: [], periods: [], activePeriod: null };
+    const baseProducts = productsRes.ok ? await productsRes.json() : [];
+    const bundles = bundlesRes.ok ? await bundlesRes.json() : [];
+    const fnbOfferings = fnbRes.ok ? await fnbRes.json() : [];
+
+    return { baseProducts, bundles, fnbOfferings, periods, activePeriod };
+  } catch (error) {
+    console.error("Error loading catalog:", error);
+    return {
+      baseProducts: [],
+      bundles: [],
+      fnbOfferings: [],
+      periods: [],
+      activePeriod: null,
+    };
   }
 };
