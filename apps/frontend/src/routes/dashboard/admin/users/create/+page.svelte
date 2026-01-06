@@ -34,7 +34,7 @@ async function handleSubmit() {
     });
 
     toast.success(`Usuario ${formData.username} creado correctamente`);
-    goto("/dashboard/admin");
+    goto("/dashboard/admin/users");
   } catch (error) {
     console.error(error);
     toast.error(
@@ -104,7 +104,7 @@ async function handleSubmit() {
         {/if}
     
         <div class="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onclick={() => goto("/dashboard/admin")}>Cancelar</Button>
+            <Button variant="secondary" onclick={() => goto("/dashboard/admin/users")}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
                 {loading ? 'Creando...' : 'Crear Usuario'}
             </Button>

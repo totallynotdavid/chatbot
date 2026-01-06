@@ -2,7 +2,8 @@
 import type { Snippet } from "svelte";
 
 type Props = {
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   class?: string;
   type?: "button" | "submit" | "reset";
@@ -13,6 +14,7 @@ type Props = {
 
 let {
   variant = "primary",
+  size = "md",
   disabled = false,
   class: className = "",
   type = "button",
@@ -21,13 +23,20 @@ let {
   children,
 }: Props = $props();
 
+const sizeStyles = {
+  sm: "px-4 py-2 text-[10px] min-h-8",
+  md: "px-6 py-3 text-xs min-h-10",
+  lg: "px-8 py-4 text-sm min-h-12",
+};
+
 const baseStyles =
-  "px-6 py-3 min-h-10 rounded-full transition-all duration-200 font-medium text-xs tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2 touch-action-manipulation inline-flex items-center justify-center text-center";
+  "rounded-full transition-all duration-200 font-medium tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2 touch-action-manipulation inline-flex items-center justify-center text-center";
 
 const variants = {
   primary: "bg-ink-900 text-cream-50 hover:bg-ink-600 focus-visible:bg-ink-600",
   secondary:
     "bg-transparent border border-ink-200 text-ink-900 hover:bg-ink-50 hover:border-ink-900 focus-visible:bg-ink-50 focus-visible:border-ink-900",
+  outline: "bg-white border-2 border-ink-900 text-ink-900 hover:bg-ink-900 hover:text-white focus-visible:bg-ink-900 focus-visible:text-white",
   ghost: "bg-transparent text-ink-600 hover:bg-ink-50 focus-visible:bg-ink-50",
 };
 </script>
@@ -35,7 +44,7 @@ const variants = {
 {#if href}
 	<a
 		{href}
-		class="{baseStyles} {variants[variant]} {className}"
+		class="{baseStyles} {sizeStyles[size]} {variants[variant]} {className}"
 		role="button"
 		tabindex={disabled ? -1 : 0}
 		aria-disabled={disabled}
@@ -47,7 +56,7 @@ const variants = {
 		{type}
 		{disabled}
 		{onclick}
-		class="{baseStyles} {variants[variant]} {className}"
+		class="{baseStyles} {sizeStyles[size]} {variants[variant]} {className}"
 	>
 		{@render children()}
 	</button>

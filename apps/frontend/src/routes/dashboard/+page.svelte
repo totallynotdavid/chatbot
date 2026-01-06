@@ -122,7 +122,7 @@ let { data }: { data: PageData } = $props();
 
 		{#if auth.isAdmin}
 			<DashboardGridItem
-				href="/dashboard/admin"
+				href="/dashboard/admin/users"
 				number="08"
 				category="Configuración"
 				title="Administración"

@@ -48,7 +48,7 @@ async function saveChanges() {
     });
     originalRole = user.role;
     toast.success("Rol actualizado correctamente");
-    goto("/dashboard/admin");
+    goto("/dashboard/admin/users");
   } catch (e) {
     toast.error("Error al actualizar rol");
   } finally {
@@ -161,7 +161,7 @@ onMount(loadUser);
 
             <!-- Actions -->
             <div class="flex justify-end gap-3">
-                <Button variant="secondary" onclick={() => goto("/dashboard/admin")}>Cancelar</Button>
+                <Button variant="secondary" onclick={() => goto("/dashboard/admin/users")}>Cancelar</Button>
                 <Button onclick={saveChanges} disabled={saving}>
                     {saving ? "Guardando..." : "Guardar Cambios"}
                 </Button>
