@@ -16,7 +16,7 @@ let urlCaptured = false;
 
 const handleOutput = (data: Buffer) => {
   const output = data.toString();
-  
+
   if (!urlCaptured) {
     const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
     if (match) {

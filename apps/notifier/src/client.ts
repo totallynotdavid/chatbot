@@ -38,7 +38,7 @@ export async function initializeWhatsAppClient() {
     puppeteer: {
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       headless: process.env.NODE_ENV === "production",
-      executablePath: process.env.CHROMIUM_PATH || ""
+      executablePath: process.env.CHROMIUM_PATH || "",
     },
   });
 
@@ -67,7 +67,7 @@ export async function initializeWhatsAppClient() {
     // Forward messages to backend in dev mode (exclude groups and commands)
     const isGroupMessage = msg.from.endsWith("@g.us");
     const isCommand = msg.body?.startsWith("@") || false;
-    
+
     // Only forward actual incoming messages (not status updates, acks, etc.)
     if (IS_DEV && !isGroupMessage && !isCommand && msg.fromMe === false) {
       await forwardToBackend(msg);

@@ -9,21 +9,21 @@ const FORWARD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function forwardToBackend(msg: Message): Promise<void> {
   const messageId = msg.id._serialized;
-  
+
   // Skip if already forwarded
   if (forwardedMessages.has(messageId)) {
     return;
   }
-  
+
   forwardedMessages.add(messageId);
-  
+
   // Cleanup old entries after TTL
   setTimeout(() => {
     forwardedMessages.delete(messageId);
   }, FORWARD_CACHE_TTL_MS);
   // Extract phone number - handle both @c.us and @lid formats
   let phoneNumber = msg.from.replace("@c.us", "").replace("@lid", "");
-  
+
   // For @lid format, try to get the actual phone number from contact
   if (msg.from.endsWith("@lid")) {
     try {
@@ -32,7 +32,9 @@ export async function forwardToBackend(msg: Message): Promise<void> {
         phoneNumber = contact.number;
       }
     } catch (e) {
-      console.warn("[Forwarder] Could not get contact number from LID, using LID as-is");
+      console.warn(
+        "[Forwarder] Could not get contact number from LID, using LID as-is",
+      );
     }
   }
 
@@ -70,7 +72,11 @@ export async function forwardToBackend(msg: Message): Promise<void> {
     });
 
     if (!response.ok) {
-      console.error("[Forwarder] Backend rejected:", response.status, await response.text());
+      console.error(
+        "[Forwarder] Backend rejected:",
+        response.status,
+        await response.text(),
+      );
     }
   } catch (error) {
     console.error("[Forwarder] Failed to forward to backend:", error);
