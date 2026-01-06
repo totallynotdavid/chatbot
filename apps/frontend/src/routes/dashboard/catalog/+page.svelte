@@ -3,7 +3,6 @@ import { onMount } from "svelte";
 import { goto } from "$app/navigation";
 import type { Product, Bundle, FnbOffering, CatalogPeriod, StockStatus } from "@totem/types";
 import { auth } from "$lib/state/auth.svelte";
-import { catalogSelection } from "$lib/state/catalog.svelte";
 import { fetchApi } from "$lib/utils/api";
 import PageHeader from "$lib/components/shared/page-header.svelte";
 import Button from "$lib/components/ui/button.svelte";
@@ -53,8 +52,6 @@ async function loadData(periodId?: string) {
     localBaseProducts = pRes;
     localBundles = bRes;
     localFnbOfferings = fRes;
-    
-    catalogSelection.clear();
   } catch (error) {
     console.error("Failed to load catalog data:", error);
   }
