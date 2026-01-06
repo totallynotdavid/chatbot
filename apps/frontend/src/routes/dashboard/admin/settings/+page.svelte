@@ -13,7 +13,7 @@ let saving = $state(false);
 let showConfirmModal = $state(false);
 
 let hasChanges = $derived(
-  JSON.stringify(settings) !== JSON.stringify(initialSettings)
+  JSON.stringify(settings) !== JSON.stringify(initialSettings),
 );
 
 async function loadSettings() {

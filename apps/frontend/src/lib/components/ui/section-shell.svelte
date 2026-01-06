@@ -1,11 +1,11 @@
 <script lang="ts">
-import type { Snippet } from 'svelte';
+import type { Snippet } from "svelte";
 
 type Props = {
-    title: string;
-    description?: string;
-    action?: Snippet;
-    children: Snippet;
+  title: string;
+  description?: string;
+  action?: Snippet;
+  children: Snippet;
 };
 
 let { title, description, action, children }: Props = $props();

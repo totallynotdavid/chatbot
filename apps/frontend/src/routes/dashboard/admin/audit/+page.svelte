@@ -7,7 +7,10 @@ import SectionShell from "$lib/components/ui/section-shell.svelte";
 import DataTable from "$lib/components/ui/data-table.svelte";
 import Button from "$lib/components/ui/button.svelte";
 
-type AuditLogWithName = AuditLog & { user_name?: string; user_username?: string };
+type AuditLogWithName = AuditLog & {
+  user_name?: string;
+  user_username?: string;
+};
 let logs = $state<AuditLogWithName[]>([]);
 let loading = $state(true);
 
@@ -43,38 +46,42 @@ onMount(loadLogs);
 
 // Column Definitions
 const columns = [
-    {
-        header: "Fecha",
-        render: (item: AuditLogWithName) => `<span class="font-mono text-xs text-ink-500">${formatDateTime(item.created_at)}</span>`
+  {
+    header: "Fecha",
+    render: (item: AuditLogWithName) =>
+      `<span class="font-mono text-xs text-ink-500">${formatDateTime(item.created_at)}</span>`,
+  },
+  {
+    header: "Usuario",
+    render: (item: AuditLogWithName) => {
+      const name = item.user_name || item.user_id;
+      const sub = item.user_username
+        ? `<br><span class="text-xs text-ink-400 font-mono">@${item.user_username}</span>`
+        : "";
+      return `<div class="leading-tight">${name}${sub}</div>`;
     },
-    {
-        header: "Usuario",
-        render: (item: AuditLogWithName) => {
-            const name = item.user_name || item.user_id;
-            const sub = item.user_username ? `<br><span class="text-xs text-ink-400 font-mono">@${item.user_username}</span>` : '';
-            return `<div class="leading-tight">${name}${sub}</div>`;
-        }
+  },
+  {
+    header: "Acción",
+    render: (item: AuditLogWithName) => {
+      const label = actionLabels[item.action] || item.action;
+      return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 shadow-sm">${label}</span>`;
     },
-    {
-        header: "Acción",
-        render: (item: AuditLogWithName) => {
-             const label = actionLabels[item.action] || item.action;
-             return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 shadow-sm">${label}</span>`;
-        }
+  },
+  {
+    header: "Recurso",
+    render: (item: AuditLogWithName) =>
+      `<div class="text-xs text-ink-500">${item.resource_type}<br>${item.resource_id || "-"}</div>`,
+  },
+  {
+    header: "Detalles",
+    render: (item: AuditLogWithName) => {
+      if (!item.metadata || item.metadata === "{}")
+        return '<span class="text-ink-300">-</span>';
+      return `<code class="text-[10px] bg-cream-50 p-1 rounded border border-cream-100 block max-w-xs truncate" title='${item.metadata}'>${item.metadata}</code>`;
     },
-    {
-        header: "Recurso",
-        render: (item: AuditLogWithName) => `<div class="text-xs text-ink-500">${item.resource_type}<br>${item.resource_id || '-'}</div>`
-    },
-    {
-        header: "Detalles",
-        render: (item: AuditLogWithName) => {
-            if (!item.metadata || item.metadata === "{}") return '<span class="text-ink-300">-</span>';
-            return `<code class="text-[10px] bg-cream-50 p-1 rounded border border-cream-100 block max-w-xs truncate" title='${item.metadata}'>${item.metadata}</code>`;
-        }
-    }
+  },
 ];
-
 </script>
 
 <SectionShell 

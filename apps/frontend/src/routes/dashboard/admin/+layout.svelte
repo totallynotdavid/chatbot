@@ -6,17 +6,17 @@ import PageTitle from "$lib/components/shared/page-title.svelte";
 let { children } = $props();
 
 const tabs = [
-    { href: "/dashboard/admin/users", label: "Usuarios" },
-    { href: "/dashboard/admin/audit", label: "Auditoría" },
-    { href: "/dashboard/admin/settings", label: "Configuración" },
+  { href: "/dashboard/admin/users", label: "Usuarios" },
+  { href: "/dashboard/admin/audit", label: "Auditoría" },
+  { href: "/dashboard/admin/settings", label: "Configuración" },
 ];
 
 function isActive(path: string) {
-    const current = $page.url.pathname;
-    if (path === "/dashboard/admin/users") {
-        return current.includes("/dashboard/admin/users");
-    }
-    return current.startsWith(path);
+  const current = $page.url.pathname;
+  if (path === "/dashboard/admin/users") {
+    return current.includes("/dashboard/admin/users");
+  }
+  return current.startsWith(path);
 }
 </script>
 

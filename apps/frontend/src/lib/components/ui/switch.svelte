@@ -1,48 +1,46 @@
 <script lang="ts">
 type Props = {
-	checked?: boolean;
-	label: string;
-	description?: string;
-	disabled?: boolean;
-	onCheckedChange?: (checked: boolean) => void;
-	variant?: "default" | "danger";
+  checked?: boolean;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  variant?: "default" | "danger";
 };
 
 let {
-	checked = $bindable(false),
-	label,
-	description,
-	disabled = false,
-	onCheckedChange,
-	variant = "default",
+  checked = $bindable(false),
+  label,
+  description,
+  disabled = false,
+  onCheckedChange,
+  variant = "default",
 }: Props = $props();
 
 const switchId = `switch-${Math.random().toString(36).slice(2, 9)}`;
 const labelId = `${switchId}-label`;
 
 function toggle() {
-	if (disabled) return;
-	checked = !checked;
-	onCheckedChange?.(checked);
+  if (disabled) return;
+  checked = !checked;
+  onCheckedChange?.(checked);
 }
 
 // Colors based on Ink & Cream theme
 const colors = {
-	default: {
-		on: "bg-ink-900 border-ink-900",
-		off: "bg-cream-100 border-cream-300 hover:border-ink-400",
-		thumb: "bg-white",
-	},
-	danger: {
-		on: "bg-red-600 border-red-600",
-		off: "bg-cream-100 border-cream-300 hover:border-red-300",
-		thumb: "bg-white",
-	},
+  default: {
+    on: "bg-ink-900 border-ink-900",
+    off: "bg-cream-100 border-cream-300 hover:border-ink-400",
+    thumb: "bg-white",
+  },
+  danger: {
+    on: "bg-red-600 border-red-600",
+    off: "bg-cream-100 border-cream-300 hover:border-red-300",
+    thumb: "bg-white",
+  },
 };
 
-let activeColor = $derived(
-	checked ? colors[variant].on : colors[variant].off
-);
+let activeColor = $derived(checked ? colors[variant].on : colors[variant].off);
 </script>
 
 <div class="flex items-center justify-between gap-4 py-4 group">

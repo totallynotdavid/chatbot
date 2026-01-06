@@ -36,7 +36,8 @@ const variants = {
   primary: "bg-ink-900 text-cream-50 hover:bg-ink-600 focus-visible:bg-ink-600",
   secondary:
     "bg-transparent border border-ink-200 text-ink-900 hover:bg-ink-50 hover:border-ink-900 focus-visible:bg-ink-50 focus-visible:border-ink-900",
-  outline: "bg-white border-2 border-ink-900 text-ink-900 hover:bg-ink-900 hover:text-white focus-visible:bg-ink-900 focus-visible:text-white",
+  outline:
+    "bg-white border-2 border-ink-900 text-ink-900 hover:bg-ink-900 hover:text-white focus-visible:bg-ink-900 focus-visible:text-white",
   ghost: "bg-transparent text-ink-600 hover:bg-ink-50 focus-visible:bg-ink-50",
 };
 </script>

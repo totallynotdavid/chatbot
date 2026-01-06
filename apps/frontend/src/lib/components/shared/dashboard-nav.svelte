@@ -45,7 +45,10 @@ $: crumbs = (() => {
     if (label) {
       trail.push({
         label,
-        href: currentPath === "/dashboard/admin" ? "/dashboard/admin/users" : currentPath,
+        href:
+          currentPath === "/dashboard/admin"
+            ? "/dashboard/admin/users"
+            : currentPath,
       });
     }
   }
