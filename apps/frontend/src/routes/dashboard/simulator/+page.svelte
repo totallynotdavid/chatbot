@@ -374,13 +374,13 @@ onMount(() => {
 		</div>
 	</div>
 
-	<!-- Conversation Detail -->
+	<!-- Conversation detail -->
 	<div class="hidden md:flex flex-col flex-1 bg-cream-100 relative min-w-0">
 		{#if selectedPhone && conversation}
 			<!-- Header -->
 			<div class="px-8 py-6 border-b border-ink-900/10 bg-white/95 backdrop-blur sticky top-0 z-10">
 				<div class="flex justify-between items-center">
-					<div class="space-y-[1px]">
+					<div class="space-y-px">
 						<div class="flex items-center gap-3">
 							<h2 class="font-serif text-3xl text-ink-900">
 								{#if conversation.client_name}
