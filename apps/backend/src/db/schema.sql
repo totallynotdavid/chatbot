@@ -27,17 +27,46 @@ CREATE TABLE IF NOT EXISTS catalog_periods (
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
-CREATE TABLE IF NOT EXISTS catalog_products (
+-- Base product templates (segment-agnostic inventory)
+CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
-    period_id TEXT REFERENCES catalog_periods(id),
-    segment TEXT NOT NULL CHECK(segment IN ('fnb', 'gaso')),
-    category TEXT NOT NULL,
     name TEXT NOT NULL,
-    description TEXT,
+    category TEXT NOT NULL,
+    brand TEXT,
+    model TEXT,
+    specs_json TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+
+-- GASO bundles (promotional packages with snapshotted composition)
+CREATE TABLE IF NOT EXISTS catalog_bundles (
+    id TEXT PRIMARY KEY,
+    period_id TEXT NOT NULL REFERENCES catalog_periods(id),
+    name TEXT NOT NULL,
     price REAL NOT NULL,
+    primary_category TEXT NOT NULL,
+    categories_json TEXT,
+    image_id TEXT NOT NULL,
+    composition_json TEXT NOT NULL,
+    installments_json TEXT NOT NULL,
+    notes TEXT DEFAULT '01 año de garantía, delivery gratuito, cero cuota inicial',
+    is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
+    stock_status TEXT DEFAULT 'in_stock' CHECK(stock_status IN ('in_stock', 'low_stock', 'out_of_stock')),
+    created_by TEXT REFERENCES users(id),
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+
+-- FNB offerings (individual products with segment-specific pricing)
+CREATE TABLE IF NOT EXISTS catalog_fnb_offerings (
+    id TEXT PRIMARY KEY,
+    period_id TEXT NOT NULL REFERENCES catalog_periods(id),
+    product_id TEXT NOT NULL REFERENCES products(id),
+    product_snapshot_json TEXT NOT NULL,
+    price REAL NOT NULL,
+    category TEXT NOT NULL,
     installments INTEGER,
-    image_main_id TEXT NOT NULL,
-    image_specs_id TEXT,
+    image_id TEXT NOT NULL,
     is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
     stock_status TEXT DEFAULT 'in_stock' CHECK(stock_status IN ('in_stock', 'low_stock', 'out_of_stock')),
     created_by TEXT REFERENCES users(id),
@@ -145,10 +174,11 @@ CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(last_activ
 CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(status);
 CREATE INDEX IF NOT EXISTS idx_periods_status ON catalog_periods(status);
 CREATE INDEX IF NOT EXISTS idx_periods_year_month ON catalog_periods(year_month DESC);
-CREATE INDEX IF NOT EXISTS idx_products_period ON catalog_products(period_id);
-CREATE INDEX IF NOT EXISTS idx_products_segment ON catalog_products(segment);
-CREATE INDEX IF NOT EXISTS idx_products_active ON catalog_products(is_active, stock_status);
-CREATE INDEX IF NOT EXISTS idx_products_active_segment ON catalog_products(segment, is_active, stock_status, period_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_bundles_period ON catalog_bundles(period_id);
+CREATE INDEX IF NOT EXISTS idx_bundles_filtering ON catalog_bundles(period_id, is_active, stock_status, primary_category, price);
+CREATE INDEX IF NOT EXISTS idx_fnb_period ON catalog_fnb_offerings(period_id);
+CREATE INDEX IF NOT EXISTS idx_fnb_filtering ON catalog_fnb_offerings(period_id, is_active, stock_status, category, price);
 CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(phone_number, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_phone ON analytics_events(phone_number);
 CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type);

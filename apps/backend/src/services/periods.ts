@@ -94,13 +94,21 @@ export const PeriodService = {
       };
     }
 
-    const productCount = db
+    // Check for bundles
+    const bundleCount = db
       .prepare(
-        "SELECT COUNT(*) as count FROM catalog_products WHERE period_id = ?",
+        "SELECT COUNT(*) as count FROM catalog_bundles WHERE period_id = ?",
       )
       .get(id) as { count: number };
 
-    if (productCount.count > 0) {
+    // Check for FNB offerings
+    const fnbCount = db
+      .prepare(
+        "SELECT COUNT(*) as count FROM catalog_fnb_offerings WHERE period_id = ?",
+      )
+      .get(id) as { count: number };
+
+    if (bundleCount.count > 0 || fnbCount.count > 0) {
       return {
         success: false,
         message: "No se puede eliminar un período con productos",

@@ -3,6 +3,19 @@ export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 export type UserRole = "admin" | "developer" | "supervisor" | "sales_agent";
 export type PeriodStatus = "draft" | "active" | "archived";
 
+// Catalog types (new bundle-based architecture)
+export type {
+  Product,
+  ProductSpecs,
+  SnapshotProduct,
+  BundleChoice,
+  BundleChoiceOption,
+  BundleComposition,
+  InstallmentSchedule,
+  Bundle,
+  FnbOffering,
+} from "./catalog.ts";
+
 export type ConversationState =
   | "INIT"
   | "CONFIRM_CLIENT"
@@ -51,24 +64,6 @@ export type Conversation = {
   recording_audio_path: string | null;
   recording_uploaded_at: string | null;
   assignment_notified_at: string | null;
-};
-
-export type Product = {
-  id: string;
-  period_id: string;
-  segment: Segment;
-  category: string;
-  name: string;
-  description: string | null;
-  price: number;
-  installments: number | null;
-  image_main_id: string;
-  image_specs_id: string | null;
-  is_active: number;
-  stock_status: StockStatus;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
 };
 
 export type CatalogPeriod = {
