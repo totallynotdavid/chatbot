@@ -2,12 +2,14 @@ import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
 import { BASE_PRODUCTS } from "./seed-data/products.ts";
 import { BUNDLES_SEED } from "./seed-data/bundles.ts";
+import { FNB_BUNDLES_SEED } from "./seed-data/fnb-bundles.ts";
 
 export async function seedDatabase(db: Database) {
   seedUsers(db);
   seedPeriod(db);
   seedProducts(db);
   seedBundles(db);
+  seedFnbBundles(db);
 }
 
 function seedUsers(db: Database) {
@@ -186,6 +188,42 @@ function seedBundles(db: Database) {
   }
 
   console.log(`Seeded ${BUNDLES_SEED.length} GASO bundles`);
+}
+
+function seedFnbBundles(db: Database) {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const periodId = `period-${yearMonth}`;
+
+  const check = db
+    .prepare(
+      "SELECT count(*) as count FROM catalog_bundles WHERE period_id = ? AND id LIKE 'fnb-%'",
+    )
+    .get(periodId) as { count: number };
+  if (check.count > 0) return;
+
+  const stmt = db.prepare(`
+    INSERT INTO catalog_bundles (id, period_id, name, price, primary_category, categories_json, image_id, composition_json, installments_json, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const b of FNB_BUNDLES_SEED) {
+    const id = `fnb-${b.image_id}`;
+    stmt.run(
+      id,
+      periodId,
+      b.name,
+      b.price,
+      b.primary_category,
+      JSON.stringify(b.categories),
+      b.image_id,
+      JSON.stringify(b.composition),
+      JSON.stringify(b.installments),
+      "01 año de garantía, delivery gratuito, cero cuota inicial",
+    );
+  }
+
+  console.log(`Seeded ${FNB_BUNDLES_SEED.length} FnB bundles`);
 }
 
 // Main execution

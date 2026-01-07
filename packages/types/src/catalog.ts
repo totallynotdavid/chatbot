@@ -75,7 +75,7 @@ export type Product = {
 };
 
 /** Parsed product specs */
-export type ProductSpecs = Record<string, string | number>;
+export type ProductSpecs = Record<string, string | number | boolean>;
 
 /** Snapshotted product in bundle composition */
 export type SnapshotProduct = {
@@ -107,6 +107,10 @@ export type InstallmentSchedule = {
   "9m"?: number;
   "12m"?: number;
   "18m"?: number;
+  "24m"?: number;
+  "36m"?: number;
+  "48m"?: number;
+  "60m"?: number;
 };
 
 /** GASO bundle (promotional package) */
