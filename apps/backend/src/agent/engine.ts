@@ -358,6 +358,57 @@ async function handleCheckGaso(
   }
 }
 
+/**
+ * Sends bundle images to customer with installment details
+ * @returns true if bundles were sent, false if no bundles available
+ */
+async function sendBundleImages(params: {
+  phoneNumber: string;
+  segment: "gaso" | "fnb";
+  category: string;
+  creditLine: number;
+  isSimulation: boolean;
+}): Promise<boolean> {
+  const bundles = BundleService.getAvailable({
+    maxPrice: params.creditLine,
+    category: params.category,
+    segment: params.segment,
+  }).slice(0, 3);
+
+  if (bundles.length === 0) {
+    return false;
+  }
+
+  // Send each bundle image with formatted caption
+  for (const bundle of bundles) {
+    const installments = JSON.parse(bundle.installments_json);
+    const firstOption = installments[0];
+    const installmentText = firstOption
+      ? `Desde S/ ${firstOption.monthlyAmount.toFixed(2)}/mes (${firstOption.months} cuotas)`
+      : "";
+
+    const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
+
+    if (params.isSimulation) {
+      WhatsAppService.logMessage(
+        params.phoneNumber,
+        "outbound",
+        "image",
+        caption,
+        "sent",
+      );
+    } else {
+      await WhatsAppService.sendImage(
+        params.phoneNumber,
+        `images/${bundle.image_id}.jpg`,
+        caption,
+      );
+    }
+  }
+
+  return true;
+}
+
 async function handleSendImages(
   conv: Conversation,
   category: string,
@@ -368,112 +419,36 @@ async function handleSendImages(
   const segment = context.segment || "fnb";
   const creditLine = context.creditLine || 0;
 
-  // Get products based on segment (GASO = bundles, FNB = offerings)
-  if (segment === "gaso") {
-    const bundles = BundleService.getAvailable({
-      maxPrice: creditLine,
-      category,
-      segment: "gaso",
-    }).slice(0, 3);
+  // Send bundle images
+  const sent = await sendBundleImages({
+    phoneNumber,
+    segment,
+    category,
+    creditLine,
+    isSimulation,
+  });
 
-    if (bundles.length === 0) {
-      await handleNoStock(conv, category, context);
-      return;
-    }
+  if (!sent) {
+    await handleNoStock(conv, category, context);
+    return;
+  }
 
-    for (const bundle of bundles) {
-      // Format installments info from schedule
-      const installments = JSON.parse(bundle.installments_json);
-      const firstOption = installments[0];
-      const installmentText = firstOption
-        ? `Desde S/ ${firstOption.monthlyAmount.toFixed(2)}/mes (${firstOption.months} cuotas)`
-        : "";
+  // Send follow-up message
+  const followUp =
+    segment === "gaso"
+      ? "¿Te gustaría llevarte alguno de estos?"
+      : "¿Alguno te interesa?";
 
-      const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
-
-      if (isSimulation) {
-        WhatsAppService.logMessage(
-          phoneNumber,
-          "outbound",
-          "image",
-          caption,
-          "sent",
-        );
-      } else {
-        await WhatsAppService.sendImage(
-          phoneNumber,
-          `images/${bundle.image_id}.jpg`,
-          caption,
-        );
-      }
-    }
-
-    // Send follow-up question after showing products
-    const followUp = "¿Te gustaría llevarte alguno de estos?";
-    if (isSimulation) {
-      WhatsAppService.logMessage(
-        phoneNumber,
-        "outbound",
-        "text",
-        followUp,
-        "sent",
-      );
-    } else {
-      await WhatsAppService.sendMessage(phoneNumber, followUp);
-    }
+  if (isSimulation) {
+    WhatsAppService.logMessage(
+      phoneNumber,
+      "outbound",
+      "text",
+      followUp,
+      "sent",
+    );
   } else {
-    // FNB segment - individual offerings
-    const offerings = BundleService.getAvailable({
-      maxPrice: creditLine,
-      category,
-      segment: "fnb",
-    }).slice(0, 3);
-
-    if (offerings.length === 0) {
-      await handleNoStock(conv, category, context);
-      return;
-    }
-
-    for (const offering of offerings) {
-      // Format installments info from schedule
-      const installments = JSON.parse(offering.installments_json);
-      const firstOption = installments[0];
-      const installmentText = firstOption
-        ? `Desde S/ ${firstOption.monthlyAmount.toFixed(2)}/mes (${firstOption.months} cuotas)`
-        : "";
-
-      const caption = `${offering.name}\nPrecio: S/ ${offering.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
-
-      if (isSimulation) {
-        WhatsAppService.logMessage(
-          phoneNumber,
-          "outbound",
-          "image",
-          caption,
-          "sent",
-        );
-      } else {
-        await WhatsAppService.sendImage(
-          phoneNumber,
-          `images/${offering.image_id}.jpg`,
-          caption,
-        );
-      }
-    }
-
-    // Send follow-up question after showing products
-    const followUp = "¿Alguno te interesa?";
-    if (isSimulation) {
-      WhatsAppService.logMessage(
-        phoneNumber,
-        "outbound",
-        "text",
-        followUp,
-        "sent",
-      );
-    } else {
-      await WhatsAppService.sendMessage(phoneNumber, followUp);
-    }
+    await WhatsAppService.sendMessage(phoneNumber, followUp);
   }
 }
 
