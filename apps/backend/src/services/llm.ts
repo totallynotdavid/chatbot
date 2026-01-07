@@ -215,3 +215,54 @@ JSON: {"suggestion": "tu sugerencia natural"}`,
     return `No tenemos ${requestedCategory} disponible ahorita. ¿Te interesa algo más?`;
   }
 }
+
+export async function handleBacklogResponse(
+  message: string,
+  ageMinutes: number,
+): Promise<string> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `${SALES_CONTEXT}
+
+SITUACIÓN: El cliente te escribió hace ${ageMinutes} minutos pero estabas offline. Ahora acabas de recibir su(s) mensaje(s).
+
+MENSAJE(S) DEL CLIENTE:
+"${message}"
+
+TAREA: Genera UNA respuesta que:
+1. Reconozca brevemente la demora (natural, sin sobre-disculparse)
+2. Responda a su mensaje original de forma contextual
+3. Continúe la conversación naturalmente
+
+TONO: Amigable, profesional, humano. Como si fueras un asesor real que acaba de ver el mensaje.
+FORMATO: 2-3 líneas máximo. NO suenes robótico. NO uses emojis excesivos.
+
+EJEMPLOS:
+- Cliente: "Hola" (hace 30 min) → "¡Hola! Disculpa la demora. Somos Tótem, aliados de Calidda. ¿Eres titular de tu servicio Calidda?"
+- Cliente: "Me interesan celulares" (hace 45 min) → "¡Claro! Perdón por la espera. Tengo varios celulares disponibles. ¿Cuál es tu DNI para ver tu línea?"
+- Cliente: "Hola, quisiera una laptop" (hace 1 hora) → "¡Hola! Disculpa que recién te respondo. Ahorita no tengo laptops, pero tengo celulares de alta gama. ¿Te interesa?"
+
+JSON: {"response": "tu respuesta contextual"}`,
+        },
+        {
+          role: "user",
+          content: `Mensaje del cliente hace ${ageMinutes} minutos: "${message}"`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.8,
+    });
+
+    const choice = completion.choices[0];
+    const content = choice?.message.content;
+    const res = JSON.parse(content || "{}");
+
+    return res.response || `¡Hola! Disculpa la demora. ¿En qué puedo ayudarte?`;
+  } catch {
+    return `¡Hola! Disculpa la demora. ¿En qué puedo ayudarte?`;
+  }
+}
