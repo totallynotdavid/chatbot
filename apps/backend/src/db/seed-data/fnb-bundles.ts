@@ -305,7 +305,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "lavadoras",
         categories: ["lavadoras"],
         composition: {
-            fixed: [snap("mabe_lavadora_22kg_fnb"), snap("exprimidor")],
+            fixed: [snap("mabe_lavadora_22kg"), snap("exprimidor")],
             choices: [],
         },
         installments: {
@@ -327,7 +327,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "lavadoras",
         categories: ["lavadoras"],
         composition: {
-            fixed: [snap("samsung_lavadora_13kg_fnb"), snap("exprimidor")],
+            fixed: [snap("samsung_lavadora_13kg"), snap("exprimidor")],
             choices: [],
         },
         installments: {
@@ -437,7 +437,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "refrigeradoras",
         categories: ["refrigeradoras"],
         composition: {
-            fixed: [snap("mabe_refri_511l_fnb")],
+            fixed: [snap("mabe_refri_511l")],
             choices: [],
         },
         installments: {
@@ -481,7 +481,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "refrigeradoras",
         categories: ["refrigeradoras"],
         composition: {
-            fixed: [snap("indurama_refri_508l_fnb"), snap("exprimidor")],
+            fixed: [snap("indurama_refri_508l"), snap("exprimidor")],
             choices: [],
         },
         installments: {
@@ -525,7 +525,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "refrigeradoras",
         categories: ["refrigeradoras"],
         composition: {
-            fixed: [snap("lg_refri_509l_fnb")],
+            fixed: [snap("lg_refri_509l")],
             choices: [],
         },
         installments: {
@@ -547,7 +547,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "tv",
         categories: ["tv"],
         composition: {
-            fixed: [snap("samsung_tv_65_fnb"), snap("exprimidor")],
+            fixed: [snap("samsung_tv_65"), snap("exprimidor")],
             choices: [],
         },
         installments: {
@@ -591,7 +591,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "tv",
         categories: ["tv"],
         composition: {
-            fixed: [snap("lg_tv_65_fnb")],
+            fixed: [snap("lg_tv_65")],
             choices: [],
         },
         installments: {
@@ -613,7 +613,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "tv",
         categories: ["tv", "audio"],
         composition: {
-            fixed: [snap("lg_tv_65_fnb"), snap("samsung_barra_sonido")],
+            fixed: [snap("lg_tv_65"), snap("samsung_barra_sonido")],
             choices: [],
         },
         installments: {
@@ -635,7 +635,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "fusion",
         categories: ["tv", "lavadoras"],
         composition: {
-            fixed: [snap("lg_tv_65_fnb"), snap("samsung_lavadora_13kg_fnb")],
+            fixed: [snap("lg_tv_65"), snap("samsung_lavadora_13kg")],
             choices: [],
         },
         installments: {
@@ -657,7 +657,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "audio",
         categories: ["audio"],
         composition: {
-            fixed: [snap("samsung_torre_sonido_fnb"), snap("exprimidor")],
+            fixed: [snap("samsung_torre_sonido"), snap("exprimidor")],
             choices: [],
         },
         installments: {
@@ -679,7 +679,7 @@ export const FNB_BUNDLES_SEED: BundleSeed[] = [
         primary_category: "audio",
         categories: ["audio"],
         composition: {
-            fixed: [snap("lg_torre_sonido_fnb"), snap("exprimidor")],
+            fixed: [snap("lg_torre_sonido"), snap("exprimidor")],
             choices: [],
         },
         installments: {
