@@ -60,7 +60,7 @@ catalog.patch("/products/:id", requireCatalogWrite, async (c) => {
   return c.json(product);
 });
 
-// ============ BUNDLES (GASO & FnB with segment filtering) ============
+// ============ BUNDLES ============
 
 catalog.get("/bundles", (c) => {
   const periodId = c.req.query("period_id");

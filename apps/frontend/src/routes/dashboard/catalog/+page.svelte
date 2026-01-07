@@ -98,14 +98,15 @@
   function handleBundleClick(bundle: Bundle) {
     if (canEdit) {
       const pParam = currentPeriod ? `?period=${currentPeriod.id}` : "";
-      goto(`/dashboard/catalog/gaso/${bundle.id}${pParam}`);
+      goto(`/dashboard/catalog/bundles/${bundle.id}${pParam}`);
     }
   }
 
   function handleFnbBundleClick(bundle: Bundle) {
     if (canEdit) {
       const pParam = currentPeriod ? `?period=${currentPeriod.id}` : "";
-      goto(`/dashboard/catalog/fnb/${bundle.id}${pParam}`);
+      // Use unified bundle editor for both GASO and FnB
+      goto(`/dashboard/catalog/bundles/${bundle.id}${pParam}`);
     }
   }
 
@@ -126,7 +127,7 @@
     if (activeTab === "inventory") {
       goto(`/dashboard/catalog/inventory/new`);
     } else if (activeTab === "gaso") {
-      goto(`/dashboard/catalog/gaso/new${pParam}`);
+      goto(`/dashboard/catalog/bundles/new${pParam}`);
     } else if (activeTab === "fnb") {
       goto(`/dashboard/catalog/fnb/new${pParam}`);
     }
