@@ -3,7 +3,8 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "bun --env-file=../../.env run src/index.ts"
+        "dev": "LOG_LEVEL=debug bun --env-file=../../.env run src/index.ts",
+        "start": "bun --env-file=../../.env run src/index.ts"
     },
     "dependencies": {
         "hono": "^4.11.1",

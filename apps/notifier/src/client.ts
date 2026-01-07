@@ -4,6 +4,7 @@ import process from "node:process";
 import fs from "node:fs";
 import path from "node:path";
 import { forwardToBackend } from "./message-forwarder.ts";
+import { appLogger, messageLogger } from "./logger.ts";
 
 const DATA_PATH = process.env.NOTIFIER_DATA_PATH || "./data/notifier";
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -22,7 +23,10 @@ if (fs.existsSync(MAPPING_FILE)) {
   Object.entries(data).forEach(([key, jid]) => {
     groupMapping.set(key, jid as string);
   });
-  console.log("Loaded group mapping:", Array.from(groupMapping.keys()));
+  appLogger.info(
+    { groups: Array.from(groupMapping.keys()) },
+    "Loaded group mapping",
+  );
 }
 
 function saveGroupMapping() {
@@ -43,33 +47,41 @@ export async function initializeWhatsAppClient() {
   });
 
   client.on("qr", (qr) => {
-    console.log("\nScan this QR code with WhatsApp:");
+    appLogger.info("QR code generated for authentication");
     qrcode.generate(qr, { small: true });
   });
 
   client.on("ready", () => {
-    console.log("WhatsApp client ready");
-    if (IS_DEV) {
-      console.log("[DevMode] Message forwarding to backend enabled");
-    }
+    appLogger.info({ devMode: IS_DEV }, "WhatsApp client ready");
   });
 
   client.on("authenticated", () => {
-    console.log("WhatsApp authenticated");
+    appLogger.info("WhatsApp authenticated");
   });
 
   client.on("auth_failure", (msg) => {
-    console.error("WhatsApp auth failure:", msg);
+    appLogger.error({ reason: msg }, "WhatsApp authentication failed");
   });
 
   // Auto-register groups with @activate command
   client.on("message", async (msg) => {
-    // Forward messages to backend in dev mode (exclude groups and commands)
     const isGroupMessage = msg.from.endsWith("@g.us");
     const isCommand = msg.body?.startsWith("@") || false;
 
-    // Only forward actual incoming messages (not status updates, acks, etc.)
+    messageLogger.debug(
+      {
+        from: msg.from,
+        body: msg.body?.substring(0, 50),
+        isGroup: isGroupMessage,
+        isCommand,
+        fromMe: msg.fromMe,
+      },
+      "Received message",
+    );
+
+    // Forward messages to backend in dev mode (exclude groups and commands)
     if (IS_DEV && !isGroupMessage && !isCommand && msg.fromMe === false) {
+      messageLogger.debug({ from: msg.from }, "Forwarding message to backend");
       await forwardToBackend(msg);
       return;
     }
@@ -85,7 +97,10 @@ export async function initializeWhatsAppClient() {
         `Grupo "${groupName}" activado para notificaciones.\nJID: ${msg.from}`,
       );
 
-      console.log(`Group registered: ${groupName} -> ${msg.from}`);
+      appLogger.info(
+        { groupName, jid: msg.from },
+        "Group registered via @activate",
+      );
     }
   });
 

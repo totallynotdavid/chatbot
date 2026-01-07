@@ -1,4 +1,5 @@
 import { client, getGroupJID } from "./client.ts";
+import { appLogger, messageLogger } from "./logger.ts";
 
 type QueuedMessage = {
   channel: "agent" | "dev" | "sales" | "direct";
@@ -32,21 +33,38 @@ async function processQueue() {
 
     try {
       await sendMessage(item.channel, item.message, item.phoneNumber);
-      console.log(
-        `Sent to ${item.channel}${item.phoneNumber ? ` (${item.phoneNumber})` : ""}: ${item.message.substring(0, 50)}...`,
+      messageLogger.info(
+        {
+          channel: item.channel,
+          phoneNumber: item.phoneNumber,
+          messagePreview: item.message.substring(0, 50),
+        },
+        "Message sent",
       );
     } catch (error) {
-      console.error(`Failed to send to ${item.channel}:`, error);
-
       item.attempts++;
       if (item.attempts < MAX_RETRIES) {
-        console.log(
-          `⟳ Retry ${item.attempts}/${MAX_RETRIES} in ${RETRY_DELAY_MS}ms`,
+        appLogger.warn(
+          {
+            error,
+            channel: item.channel,
+            attempt: item.attempts,
+            maxRetries: MAX_RETRIES,
+          },
+          "Message send failed, retrying",
         );
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         queue.unshift(item); // Re-queue at front
       } else {
-        console.error(`Giving up on message after ${MAX_RETRIES} attempts`);
+        appLogger.error(
+          {
+            error,
+            channel: item.channel,
+            phoneNumber: item.phoneNumber,
+            message: item.message,
+          },
+          "Message permanently failed after max retries",
+        );
       }
     }
 

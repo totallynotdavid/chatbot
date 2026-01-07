@@ -2,18 +2,22 @@ import process from "node:process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Message } from "whatsapp-web.js";
+import { messageLogger, appLogger } from "./logger.ts";
 
 function getBackendUrl(): string {
   const tunnelFile = resolve(import.meta.dir, "../../.cloudflare-url");
   if (existsSync(tunnelFile)) {
     const url = readFileSync(tunnelFile, "utf-8").trim();
     if (url) {
-      console.log(`[notifier] Using tunnel URL from .cloudflare-url: ${url}`);
+      appLogger.info({ url, source: "tunnel-file" }, "Backend URL detected");
       return url;
     }
   }
   const fallback = process.env.BACKEND_URL || "http://localhost:3000";
-  console.log(`[notifier] Using fallback URL: ${fallback}`);
+  appLogger.info(
+    { url: fallback, source: "env-fallback" },
+    "Backend URL detected",
+  );
   return fallback;
 }
 
@@ -48,8 +52,9 @@ export async function forwardToBackend(msg: Message): Promise<void> {
         phoneNumber = contact.number;
       }
     } catch (e) {
-      console.warn(
-        "[Forwarder] Could not get contact number from LID, using LID as-is",
+      messageLogger.warn(
+        { lid: msg.from },
+        "Could not resolve LID to phone number",
       );
     }
   }
@@ -88,13 +93,26 @@ export async function forwardToBackend(msg: Message): Promise<void> {
     });
 
     if (!response.ok) {
-      console.error(
-        "[Forwarder] Backend rejected:",
-        response.status,
-        await response.text(),
+      const errorText = await response.text();
+      messageLogger.error(
+        {
+          status: response.status,
+          error: errorText,
+          messageId,
+          phoneNumber,
+        },
+        "Backend rejected forwarded message",
+      );
+    } else {
+      messageLogger.debug(
+        { messageId, phoneNumber },
+        "Message forwarded to backend",
       );
     }
   } catch (error) {
-    console.error("[Forwarder] Failed to forward to backend:", error);
+    messageLogger.error(
+      { error, messageId, phoneNumber },
+      "Failed to forward message to backend",
+    );
   }
 }

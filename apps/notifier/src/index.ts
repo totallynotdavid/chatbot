@@ -1,9 +1,14 @@
 import { startServer } from "./server.ts";
 import { initializeWhatsAppClient } from "./client.ts";
+import { appLogger } from "./logger.ts";
 
-console.log("Starting notifier service...");
+appLogger.info("Starting notifier service...");
 
-await initializeWhatsAppClient();
-await startServer();
-
-console.log("Notifier service is up");
+try {
+  await initializeWhatsAppClient();
+  await startServer();
+  appLogger.info("Notifier service is up");
+} catch (error) {
+  appLogger.error({ error }, "Failed to start notifier service");
+  process.exit(1);
+}

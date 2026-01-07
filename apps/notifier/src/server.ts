@@ -3,6 +3,7 @@ import { enqueueMessage } from "./queue.ts";
 import { sendDirectMessage, sendDirectImage } from "./direct-messaging.ts";
 import { client } from "./client.ts";
 import process from "node:process";
+import { appLogger } from "./logger.ts";
 
 const app = new Hono();
 
@@ -18,7 +19,7 @@ app.post("/send", async (c) => {
     await sendDirectMessage(phoneNumber, content);
     return c.json({ status: "sent" });
   } catch (error) {
-    console.error("[/send] Error:", error);
+    appLogger.error({ error, phoneNumber }, "Failed to send direct message");
     return c.json({ error: "Failed to send message" }, 500);
   }
 });
@@ -35,7 +36,10 @@ app.post("/send-image", async (c) => {
     await sendDirectImage(phoneNumber, imageUrl, caption);
     return c.json({ status: "sent" });
   } catch (error) {
-    console.error("[/send-image] Error:", error);
+    appLogger.error(
+      { error, phoneNumber, imageUrl },
+      "Failed to send direct image",
+    );
     return c.json({ error: "Failed to send image" }, 500);
   }
 });
@@ -86,5 +90,5 @@ export async function startServer() {
     fetch: app.fetch,
   });
 
-  console.log(`Notifier HTTP server running on http://localhost:${port}`);
+  appLogger.info({ port }, "HTTP server listening");
 }
