@@ -20,7 +20,6 @@ import { trackEvent } from "../services/analytics.ts";
 import { notifyTeam } from "../services/notifier.ts";
 import {
   BundleService,
-  FnbOfferingService,
 } from "../services/catalog/index.ts";
 import * as LLM from "../services/llm.ts";
 import * as T from "@totem/core";
@@ -103,7 +102,7 @@ async function executeTransition(
       // No quick match - use LLM for ambiguous cases
       const availableCategories =
         context.segment === "fnb"
-          ? FnbOfferingService.getAvailableCategories()
+          ? BundleService.getAvailableCategories("fnb")
           : BundleService.getAvailableCategories("gaso");
 
       const category = await LLM.extractEntity(message, "product_category", {
@@ -262,11 +261,11 @@ async function handleCheckGaso(
     await notifyTeam(
       "dev",
       `[ALERT] PowerBI is DOWN. Using Calidda fallback\n` +
-        `Reason: ${result.reason}\n` +
-        `DNI: ${dni}\n` +
-        `Eligible: ${result.eligible}\n` +
-        `Credit: S/ ${result.credit}\n` +
-        `Phone: ${phoneNumber}`,
+      `Reason: ${result.reason}\n` +
+      `DNI: ${dni}\n` +
+      `Eligible: ${result.eligible}\n` +
+      `Credit: S/ ${result.credit}\n` +
+      `Phone: ${phoneNumber}`,
     );
   }
 
@@ -426,9 +425,10 @@ async function handleSendImages(
     }
   } else {
     // FNB segment - individual offerings
-    const offerings = FnbOfferingService.getAvailable({
+    const offerings = BundleService.getAvailable({
       maxPrice: creditLine,
       category,
+      segment: "fnb",
     }).slice(0, 3);
 
     if (offerings.length === 0) {
@@ -437,8 +437,14 @@ async function handleSendImages(
     }
 
     for (const offering of offerings) {
-      const snapshot = JSON.parse(offering.product_snapshot_json);
-      const caption = `${snapshot.name}\nPrecio: S/ ${offering.price.toFixed(2)}${offering.installments ? `\nCuotas: ${offering.installments} meses` : ""}`;
+      // Format installments info from schedule
+      const installments = JSON.parse(offering.installments_json);
+      const firstOption = installments[0];
+      const installmentText = firstOption
+        ? `Desde S/ ${firstOption.monthlyAmount.toFixed(2)}/mes (${firstOption.months} cuotas)`
+        : "";
+
+      const caption = `${offering.name}\nPrecio: S/ ${offering.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
 
       if (isSimulation) {
         WhatsAppService.logMessage(
@@ -488,7 +494,7 @@ async function handleNoStock(
     const segment = context.segment || "fnb";
     const availableCategories =
       segment === "fnb"
-        ? FnbOfferingService.getAvailableCategories()
+        ? BundleService.getAvailableCategories("fnb")
         : BundleService.getAvailableCategories("gaso");
 
     responseMessage = await LLM.suggestAlternative(

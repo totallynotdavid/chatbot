@@ -101,14 +101,7 @@ export const PeriodService = {
       )
       .get(id) as { count: number };
 
-    // Check for FNB offerings
-    const fnbCount = db
-      .prepare(
-        "SELECT COUNT(*) as count FROM catalog_fnb_offerings WHERE period_id = ?",
-      )
-      .get(id) as { count: number };
-
-    if (bundleCount.count > 0 || fnbCount.count > 0) {
+    if (bundleCount.count > 0) {
       return {
         success: false,
         message: "No se puede eliminar un período con productos",

@@ -58,23 +58,6 @@ CREATE TABLE IF NOT EXISTS catalog_bundles (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
--- FNB offerings (individual products with segment-specific pricing)
-CREATE TABLE IF NOT EXISTS catalog_fnb_offerings (
-    id TEXT PRIMARY KEY,
-    period_id TEXT NOT NULL REFERENCES catalog_periods(id),
-    product_id TEXT NOT NULL REFERENCES products(id),
-    product_snapshot_json TEXT NOT NULL,
-    price REAL NOT NULL,
-    category TEXT NOT NULL,
-    installments INTEGER,
-    image_id TEXT NOT NULL,
-    is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
-    stock_status TEXT DEFAULT 'in_stock' CHECK(stock_status IN ('in_stock', 'low_stock', 'out_of_stock')),
-    created_by TEXT REFERENCES users(id),
-    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
-    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
-);
-
 CREATE TABLE IF NOT EXISTS conversations (
     phone_number TEXT PRIMARY KEY,
     client_name TEXT,
@@ -178,8 +161,6 @@ CREATE INDEX IF NOT EXISTS idx_periods_year_month ON catalog_periods(year_month 
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_bundles_period ON catalog_bundles(period_id);
 CREATE INDEX IF NOT EXISTS idx_bundles_filtering ON catalog_bundles(period_id, segment, is_active, stock_status, primary_category, price);
-CREATE INDEX IF NOT EXISTS idx_fnb_period ON catalog_fnb_offerings(period_id);
-CREATE INDEX IF NOT EXISTS idx_fnb_filtering ON catalog_fnb_offerings(period_id, is_active, stock_status, category, price);
 CREATE INDEX IF NOT EXISTS idx_messages_phone ON messages(phone_number, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_phone ON analytics_events(phone_number);
 CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type);

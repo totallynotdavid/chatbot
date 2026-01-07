@@ -12,27 +12,27 @@ export const load: PageServerLoad = async ({ cookies, params, url }) => {
   const { id } = params;
   const periodId = url.searchParams.get("period");
 
-  const [productsRes, offeringRes] = await Promise.all([
+  const [productsRes, bundleRes] = await Promise.all([
     fetchBackend("/api/catalog/products", { headers }),
-    id !== "new" 
-      ? fetchBackend(`/api/catalog/fnb/${id}`, { headers })
+    id !== "new"
+      ? fetchBackend(`/api/catalog/bundles/${id}`, { headers })
       : Promise.resolve(null)
   ]);
 
   const baseProducts = productsRes.ok ? await productsRes.json() : [];
-  let offering = null;
+  let bundle = null;
 
-  if (offeringRes) {
-    if (offeringRes.ok) {
-        offering = await offeringRes.json();
+  if (bundleRes) {
+    if (bundleRes.ok) {
+      bundle = await bundleRes.json();
     } else {
-        throw error(offeringRes.status, "Offering not found");
+      throw error(bundleRes.status, "Bundle not found");
     }
   }
 
   return {
     baseProducts,
-    offering,
-    periodId: offering?.period_id || periodId
+    bundle,
+    periodId: bundle?.period_id || periodId
   };
 };
