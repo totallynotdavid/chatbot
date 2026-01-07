@@ -35,13 +35,13 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
       fetchBackend("/api/catalog/products", { headers }),
       activePeriod
         ? fetchBackend(`/api/catalog/bundles?period_id=${activePeriod.id}`, {
-            headers,
-          })
+          headers,
+        })
         : Promise.resolve({ ok: false, json: () => [] }),
       activePeriod
-        ? fetchBackend(`/api/catalog/fnb?period_id=${activePeriod.id}`, {
-            headers,
-          })
+        ? fetchBackend(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=fnb`, {
+          headers,
+        })
         : Promise.resolve({ ok: false, json: () => [] }),
     ]);
 

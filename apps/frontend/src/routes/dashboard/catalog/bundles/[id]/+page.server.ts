@@ -11,10 +11,11 @@ export const load: PageServerLoad = async ({ cookies, params, url }) => {
   const headers = { cookie: `session=${sessionToken}` };
   const { id } = params;
   const periodId = url.searchParams.get("period");
+  const segment = url.searchParams.get("segment") as "gaso" | "fnb" | null;
 
   const [productsRes, bundleRes] = await Promise.all([
     fetchBackend("/api/catalog/products", { headers }),
-    id !== "new" 
+    id !== "new"
       ? fetchBackend(`/api/catalog/bundles/${id}`, { headers })
       : Promise.resolve(null)
   ]);
@@ -24,15 +25,16 @@ export const load: PageServerLoad = async ({ cookies, params, url }) => {
 
   if (bundleRes) {
     if (bundleRes.ok) {
-        bundle = await bundleRes.json();
+      bundle = await bundleRes.json();
     } else {
-        throw error(bundleRes.status, "Bundle not found");
+      throw error(bundleRes.status, "Bundle not found");
     }
   }
 
   return {
     baseProducts,
     bundle,
-    periodId: bundle?.period_id || periodId
+    periodId: bundle?.period_id || periodId,
+    segment: bundle?.segment || segment || "gaso"
   };
 };

@@ -127,9 +127,9 @@
     if (activeTab === "inventory") {
       goto(`/dashboard/catalog/inventory/new`);
     } else if (activeTab === "gaso") {
-      goto(`/dashboard/catalog/bundles/new${pParam}`);
+      goto(`/dashboard/catalog/bundles/new${pParam}&segment=gaso`);
     } else if (activeTab === "fnb") {
-      goto(`/dashboard/catalog/fnb/new${pParam}`);
+      goto(`/dashboard/catalog/bundles/new${pParam}&segment=fnb`);
     }
   }
 
