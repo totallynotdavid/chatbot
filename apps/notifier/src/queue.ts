@@ -1,4 +1,5 @@
-import { client, getGroupJID } from "./client.ts";
+import { client } from "./whatsapp-client.ts";
+import { getGroupJID } from "./group-registry.ts";
 import { appLogger, messageLogger } from "./logger.ts";
 
 type QueuedMessage = {

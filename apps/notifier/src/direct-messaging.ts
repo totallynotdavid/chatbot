@@ -1,4 +1,4 @@
-import { client } from "./client.ts";
+import { client } from "./whatsapp-client.ts";
 import { MessageMedia } from "whatsapp-web.js";
 import { messageLogger } from "./logger.ts";
 

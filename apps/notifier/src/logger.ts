@@ -12,20 +12,38 @@ const baseConfig = {
   timestamp: pino.stdTimeFunctions.isoTime,
 };
 
-// Development: pretty print to console
-const devTransport = {
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "HH:MM:ss",
-      ignore: "pid,hostname",
-    },
-  },
-};
+// Create logger that writes to both console and file
+function createLogger(filename: string, name?: string) {
+  if (IS_DEV) {
+    // Dev: pretty console + file
+    return pino({
+      ...baseConfig,
+      name,
+      transport: {
+        targets: [
+          {
+            target: "pino-pretty",
+            level: LOG_LEVEL,
+            options: {
+              colorize: true,
+              translateTime: "HH:MM:ss",
+              ignore: "pid,hostname",
+            },
+          },
+          {
+            target: "pino/file",
+            level: LOG_LEVEL,
+            options: {
+              destination: path.join(DATA_PATH, "logs", filename),
+              mkdir: true,
+            },
+          },
+        ],
+      },
+    });
+  }
 
-// Production: JSON logs to files
-function createFileLogger(filename: string) {
+  // Production: JSON to file only
   return pino(
     baseConfig,
     pino.destination({
@@ -37,11 +55,7 @@ function createFileLogger(filename: string) {
 }
 
 // Application logger: service lifecycle, errors, important events
-export const appLogger = IS_DEV
-  ? pino({ ...baseConfig, ...devTransport })
-  : createFileLogger("notifier.log");
+export const appLogger = createLogger("notifier.log");
 
 // Message logger: WhatsApp events, message flows, debugging
-export const messageLogger = IS_DEV
-  ? pino({ ...baseConfig, name: "messages", ...devTransport })
-  : createFileLogger("messages.log");
+export const messageLogger = createLogger("messages.log", "messages");

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { enqueueMessage } from "./queue.ts";
 import { sendDirectMessage, sendDirectImage } from "./direct-messaging.ts";
-import { client } from "./client.ts";
+import { client } from "./whatsapp-client.ts";
 import process from "node:process";
 import { appLogger } from "./logger.ts";
 
