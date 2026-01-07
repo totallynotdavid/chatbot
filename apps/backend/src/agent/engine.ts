@@ -18,9 +18,7 @@ import {
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { trackEvent } from "../services/analytics.ts";
 import { notifyTeam } from "../services/notifier.ts";
-import {
-  BundleService,
-} from "../services/catalog/index.ts";
+import { BundleService } from "../services/catalog/index.ts";
 import * as LLM from "../services/llm.ts";
 import * as T from "@totem/core";
 import { selectVariant, formatFirstName } from "@totem/core";
@@ -261,11 +259,11 @@ async function handleCheckGaso(
     await notifyTeam(
       "dev",
       `[ALERT] PowerBI is DOWN. Using Calidda fallback\n` +
-      `Reason: ${result.reason}\n` +
-      `DNI: ${dni}\n` +
-      `Eligible: ${result.eligible}\n` +
-      `Credit: S/ ${result.credit}\n` +
-      `Phone: ${phoneNumber}`,
+        `Reason: ${result.reason}\n` +
+        `DNI: ${dni}\n` +
+        `Eligible: ${result.eligible}\n` +
+        `Credit: S/ ${result.credit}\n` +
+        `Phone: ${phoneNumber}`,
     );
   }
 

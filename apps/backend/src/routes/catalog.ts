@@ -1,8 +1,5 @@
 import { Hono } from "hono";
-import {
-  ProductService,
-  BundleService,
-} from "../services/catalog/index.ts";
+import { ProductService, BundleService } from "../services/catalog/index.ts";
 import { PeriodService } from "../services/periods.ts";
 import { imageStorage } from "../services/image-storage.ts";
 import { logAction } from "../services/audit.ts";

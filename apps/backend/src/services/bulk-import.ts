@@ -1,13 +1,11 @@
-import {
-  BundleService,
-} from "./catalog/index.ts";
+import { BundleService } from "./catalog/index.ts";
 import { PeriodService } from "./periods.ts";
 import { db } from "../db/index.ts";
 
 /**
  * CSV Format for Bundles (GASO & FnB):
  * period_id,segment,name,price,primary_category,image_id,composition_json,installments_json
- * 
+ *
  * Notes:
  * - period_id: Must reference an existing draft period
  * - segment: 'gaso' or 'fnb'
