@@ -20,6 +20,25 @@ async function handleMessage(msg: Message) {
   const isGroupMessage = msg.from.endsWith("@g.us");
   const isCommand = msg.body?.startsWith("@") || false;
 
+  // Ignore WhatsApp system messages from 0@c.us
+  if (msg.from === "0@c.us") {
+    messageLogger.debug(
+      { from: msg.from },
+      "Ignoring system message from 0@c.us",
+    );
+    return;
+  }
+
+  // Ignore empty messages or placeholder messages (encryption handshake)
+  const hasContent = msg.body && msg.body.trim().length > 0;
+  if (!hasContent && !isGroupMessage) {
+    messageLogger.debug(
+      { from: msg.from, body: msg.body },
+      "Ignoring empty/placeholder message",
+    );
+    return;
+  }
+
   messageLogger.info(
     {
       from: msg.from,
