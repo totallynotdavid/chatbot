@@ -45,8 +45,10 @@ export async function classifyIntent(
 REGLAS:
 - "yes": Afirmaciones (sí, claro, ok, vale, dale, por supuesto, afirmativo, correcto, sep)
 - "no": Negaciones (no, nada, no gracias, paso, negativo, para nada)
-- "question": Preguntas (contiene ?, palabras interrogativas: qué/que/cuánto/como/donde/cuando, o pide información)
-- "unclear": No se puede determinar o mensaje confuso
+- "question": SOLO preguntas reales (contiene ?, o palabras interrogativas: qué/cuánto/cómo/dónde/cuándo/por qué)
+- "unclear": Expresiones de interés ("me interesa", "quiero", "busco"), menciones de productos, o mensajes confusos
+
+IMPORTANTE: "Me interesa X", "Quiero Y", "Busco Z" son expresiones de interés, NO preguntas → "unclear"
 
 Responde SOLO con JSON: {"intent": "yes"|"no"|"question"|"unclear"}`,
         },

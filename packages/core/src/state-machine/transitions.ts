@@ -538,7 +538,34 @@ function handleCollectAge(message: string, context: any): StateOutput {
 function handleOfferProducts(message: string, context: any): StateOutput {
   const lower = message.toLowerCase();
 
-  // Priority 1: Check if backend detected a question via LLM
+  // Priority 1: Product category extraction (matcher or LLM already ran in backend)
+  if (context.extractedCategory) {
+    return {
+      nextState: "OFFER_PRODUCTS",
+      commands: [
+        {
+          type: "SEND_IMAGES",
+          category: context.extractedCategory,
+          productIds: [],
+        },
+        {
+          type: "TRACK_EVENT",
+          eventType: "products_offered",
+          metadata: {
+            category: context.extractedCategory,
+            segment: context.segment,
+            extractionMethod: context.usedLLM ? "llm" : "matcher",
+          },
+        },
+      ],
+      updatedContext: {
+        offeredCategory: context.extractedCategory,
+        lastInterestCategory: context.extractedCategory,
+      },
+    };
+  }
+
+  // Priority 2: Check if backend detected a question via LLM
   if (context.llmDetectedQuestion) {
     // If LLM says requires human (complex financial question)
     if (context.llmRequiresHuman) {
@@ -712,33 +739,6 @@ function handleOfferProducts(message: string, context: any): StateOutput {
         },
       ],
       updatedContext: {},
-    };
-  }
-
-  // Priority 2: Use extracted category from backend (matcher or LLM)
-  if (context.extractedCategory) {
-    return {
-      nextState: "OFFER_PRODUCTS",
-      commands: [
-        {
-          type: "SEND_IMAGES",
-          category: context.extractedCategory,
-          productIds: [],
-        },
-        {
-          type: "TRACK_EVENT",
-          eventType: "products_offered",
-          metadata: {
-            category: context.extractedCategory,
-            segment: context.segment,
-            extractionMethod: context.usedLLM ? "llm" : "matcher",
-          },
-        },
-      ],
-      updatedContext: {
-        offeredCategory: context.extractedCategory,
-        lastInterestCategory: context.extractedCategory,
-      },
     };
   }
 
