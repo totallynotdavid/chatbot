@@ -126,7 +126,7 @@ onMount(() => {
 <PageTitle title="Catálogo" />
 
 <div class="max-w-7xl mx-auto p-8 md:p-12 min-h-screen">
-	<PageHeader title="Gestión de Catálogo" subtitle={currentPeriod ? `Período: ${currentPeriod.name}` : "Selecciona un período"}>
+	<PageHeader title="Gestión de catálogo" subtitle={currentPeriod ? `Período: ${currentPeriod.name}` : "Selecciona un período"}>
 		{#snippet actions()}
 			<PeriodSelector
 				{periods}
@@ -156,15 +156,12 @@ onMount(() => {
 
   <Tabs bind:value={activeTab}>
     <TabsList>
-      <TabsTrigger value="inventory">Inventario (Base)</TabsTrigger>
-      <TabsTrigger value="gaso">Gasodomésticos (Bundles)</TabsTrigger>
+      <TabsTrigger value="inventory">Inventario (base)</TabsTrigger>
+      <TabsTrigger value="gaso">Gasodomésticos (bundles)</TabsTrigger>
       <TabsTrigger value="fnb">Financiera (FNB)</TabsTrigger>
     </TabsList>
 
     <TabsContent value="inventory">
-      <div class="mb-4 text-sm text-ink-500">
-        Estos son los productos base disponibles. Se utilizan como plantillas para crear ofertas.
-      </div>
       <InventoryGrid
         products={baseProducts}
         canEdit={auth.isAdmin} 

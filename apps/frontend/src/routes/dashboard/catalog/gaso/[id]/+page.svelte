@@ -204,12 +204,12 @@ async function handleSave() {
 }
 </script>
 
-<PageTitle title={bundle ? "Editar Paquete" : "Nuevo Paquete"} />
+<PageTitle title={bundle ? "Editar bundle" : "Nuevo bundle"} />
 
 <div class="max-w-4xl mx-auto p-8 md:p-12">
     <div class="mb-8 flex items-center justify-between">
         <div>
-            <h1 class="text-3xl font-serif text-ink-900">{bundle ? "Editar Paquete GASO" : "Nuevo Paquete GASO"}</h1>
+            <h1 class="text-3xl font-serif text-ink-900">{bundle ? "Editar bundle GASO" : "Nuevo bundle GASO"}</h1>
             <p class="text-ink-500 mt-2">Configura la composición, precios y cuotas del paquete.</p>
         </div>
         <Button variant="ghost" onclick={goBack}>Cancelar</Button>
@@ -274,7 +274,7 @@ async function handleSave() {
 
         <!-- Installments Section -->
         <div class="border-t border-ink-100 pt-6">
-            <h4 class="text-lg font-bold text-ink-900 mb-4">Cuotas Mensuales (GASO)</h4>
+            <h4 class="text-lg font-bold text-ink-900 mb-4">Cuotas mensuales (GASO)</h4>
              <p class="text-sm text-ink-500 mb-4">Define el valor de la cuota mensual para cada plazo disponible.</p>
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {#each MONTH_OPTIONS as months}
