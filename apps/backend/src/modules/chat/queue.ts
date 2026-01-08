@@ -165,3 +165,44 @@ export function detectBacklog(messages: QueuedMessage[]): {
 
   return { isBacklog, oldestMessageAge };
 }
+
+export function recoverOrphanedMessages(): number {
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+  const result = db
+    .prepare(
+      `UPDATE message_queue 
+       SET status = 'pending' 
+       WHERE status = 'processing' 
+         AND created_at < ?`,
+    )
+    .run(fiveMinutesAgo);
+
+  return result.changes;
+}
+
+export function getRetryableFailedGroups(): string[] {
+  const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+
+  const groups = db
+    .prepare(
+      `SELECT DISTINCT group_id 
+       FROM message_queue 
+       WHERE status = 'failed' 
+         AND retry_count < 3 
+         AND created_at < ?
+       ORDER BY created_at ASC
+       LIMIT 5`,
+    )
+    .all(twoMinutesAgo) as { group_id: string }[];
+
+  return groups.map((g) => g.group_id);
+}
+
+export function retryFailedGroup(groupId: string): void {
+  db.prepare(
+    `UPDATE message_queue 
+     SET status = 'pending' 
+     WHERE group_id = ? AND status = 'failed'`,
+  ).run(groupId);
+}
