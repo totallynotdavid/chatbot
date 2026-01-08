@@ -1,13 +1,13 @@
 import type { Command } from "@totem/core";
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { handleCheckFNB } from "../handlers/fnb-check.ts";
-import { handleCheckGaso } from "../handlers/gaso-check.ts";
-import { handleSendImages } from "../handlers/bundle-sender.ts";
+import { handleCheckFNB } from "./handlers/fnb-check.ts";
+import { handleCheckGaso } from "./handlers/gaso-check.ts";
+import { handleSendImages } from "./handlers/bundle-sender.ts";
 import { WhatsAppService } from "../../services/whatsapp/index.ts";
 import { notifyTeam } from "../../services/notifier.ts";
 import { trackEvent } from "../../services/analytics.ts";
-import { escalateConversation } from "../context.ts";
+import { escalateConversation } from "./context.ts";
 
 export async function executeCommand(
   conv: Conversation,

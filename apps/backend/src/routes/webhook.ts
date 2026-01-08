@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import process from "node:process";
-import { debounceMessage } from "../agent/debouncer.ts";
-import { processMessage } from "../agent/engine.ts";
+import { enqueueMessage } from "../modules/chat/queue.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 
 const webhook = new Hono();
@@ -49,8 +48,10 @@ webhook.post("/", async (c) => {
     const messageId = message.id;
     const timestamp = message.timestamp || Math.floor(Date.now() / 1000);
 
-    // Show typing indicator
-    await WhatsAppService.markAsReadAndShowTyping(messageId);
+    // Show typing indicator (non-blocking)
+    WhatsAppService.markAsReadAndShowTyping(messageId).catch((err) =>
+      console.error("Failed to mark as read:", err),
+    );
 
     // Log inbound message
     WhatsAppService.logMessage(
@@ -61,16 +62,10 @@ webhook.post("/", async (c) => {
       "received",
     );
 
-    // Debounce and process
-    debounceMessage(
-      phoneNumber,
-      text,
-      timestamp,
-      async (phone, aggregatedText, metadata) => {
-        await processMessage(phone, aggregatedText, metadata);
-      },
-    );
+    // Enqueue message for async processing (DB-backed, survives restarts)
+    enqueueMessage(phoneNumber, text, timestamp, messageId);
 
+    // Return immediately - processor handles it async
     return c.json({ status: "queued" });
   } catch (error) {
     console.error("Webhook error:", error);

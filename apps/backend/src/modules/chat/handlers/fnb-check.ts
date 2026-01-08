@@ -1,10 +1,10 @@
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { checkFNB } from "../../modules/eligibility/fnb.ts";
+import { checkFNB } from "../../../modules/eligibility/fnb.ts";
 import { checkFNBEligibility } from "@totem/core";
-import { WhatsAppService } from "../../services/whatsapp/index.ts";
+import { WhatsAppService } from "../../../services/whatsapp/index.ts";
 import { updateConversationState } from "../context.ts";
-import { trackEvent } from "../../services/analytics.ts";
+import { trackEvent } from "../../../services/analytics.ts";
 import { selectVariant, formatFirstName } from "@totem/core";
 import * as T from "@totem/core";
 import { handleCheckGaso } from "./gaso-check.ts";

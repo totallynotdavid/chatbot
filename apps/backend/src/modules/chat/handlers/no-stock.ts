@@ -1,11 +1,11 @@
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { BundleService } from "../../services/catalog/index.ts";
-import { WhatsAppService } from "../../services/whatsapp/index.ts";
+import { BundleService } from "../../../services/catalog/index.ts";
+import { WhatsAppService } from "../../../services/whatsapp/index.ts";
 import { updateConversationState } from "../context.ts";
 import { selectVariant } from "@totem/core";
 import * as T from "@totem/core";
-import * as LLM from "../../services/llm.ts";
+import * as LLM from "../../../services/llm.ts";
 
 export async function handleNoStock(
   conv: Conversation,

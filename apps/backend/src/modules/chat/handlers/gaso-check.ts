@@ -1,10 +1,10 @@
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { checkGASO } from "../../modules/eligibility/gaso.ts";
-import { WhatsAppService } from "../../services/whatsapp/index.ts";
+import { checkGASO } from "../../../modules/eligibility/gaso.ts";
+import { WhatsAppService } from "../../../services/whatsapp/index.ts";
 import { updateConversationState, escalateConversation } from "../context.ts";
-import { trackEvent } from "../../services/analytics.ts";
-import { notifyTeam } from "../../services/notifier.ts";
+import { trackEvent } from "../../../services/analytics.ts";
+import { notifyTeam } from "../../../services/notifier.ts";
 import { selectVariant, formatFirstName } from "@totem/core";
 import * as T from "@totem/core";
 

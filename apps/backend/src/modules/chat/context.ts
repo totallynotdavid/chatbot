@@ -1,4 +1,4 @@
-import { db } from "../db/index.ts";
+import { db } from "../../db/index.ts";
 import type { Conversation, ConversationState } from "@totem/types";
 import type { StateContext } from "@totem/core";
 
@@ -38,7 +38,6 @@ export function updateConversationState(
     last_activity_at: new Date().toISOString(),
   };
 
-  // Map context fields to DB columns
   if (updatedContext.dni) updates.dni = updatedContext.dni;
   if (updatedContext.clientName)
     updates.client_name = updatedContext.clientName;
@@ -83,7 +82,6 @@ export function resetSession(phoneNumber: string): void {
   const conv = getOrCreateConversation(phoneNumber);
   const contextData = JSON.parse(conv.context_data || "{}");
 
-  // Preserve last interest category for smart resume
   const preservedContext = {
     lastInterestCategory: contextData.offeredCategory || null,
   };

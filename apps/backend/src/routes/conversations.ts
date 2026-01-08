@@ -5,7 +5,7 @@ import { assignNextAgent } from "../services/assignment.ts";
 import { notifyTeam } from "../services/notifier.ts";
 import { getEventsByPhone } from "../services/analytics.ts";
 import { logAction } from "../services/audit.ts";
-import { buildStateContext } from "../agent/context.ts";
+import { buildStateContext } from "../modules/chat/context.ts";
 import type { Conversation, ReplayData, ReplayMetadata } from "@totem/types";
 
 const conversations = new Hono();

@@ -1,12 +1,14 @@
 import { Hono } from "hono";
-import { processMessage } from "../agent/engine.ts";
+import { processMessagePipeline } from "../modules/chat/pipeline.ts";
+import { executeCommand } from "../modules/chat/dispatcher.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { PersonasService } from "../services/personas.ts";
 import {
   getOrCreateConversation,
   resetSession,
   updateConversationState,
-} from "../agent/context.ts";
+  buildStateContext,
+} from "../modules/chat/context.ts";
 import { db } from "../db/index.ts";
 import { requireRole } from "../middleware/auth.ts";
 import type { Conversation } from "@totem/types";
@@ -157,8 +159,18 @@ simulator.post("/message", async (c) => {
     "received",
   );
 
-  // Process message through engine (same path as webhook)
-  await processMessage(phoneNumber, message);
+  // Process message through pipeline (synchronous for simulator)
+  const output = await processMessagePipeline(phoneNumber, message);
+
+  // Execute commands synchronously for immediate response
+  const conv = db
+    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
+    .get(phoneNumber) as Conversation;
+  const context = buildStateContext(conv);
+
+  for (const command of output.commands) {
+    await executeCommand(conv, command, context);
+  }
 
   return c.json({ status: "processed" });
 });

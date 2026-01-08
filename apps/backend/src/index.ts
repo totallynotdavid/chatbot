@@ -23,6 +23,7 @@ import { db } from "./db/index.ts";
 import { initializeDatabase } from "./db/init.ts";
 import { seedDatabase } from "./db/seed.ts";
 import bcrypt from "bcryptjs";
+import { startProcessor } from "./modules/chat/processor.ts";
 
 import {
   generateSessionToken,
@@ -56,6 +57,9 @@ const app = new Hono();
 // Initialize database schema and seed data on startup
 initializeDatabase(db);
 seedDatabase(db);
+
+// Start message processor
+startProcessor();
 
 // Start periodic timeout check (every minute)
 setInterval(async () => {

@@ -1,7 +1,7 @@
 import type { StateContext, SentProduct } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { BundleService } from "../../services/catalog/index.ts";
-import { WhatsAppService } from "../../services/whatsapp/index.ts";
+import { BundleService } from "../../../services/catalog/index.ts";
+import { WhatsAppService } from "../../../services/whatsapp/index.ts";
 import { handleNoStock } from "./no-stock.ts";
 import { updateConversationState } from "../context.ts";
 

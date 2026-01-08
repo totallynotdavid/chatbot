@@ -154,6 +154,21 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
+-- Message queue for async processing (replaces in-memory debouncer)
+CREATE TABLE IF NOT EXISTS message_queue (
+    id TEXT PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    message_text TEXT NOT NULL,
+    whatsapp_message_id TEXT,
+    whatsapp_timestamp INTEGER NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'processed', 'failed')),
+    group_id TEXT,
+    processed_at INTEGER,
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+
 CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(last_activity_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(status);
 CREATE INDEX IF NOT EXISTS idx_periods_status ON catalog_periods(status);
@@ -169,4 +184,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_conversation ON orders(conversation_phone);
 CREATE INDEX IF NOT EXISTS idx_orders_agent ON orders(assigned_agent);
 CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(assigned_agent);
-CREATE INDEX IF NOT EXISTS idx_users_available ON users(role, is_available, is_active);
+CREATE INDEX IF NOT EXISTS idx_users_available ON users(role, is_available, is_active);CREATE INDEX IF NOT EXISTS idx_message_queue_status ON message_queue(status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_message_queue_phone ON message_queue(phone_number, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_message_queue_group ON message_queue(group_id);
