@@ -7,7 +7,7 @@ const FORCE_SKIP = process.env.SKIP_LLM_TESTS === "1";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-describe("LLM Service - Question Detection", () => {
+describe("LLM service (question detection)", () => {
   beforeAll(() => {
     if (!process.env.GEMINI_API_KEY && !FORCE_SKIP) {
       console.warn("GEMINI_API_KEY not set");
@@ -38,7 +38,29 @@ describe("LLM Service - Question Detection", () => {
   });
 });
 
-describe("LLM Service - Category Extraction", () => {
+describe("LLM service (escalation detection)", () => {
+  test.skipIf(FORCE_SKIP)("escalates on exact amount question", async () => {
+    const result = await LLM.shouldEscalate(
+      "¿Cuánto exactamente en soles pago por cuota?",
+    );
+    expect(result).toBe(true);
+    await delay(1000);
+  });
+
+  test.skipIf(FORCE_SKIP)("escalates on complaint", async () => {
+    const result = await LLM.shouldEscalate("Quiero hacer un reclamo formal");
+    expect(result).toBe(true);
+    await delay(1000);
+  });
+
+  test.skipIf(FORCE_SKIP)("does not escalate general questions", async () => {
+    const result = await LLM.shouldEscalate("¿Cómo funciona el pago?");
+    expect(result).toBe(false);
+    await delay(1000);
+  });
+});
+
+describe("LLM service (category extraction)", () => {
   const categories = [
     "celulares",
     "cocinas",
@@ -62,46 +84,41 @@ describe("LLM Service - Category Extraction", () => {
   });
 });
 
-describe("LLM Service - Question Answering", () => {
-  test.skipIf(FORCE_SKIP)("returns valid response structure", async () => {
+describe("LLM service (answering questions)", () => {
+  test.skipIf(FORCE_SKIP)("returns string answer", async () => {
     const result = await LLM.answerQuestion("¿Cómo funciona?", {
       segment: "fnb",
       creditLine: 3000,
+      availableCategories: ["celulares", "cocinas"],
     });
-    expect(result).toHaveProperty("answer");
-    expect(result).toHaveProperty("requiresHuman");
-    expect(typeof result.answer).toBe("string");
-    expect(typeof result.requiresHuman).toBe("boolean");
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
     await delay(1000);
   });
 
-  test.skipIf(FORCE_SKIP)("escalates on exact amount question", async () => {
-    const result = await LLM.answerQuestion(
-      "¿Cuánto exactamente en soles pago por cuota?",
-      {
-        segment: "gaso",
-        creditLine: 2500,
-      },
-    );
-    expect(result.requiresHuman).toBe(true);
-    await delay(1000);
-  });
-
-  test.skipIf(FORCE_SKIP)("escalates on complaint", async () => {
-    const result = await LLM.answerQuestion("Quiero hacer un reclamo formal", {
-      segment: "fnb",
-      creditLine: 3000,
+  test.skipIf(FORCE_SKIP)("uses available categories in context", async () => {
+    const result = await LLM.answerQuestion("¿Qué productos tienen?", {
+      segment: "gaso",
+      availableCategories: ["cocinas", "termas"],
     });
-    expect(result.requiresHuman).toBe(true);
+    expect(typeof result).toBe("string");
     await delay(1000);
   });
 });
 
-describe("LLM Service - Error Handling", () => {
+describe("LLM service (error handling)", () => {
   test("returns false on isQuestion failure", async () => {
     const originalKey = process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY;
     const result = await LLM.isQuestion("test");
+    expect(result).toBe(false);
+    if (originalKey) process.env.GEMINI_API_KEY = originalKey;
+  });
+
+  test("returns false on shouldEscalate failure", async () => {
+    const originalKey = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    const result = await LLM.shouldEscalate("test");
     expect(result).toBe(false);
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;
   });
@@ -118,8 +135,8 @@ describe("LLM Service - Error Handling", () => {
     const originalKey = process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY;
     const result = await LLM.answerQuestion("test", { segment: "fnb" });
-    expect(result.requiresHuman).toBe(true);
-    expect(result.answer.length).toBeGreaterThan(0);
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;
   });
 });
