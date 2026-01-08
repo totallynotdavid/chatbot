@@ -1,10 +1,8 @@
 import { Hono } from "hono";
-import { logAction } from "../services/audit.ts";
 import * as ConversationRead from "../modules/conversation/read.ts";
 import { isValidRole } from "../modules/conversation/read.ts";
 import * as ConversationWrite from "../modules/conversation/write.ts";
 import * as ConversationMedia from "../modules/conversation/media.ts";
-import { assignNextAgent } from "../modules/conversation/assignment.ts";
 
 const conversations = new Hono();
 
@@ -66,17 +64,13 @@ conversations.post("/:phone/release", (c) => {
 conversations.post("/:phone/decline-assignment", async (c) => {
   const phoneNumber = c.req.param("phone");
   const user = c.get("user");
-  const result = ConversationWrite.declineAssignment(phoneNumber, user.id);
+  const result = await ConversationWrite.declineAssignment(phoneNumber, user.id);
 
   if (!result.success) {
     return c.json({ error: result.error }, 403);
   }
 
-  if (result.clientName !== undefined) {
-    await assignNextAgent(phoneNumber, result.clientName);
-  }
-
-  return c.json({ success: true });
+  return c.json(result);
 });
 
 conversations.patch("/:phone/agent-data", async (c) => {
@@ -105,13 +99,11 @@ conversations.get("/:phone/replay", (c) => {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  const replayData = ConversationRead.getReplayData(phoneNumber);
+  const replayData = ConversationRead.getReplayData(phoneNumber, user.id);
 
   if (!replayData) {
     return c.json({ error: "Conversation not found" }, 404);
   }
-
-  logAction(user.id, "export_replay", "conversation", phoneNumber);
 
   return c.json(replayData);
 });

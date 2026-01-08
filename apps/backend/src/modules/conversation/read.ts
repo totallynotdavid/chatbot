@@ -3,6 +3,7 @@ import type { Conversation } from "@totem/types";
 import { WhatsAppService } from "../../services/whatsapp/index.ts";
 import { getEventsByPhone } from "../../services/analytics.ts";
 import { buildStateContext } from "../chat/context.ts";
+import { logAction } from "../../services/audit.ts";
 import type { ReplayData, ReplayMetadata } from "@totem/types";
 
 export type Role = "admin" | "developer" | "sales_agent";
@@ -61,7 +62,7 @@ export function getConversationDetail(phoneNumber: string) {
   };
 }
 
-export function getReplayData(phoneNumber: string): ReplayData | null {
+export function getReplayData(phoneNumber: string, userId: string): ReplayData | null {
   const conv = getOne<Conversation>(
     "SELECT * FROM conversations WHERE phone_number = ?",
     [phoneNumber],
@@ -83,6 +84,8 @@ export function getReplayData(phoneNumber: string): ReplayData | null {
     messageCount: messages.length,
     timestamp: new Date().toISOString(),
   };
+
+  logAction(userId, "export_replay", "conversation", phoneNumber);
 
   return {
     conversation: conv,

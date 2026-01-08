@@ -57,10 +57,10 @@ export async function sendManualMessage(
   return { success: true };
 }
 
-export function declineAssignment(
+export async function declineAssignment(
   phoneNumber: string,
   userId: string,
-): { success: boolean; error?: string; clientName?: string | null } {
+): Promise<{ success: boolean; error?: string }> {
   const conv = getOne<{
     assigned_agent: string | null;
     client_name: string | null;
@@ -81,7 +81,11 @@ export function declineAssignment(
 
   logAction(userId, "decline_assignment", "conversation", phoneNumber);
 
-  return { success: true, clientName: conv.client_name };
+  // Dynamically import to avoid circular dependency
+  const { assignNextAgent } = await import("./assignment.ts");
+  await assignNextAgent(phoneNumber, conv.client_name);
+
+  return { success: true };
 }
 
 export function updateAgentData(
