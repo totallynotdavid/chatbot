@@ -35,7 +35,8 @@ export async function isQuestion(message: string): Promise<boolean> {
     const content = choice?.message.content;
     const res = JSON.parse(content || "{}");
     return res.isQuestion === true;
-  } catch {
+  } catch (e) {
+    console.error("[isQuestion error]", e);
     return false;
   }
 }
