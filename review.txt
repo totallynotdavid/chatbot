@@ -41,8 +41,6 @@ Some ideas:
 
 3. Patterns we could simplify
 
-- apps/backend/src/services/llm.ts contains hardcoded template strings for prompts inside the functions. We could move prompts to packages/core/src/prompts.ts. Keep logic and content separate.
-
 - debouncer.ts uses a new Map() to store message buffers. If the process restarts (deployment or crash), user messages stuck in the buffer are lost forever. An idea could be to write every message to the DB with status pending_processing. A background loop (or the webhook trigger) processes them. This ensures zero data loss on restart.
 
 - webhook swallows errors (catch { ... }) in cloud-api.ts. Errors should be logged to the DB or console.
