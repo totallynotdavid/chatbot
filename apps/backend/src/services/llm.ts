@@ -75,7 +75,10 @@ export async function extractEntity(
   options?: { availableCategories?: string[] },
 ): Promise<string | null> {
   try {
-    const systemPrompt = buildExtractEntityPrompt(entity, options?.availableCategories);
+    const systemPrompt = buildExtractEntityPrompt(
+      entity,
+      options?.availableCategories,
+    );
 
     const completion = await client.chat.completions.create({
       model: MODEL,
@@ -147,7 +150,10 @@ export async function suggestAlternative(
       messages: [
         {
           role: "system",
-          content: buildSuggestAlternativePrompt(requestedCategory, availableCategories),
+          content: buildSuggestAlternativePrompt(
+            requestedCategory,
+            availableCategories,
+          ),
         },
         {
           role: "user",

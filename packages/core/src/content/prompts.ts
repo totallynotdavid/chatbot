@@ -13,7 +13,7 @@ Pago: cuotas mensuales en recibo de Calidda.`;
  * Binary question detection — single responsibility
  */
 export function buildIsQuestionPrompt(): string {
-    return `¿El mensaje es una pregunta?
+  return `¿El mensaje es una pregunta?
 
 Una pregunta es: contiene "?", o usa palabras interrogativas (qué, cuánto, cómo, dónde, cuándo, por qué), o pide información.
 
@@ -27,7 +27,7 @@ JSON: {"isQuestion": boolean}`;
  * @deprecated Use buildIsQuestionPrompt for new code
  */
 export function buildClassifyIntentPrompt(): string {
-    return `Clasifica la intención del mensaje en español.
+  return `Clasifica la intención del mensaje en español.
 
 CATEGORÍAS:
 - "yes": afirmación (sí, claro, ok, vale, dale, por supuesto, afirmativo, correcto)
@@ -42,8 +42,10 @@ JSON: {"intent": "yes"|"no"|"question"|"product_selection"|"unclear"}`;
 /**
  * Category extraction — focused on product categories only
  */
-export function buildExtractCategoryPrompt(availableCategories: string[]): string {
-    return `Extrae la categoría de producto mencionada.
+export function buildExtractCategoryPrompt(
+  availableCategories: string[],
+): string {
+  return `Extrae la categoría de producto mencionada.
 
 CATEGORÍAS VÁLIDAS: ${availableCategories.join(", ")}
 
@@ -65,28 +67,28 @@ JSON: {"category": "categoria" | null}`;
  * @deprecated Use buildExtractCategoryPrompt for new code
  */
 export function buildExtractEntityPrompt(
-    entity: string,
-    availableCategories?: string[],
+  entity: string,
+  availableCategories?: string[],
 ): string {
-    if (entity === "product_category" && availableCategories?.length) {
-        return buildExtractCategoryPrompt(availableCategories);
-    }
-    return `Extrae "${entity}" del mensaje. JSON: {"value": string | null}`;
+  if (entity === "product_category" && availableCategories?.length) {
+    return buildExtractCategoryPrompt(availableCategories);
+  }
+  return `Extrae "${entity}" del mensaje. JSON: {"value": string | null}`;
 }
 
 /**
  * Question answering — defaults to NOT escalating
  */
 export function buildAnswerQuestionPrompt(context: {
-    segment?: string;
-    creditLine?: number;
-    state?: string;
+  segment?: string;
+  creditLine?: number;
+  state?: string;
 }): string {
-    const creditInfo = context.creditLine
-        ? `Cliente tiene S/ ${context.creditLine} de línea de crédito.`
-        : "";
+  const creditInfo = context.creditLine
+    ? `Cliente tiene S/ ${context.creditLine} de línea de crédito.`
+    : "";
 
-    return `Eres un asesor de Totem, aliado de Calidda en Perú. Vendes electrodomésticos (celulares, cocinas, refrigeradoras, laptops, TVs, termas) con pago en cuotas mensuales en el recibo de Calidda. Solo entregas en Lima y Callao.
+  return `Eres un asesor de Totem, aliado de Calidda en Perú. Vendes electrodomésticos (celulares, cocinas, refrigeradoras, laptops, TVs, termas) con pago en cuotas mensuales en el recibo de Calidda. Solo entregas en Lima y Callao.
 ${creditInfo}
 
 RESPONDE TÚ (requiresHuman: false) preguntas sobre:
@@ -111,10 +113,10 @@ JSON: {"answer": "respuesta", "requiresHuman": boolean}`;
  * Alternative suggestion — minimal prompt
  */
 export function buildSuggestAlternativePrompt(
-    requestedCategory: string,
-    availableCategories: string[],
+  requestedCategory: string,
+  availableCategories: string[],
 ): string {
-    return `${CORE_CONTEXT}
+  return `${CORE_CONTEXT}
 
 "${requestedCategory}" no disponible. Opciones: ${availableCategories.join(", ")}.
 
@@ -127,18 +129,18 @@ JSON: {"suggestion": "respuesta"}`;
  * Backlog response — sanitized input, human-readable time
  */
 export function buildHandleBacklogPrompt(
-    message: string,
-    ageMinutes: number,
+  message: string,
+  ageMinutes: number,
 ): string {
-    const sanitized = message.replace(/["\n\r]/g, " ").slice(0, 200);
-    const timeAgo =
-        ageMinutes < 60
-            ? `${ageMinutes} minutos`
-            : ageMinutes < 120
-                ? "más de una hora"
-                : `${Math.floor(ageMinutes / 60)} horas`;
+  const sanitized = message.replace(/["\n\r]/g, " ").slice(0, 200);
+  const timeAgo =
+    ageMinutes < 60
+      ? `${ageMinutes} minutos`
+      : ageMinutes < 120
+        ? "más de una hora"
+        : `${Math.floor(ageMinutes / 60)} horas`;
 
-    return `${CORE_CONTEXT}
+  return `${CORE_CONTEXT}
 
 Mensaje recibido hace ${timeAgo}: "${sanitized}"
 
