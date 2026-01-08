@@ -9,7 +9,7 @@ import {
   cleanupOldMessages,
 } from "./queue.ts";
 import { executeCommand } from "./dispatcher.ts";
-import { assignNextAgent } from "../../services/assignment.ts";
+import { assignNextAgent } from "../conversation/assignment.ts";
 import { db } from "../../db/index.ts";
 import { buildStateContext } from "./context.ts";
 
