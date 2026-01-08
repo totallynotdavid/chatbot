@@ -1,14 +1,11 @@
 import { Hono } from "hono";
-import { processMessagePipeline } from "../modules/chat/pipeline.ts";
-import { executeCommand } from "../modules/chat/dispatcher.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { PersonasService } from "../services/personas.ts";
 import {
   getOrCreateConversation,
   resetSession,
-  updateConversationState,
-  buildStateContext,
-} from "../modules/chat/context.ts";
+  handleMessage,
+} from "../conversation/index.ts";
 import { db } from "../db/index.ts";
 import { getOne, getAll } from "../db/query.ts";
 import { requireRole } from "../middleware/auth.ts";
@@ -160,19 +157,13 @@ simulator.post("/message", async (c) => {
     "received",
   );
 
-  // Process message through pipeline (synchronous for simulator)
-  const output = await processMessagePipeline(phoneNumber, message);
-
-  // Execute commands synchronously for immediate response
-  const conv = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
-  )!;
-  const context = buildStateContext(conv);
-
-  for (const command of output.commands) {
-    await executeCommand(conv, command, context);
-  }
+  // Process message through new handler (synchronous for simulator)
+  await handleMessage({
+    phoneNumber,
+    content: message,
+    timestamp: Date.now(),
+    messageId: `sim-${Date.now()}`,
+  });
 
   return c.json({ status: "processed" });
 });
@@ -256,28 +247,27 @@ simulator.post("/load", async (c) => {
   // Create/update simulator conversation with source data
   getOrCreateConversation(simulatorPhone, true);
 
-  // Copy context data and state
-  updateConversationState(simulatorPhone, sourceConv.current_state, {
-    ...JSON.parse(sourceConv.context_data || "{}"),
-  });
-
-  // Update additional fields directly
+  // Update context data and state
   db.prepare(
     `UPDATE conversations 
-     SET client_name = ?,
+     SET context_data = ?,
+       client_name = ?,
        dni = ?,
        segment = ?,
        credit_line = ?,
        nse = ?,
-       is_calidda_client = ?
+       is_calidda_client = ?,
+       current_state = ?
      WHERE phone_number = ?`,
   ).run(
+    sourceConv.context_data,
     sourceConv.client_name,
     sourceConv.dni,
     sourceConv.segment,
     sourceConv.credit_line,
     sourceConv.nse,
     sourceConv.is_calidda_client,
+    sourceConv.current_state,
     simulatorPhone,
   );
 

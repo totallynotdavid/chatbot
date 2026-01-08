@@ -2,7 +2,6 @@ import { getOne, getAll } from "../../db/query.ts";
 import type { Conversation } from "@totem/types";
 import { WhatsAppService } from "../../services/whatsapp/index.ts";
 import { getEventsByPhone } from "../../services/analytics.ts";
-import { buildStateContext } from "../chat/context.ts";
 import { logAction } from "../../services/audit.ts";
 import type { ReplayData, ReplayMetadata } from "@totem/types";
 
@@ -76,7 +75,7 @@ export function getReplayData(
   }
 
   const messages = WhatsAppService.getMessageHistory(phoneNumber, 1000);
-  const initialContext = buildStateContext(conv);
+  const initialContext = JSON.parse(conv.context_data || "{}");
 
   const metadata: ReplayMetadata = {
     conversationId: phoneNumber,
