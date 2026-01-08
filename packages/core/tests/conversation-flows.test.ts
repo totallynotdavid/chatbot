@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { transition } from "../src/state-machine/transitions";
+import { transition } from "../src/state-machine/router";
 import type { StateContext, Command } from "../src/state-machine/types";
 
 describe("End-to-End Conversation Flows", () => {
