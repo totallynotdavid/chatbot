@@ -1,6 +1,6 @@
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { GasoProvider } from "../../services/providers.ts";
+import { checkGASO } from "../../modules/eligibility/check.ts";
 import { WhatsAppService } from "../../services/whatsapp/index.ts";
 import { updateConversationState, escalateConversation } from "../context.ts";
 import { trackEvent } from "../../services/analytics.ts";
@@ -15,7 +15,7 @@ export async function handleCheckGaso(
 ): Promise<void> {
   const phoneNumber = conv.phone_number;
   const isSimulation = conv.is_simulation === 1;
-  const result = await GasoProvider.checkEligibility(dni, phoneNumber);
+  const result = await checkGASO(dni, phoneNumber);
 
   // Check if PowerBI is down and we used fallback
   if (

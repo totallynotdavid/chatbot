@@ -1,6 +1,6 @@
 import type { StateContext } from "@totem/core";
 import type { Conversation } from "@totem/types";
-import { FNBProvider } from "../../services/providers.ts";
+import { checkFNB } from "../../modules/eligibility/check.ts";
 import { checkFNBEligibility } from "@totem/core";
 import { WhatsAppService } from "../../services/whatsapp/index.ts";
 import { updateConversationState } from "../context.ts";
@@ -16,7 +16,7 @@ export async function handleCheckFNB(
 ): Promise<void> {
   const phoneNumber = conv.phone_number;
   const isSimulation = conv.is_simulation === 1;
-  const result = await FNBProvider.checkCredit(dni, phoneNumber);
+  const result = await checkFNB(dni, phoneNumber);
 
   if (result.eligible && checkFNBEligibility(result.credit)) {
     // FNB eligible - select variant for message

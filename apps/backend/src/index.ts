@@ -45,7 +45,7 @@ import catalog from "./routes/catalog.ts";
 import periods from "./routes/periods.ts";
 import orders from "./routes/orders.ts";
 
-import { getProvidersHealth } from "./services/providers.ts";
+import { health } from "./services/providers/health.ts";
 import { ReportService } from "./services/reports.ts";
 import { checkNotifierHealth } from "./services/notifier.ts";
 
@@ -82,7 +82,7 @@ app.use(
 
 // Public routes
 app.get("/health", async (c) => {
-  const providers = getProvidersHealth();
+  const providers = health.getAllStatus();
   const notifier = await checkNotifierHealth();
 
   const allHealthy =
@@ -273,13 +273,13 @@ app.get("/api/providers/:dni", requireAuth, async (c) => {
     return c.json({ error: "DNI debe tener 8 dígitos" }, 400);
   }
 
-  const { FNBProvider, GasoProvider } = await import("./services/providers.ts");
-  const healthStatus = getProvidersHealth();
+  const { checkFNB, checkGASO } = await import("./modules/eligibility/check.ts");
+  const healthStatus = health.getAllStatus();
 
   try {
     let fnbResult = null;
     if (healthStatus.fnb.available) {
-      fnbResult = await FNBProvider.checkCredit(dni);
+      fnbResult = await checkFNB(dni);
       if (fnbResult.eligible) {
         return c.json({
           provider: "fnb",
@@ -292,7 +292,7 @@ app.get("/api/providers/:dni", requireAuth, async (c) => {
 
     let gasoResult = null;
     if (healthStatus.gaso.available) {
-      gasoResult = await GasoProvider.checkEligibility(dni);
+      gasoResult = await checkGASO(dni);
       if (gasoResult.eligible || gasoResult.reason !== "not_found") {
         const checked = healthStatus.fnb.available ? ["fnb", "gaso"] : ["gaso"];
         return c.json({

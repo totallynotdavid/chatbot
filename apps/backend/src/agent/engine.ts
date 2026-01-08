@@ -7,7 +7,7 @@ import {
   checkSessionTimeout,
   resetSession,
 } from "./context.ts";
-import { isMaintenanceMode } from "../services/providers.ts";
+import { isMaintenanceMode } from "../modules/settings/system.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import * as LLM from "../services/llm.ts";
 import { BundleService } from "../services/catalog/index.ts";
