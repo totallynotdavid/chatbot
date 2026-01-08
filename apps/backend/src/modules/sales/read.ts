@@ -3,6 +3,8 @@ import type { SQLQueryBindings } from "bun:sqlite";
 import type { Order } from "@totem/types";
 import type { OrderFilters, OrderMetrics } from "./types.ts";
 
+const MS_PER_DAY = 86400000;
+
 export function getOrders(filters: OrderFilters = {}): Order[] {
   let query = "SELECT * FROM orders WHERE 1=1";
   const params: SQLQueryBindings[] = [];
@@ -19,7 +21,7 @@ export function getOrders(filters: OrderFilters = {}): Order[] {
   }
 
   if (filters.endDate) {
-    const endTs = new Date(filters.endDate).getTime() + 86400000;
+    const endTs = new Date(filters.endDate).getTime() + MS_PER_DAY;
     query += " AND created_at < ?";
     params.push(endTs);
   }

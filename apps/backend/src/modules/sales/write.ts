@@ -1,4 +1,4 @@
-import { db } from "../../db/connection.ts";
+import { db } from "../../db/index.ts";
 import type { Order } from "@totem/types";
 import { notifyTeam } from "../../services/notifier.ts";
 import { generateOrderNumber } from "./utils.ts";
@@ -33,7 +33,10 @@ export function createOrder(input: CreateOrderInput): Order {
     now,
   );
 
-  const order = getOrderById(id)!;
+  const order = getOrderById(id);
+  if (!order) {
+    throw new Error(`Failed to create order ${id}`);
+  }
 
   notifyTeam(
     "sales",
@@ -71,5 +74,10 @@ export function updateOrderStatus(
   const stmt = db.prepare(query);
   stmt.run(...params);
 
-  return getOrderById(id)!;
+  const order = getOrderById(id);
+  if (!order) {
+    throw new Error(`Failed to update order ${id}`);
+  }
+
+  return order;
 }
