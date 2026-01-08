@@ -41,8 +41,6 @@ The problem: BundleService.getAvailable constructs SQL strings via concatenation
 
 2. Code maintainability
 
-- apps/backend/src/services/providers.ts is one file handling FNB auth, FNB logic, PowerBI requests (logic plus scraping), and fallback orchestration. It conflates fetching data (infrastructure) with deciding eligibility (domain logic). We should split the logic into specific clients and one orchestrator.
-
 - apps/backend/src/routes/conversations.ts contains SQL logic, file system logic, and validation logic. Routes should define endpoints, not implementation details. Move state handlers to packages/core/src/state-machine/handlers/*.ts.
 
 Some ideas:
