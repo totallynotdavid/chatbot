@@ -1,12 +1,14 @@
 import { Hono } from "hono";
+import { getOne, getAll } from "../db/query.ts";
 import { db } from "../db/index.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
+import type { Conversation } from "@totem/types";
 import { assignNextAgent } from "../services/assignment.ts";
 import { notifyTeam } from "../services/notifier.ts";
 import { getEventsByPhone } from "../services/analytics.ts";
 import { logAction } from "../services/audit.ts";
 import { buildStateContext } from "../modules/chat/context.ts";
-import type { Conversation, ReplayData, ReplayMetadata } from "@totem/types";
+import type { ReplayData, ReplayMetadata } from "@totem/types";
 
 const conversations = new Hono();
 
@@ -17,32 +19,33 @@ conversations.get("/", (c) => {
 
   // Sales agents only see their assigned conversations
   if (user.role === "sales_agent") {
-    let query =
-      "SELECT * FROM conversations WHERE is_simulation = 0 AND assigned_agent = ? ORDER BY last_activity_at DESC LIMIT 100";
-    let params: any[] = [user.id];
-
     if (status) {
-      query =
-        "SELECT * FROM conversations WHERE is_simulation = 0 AND assigned_agent = ? AND status = ? ORDER BY last_activity_at DESC LIMIT 100";
-      params = [user.id, status];
+      const rows = getAll<Conversation>(
+        "SELECT * FROM conversations WHERE is_simulation = 0 AND assigned_agent = ? AND status = ? ORDER BY last_activity_at DESC LIMIT 100",
+        [user.id, status]
+      );
+      return c.json(rows);
     }
 
-    const rows = db.prepare(query).all(...params) as Conversation[];
+    const rows = getAll<Conversation>(
+      "SELECT * FROM conversations WHERE is_simulation = 0 AND assigned_agent = ? ORDER BY last_activity_at DESC LIMIT 100",
+      [user.id]
+    );
     return c.json(rows);
   }
 
   // Admins and developers see all conversations
-  let query =
-    "SELECT * FROM conversations WHERE is_simulation = 0 ORDER BY last_activity_at DESC LIMIT 100";
-  let params: any[] = [];
-
   if (status) {
-    query =
-      "SELECT * FROM conversations WHERE is_simulation = 0 AND status = ? ORDER BY last_activity_at DESC LIMIT 100";
-    params = [status];
+    const rows = getAll<Conversation>(
+      "SELECT * FROM conversations WHERE is_simulation = 0 AND status = ? ORDER BY last_activity_at DESC LIMIT 100",
+      [status]
+    );
+    return c.json(rows);
   }
 
-  const rows = db.prepare(query).all(...params) as Conversation[];
+  const rows = getAll<Conversation>(
+    "SELECT * FROM conversations WHERE is_simulation = 0 ORDER BY last_activity_at DESC LIMIT 100"
+  );
   return c.json(rows);
 });
 
@@ -50,9 +53,10 @@ conversations.get("/", (c) => {
 conversations.get("/:phone", (c) => {
   const phoneNumber = c.req.param("phone");
 
-  const conv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation | undefined;
+  const conv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (!conv) {
     return c.json({ error: "Conversation not found" }, 404);
@@ -129,13 +133,13 @@ conversations.post("/:phone/decline-assignment", async (c) => {
   const phoneNumber = c.req.param("phone");
   const user = c.get("user");
 
-  const conv = db
-    .prepare(
-      "SELECT assigned_agent, client_name FROM conversations WHERE phone_number = ?",
-    )
-    .get(phoneNumber) as
-    | { assigned_agent: string | null; client_name: string | null }
-    | undefined;
+  const conv = getOne<{
+    assigned_agent: string | null;
+    client_name: string | null;
+  }>(
+    "SELECT assigned_agent, client_name FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (!conv || conv.assigned_agent !== user.id) {
     return c.json({ error: "Not assigned to you" }, 403);
@@ -188,9 +192,10 @@ conversations.patch("/:phone/agent-data", async (c) => {
   }
 
   // Auto-assign agent if not already assigned
-  const conv = db
-    .prepare("SELECT assigned_agent FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as { assigned_agent: string | null } | undefined;
+  const conv = getOne<{ assigned_agent: string | null }>(
+    "SELECT assigned_agent FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (conv && !conv.assigned_agent) {
     validUpdates.assigned_agent = user.id;
@@ -231,9 +236,10 @@ conversations.get("/:phone/replay", (c) => {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  const conv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation | undefined;
+  const conv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (!conv) {
     return c.json({ error: "Conversation not found" }, 404);

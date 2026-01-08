@@ -8,7 +8,7 @@ export function getOne<T>(
   return db.prepare(sql).get(...params) as T | undefined;
 }
 
-export function getAll<T>(sql: string, params: SQLQueryBindings[] = []): T[] {
+export function getAll<T>(sql: string, params: any[] = []): T[] {
   return db.prepare(sql).all(...params) as T[];
 }
 

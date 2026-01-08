@@ -1,7 +1,8 @@
 import { db } from "../../db/index.ts";
+import { getOne, getAll } from "../../db/query.ts";
 import type { Product } from "@totem/types";
 
-function formatProduct(row: any): Product {
+function formatProduct(row: Product): Product {
   return {
     ...row,
     created_at: new Date(row.created_at).toISOString(),
@@ -10,23 +11,20 @@ function formatProduct(row: any): Product {
 
 export const ProductService = {
   getAll: (): Product[] => {
-    const rows = db
-      .prepare("SELECT * FROM products ORDER BY category, name")
-      .all() as any[];
+    const rows = getAll<Product>("SELECT * FROM products ORDER BY category, name");
     return rows.map(formatProduct);
   },
 
   getByCategory: (category: string): Product[] => {
-    const rows = db
-      .prepare("SELECT * FROM products WHERE category = ? ORDER BY name")
-      .all(category) as any[];
+    const rows = getAll<Product>(
+      "SELECT * FROM products WHERE category = ? ORDER BY name",
+      [category]
+    );
     return rows.map(formatProduct);
   },
 
   getById: (id: string): Product | null => {
-    const row = db
-      .prepare("SELECT * FROM products WHERE id = ?")
-      .get(id) as any;
+    const row = getOne<Product>("SELECT * FROM products WHERE id = ?", [id]);
     return row ? formatProduct(row) : null;
   },
 
@@ -86,9 +84,9 @@ export const ProductService = {
   },
 
   getCategories: (): string[] => {
-    const rows = db
-      .prepare("SELECT DISTINCT category FROM products ORDER BY category")
-      .all() as Array<{ category: string }>;
+    const rows = getAll<{ category: string }>(
+      "SELECT DISTINCT category FROM products ORDER BY category"
+    );
     return rows.map((r) => r.category);
   },
 };

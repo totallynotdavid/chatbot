@@ -1,4 +1,5 @@
 import { db } from "../db/index.ts";
+import { getAll } from "../db/query.ts";
 import * as XLSX from "xlsx";
 
 type ActivityReportParams = {
@@ -84,9 +85,8 @@ export const ReportService = {
 
     const whereClause = conditions.join(" AND ");
 
-    const rows = db
-      .prepare(
-        `
+    const rows = getAll<Record<string, unknown>>(
+      `
         SELECT 
           phone_number as "Teléfono",
           client_name as "Nombre",
@@ -103,20 +103,20 @@ export const ReportService = {
         WHERE ${whereClause}
         ORDER BY last_activity_at DESC
       `,
-      )
-      .all(...values) as any[];
+      values
+    );
 
     // Transform data for Excel
     const transformedRows = rows.map((row, index) => {
       // Parse products JSON if present
       let productos = "";
       try {
-        const productsArray = JSON.parse(row["Productos"] || "[]");
+        const productsArray = JSON.parse((row["Productos"] as string) || "[]");
         if (Array.isArray(productsArray) && productsArray.length > 0) {
           productos = productsArray.join(", ");
         }
       } catch {
-        productos = row["Productos"] || "";
+        productos = (row["Productos"] as string) || "";
       }
 
       // Format timestamp
@@ -128,7 +128,7 @@ export const ReportService = {
             timeZone: "America/Lima",
           });
         } else {
-          fechaActividad = row["Última Actividad"];
+          fechaActividad = row["Última Actividad"] as string;
         }
       }
 
@@ -151,10 +151,10 @@ export const ReportService = {
         Teléfono: row["Teléfono"],
         Nombre: row["Nombre"] || "",
         DNI: row["DNI"] || "",
-        Campaña: segmentMap[row["Campaña"]] || "",
+        Campaña: segmentMap[row["Campaña"] as string] || "",
         Crédito: row["Crédito"] || "",
         NSE: row["NSE"] || "",
-        "Estado Venta": saleStatusMap[row["Estado Venta"]] || "Pendiente",
+        "Estado Venta": saleStatusMap[row["Estado Venta"] as string] || "Pendiente",
         Productos: productos,
         Observaciones: row["Observaciones"] || "",
         "Última Actividad": fechaActividad,
@@ -234,9 +234,8 @@ export const ReportService = {
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const rows = db
-      .prepare(
-        `
+    const rows = getAll<Record<string, unknown>>(
+      `
         SELECT 
           order_number as "Número de Orden",
           client_name as "Cliente",
@@ -255,8 +254,8 @@ export const ReportService = {
         ${whereClause}
         ORDER BY created_at DESC
       `,
-      )
-      .all(...values) as any[];
+      values
+    );
 
     const statusMap: Record<string, string> = {
       pending: "Pendiente",
@@ -287,7 +286,7 @@ export const ReportService = {
         "Monto Total": `S/ ${Number(row["Monto Total"]).toFixed(2)}`,
         Dirección: row["Dirección"] || "",
         Referencia: row["Referencia"] || "",
-        Estado: statusMap[row["Estado"]] || row["Estado"],
+        Estado: statusMap[row["Estado"] as string] || row["Estado"],
         Agente: row["Agente"] || "",
         "Notas Supervisor": row["Notas Supervisor"] || "",
         "Notas Calidda": row["Notas Calidda"] || "",

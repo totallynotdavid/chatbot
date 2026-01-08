@@ -109,7 +109,16 @@ app.post("/api/auth/login", rateLimiter, async (c) => {
 
   const user = db
     .prepare("SELECT * FROM users WHERE username = ?")
-    .get(username) as any;
+    .get(username) as
+    | {
+        id: string;
+        username: string;
+        password_hash: string;
+        role: string;
+        name: string;
+        is_active: number;
+      }
+    | undefined;
 
   if (!user || user.is_active === 0) {
     return c.json({ error: "Invalid credentials" }, 401);

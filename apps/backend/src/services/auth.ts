@@ -72,7 +72,17 @@ export function validateSessionToken(token: string): SessionValidationResult {
         INNER JOIN users u ON u.id = s.user_id 
         WHERE s.id = ?
     `)
-    .get(sessionId) as any;
+    .get(sessionId) as
+    | {
+        id: string;
+        user_id: string;
+        expires_at: number;
+        uid: string;
+        username: string;
+        role: string;
+        uname: string;
+      }
+    | undefined;
 
   if (!row) {
     return { session: null, user: null };

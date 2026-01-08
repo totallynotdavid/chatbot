@@ -1,4 +1,5 @@
 import { db } from "../../db/index.ts";
+import { getOne } from "../../db/query.ts";
 import type { Conversation, ConversationState } from "@totem/types";
 import type { StateContext } from "@totem/core";
 
@@ -6,18 +7,20 @@ export function getOrCreateConversation(
   phoneNumber: string,
   isSimulation = false,
 ): Conversation {
-  let conv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation | undefined;
+  let conv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (!conv) {
     db.prepare(
       "INSERT INTO conversations (phone_number, current_state, status, is_simulation) VALUES (?, ?, ?, ?)",
     ).run(phoneNumber, "INIT", "active", isSimulation ? 1 : 0);
 
-    conv = db
-      .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-      .get(phoneNumber) as Conversation;
+    conv = getOne<Conversation>(
+      "SELECT * FROM conversations WHERE phone_number = ?",
+      [phoneNumber]
+    )!;
   }
 
   return conv;

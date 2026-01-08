@@ -128,9 +128,28 @@ export const PersonasService = {
          FROM test_personas 
          WHERE id = ? AND is_active = 1`,
       )
-      .get(id) as TestPersona | undefined;
+      .get(id) as
+      | {
+          id: string;
+          name: string;
+          description: string | null;
+          segment: "fnb" | "gaso" | "not_eligible";
+          clientName: string;
+          dni: string;
+          creditLine: number;
+          nse: number | null;
+          isActive: number;
+        }
+      | undefined;
 
-    if (dbPersona) return dbPersona;
+    if (dbPersona) {
+      return {
+        ...dbPersona,
+        description: dbPersona.description || "",
+        nse: dbPersona.nse ?? undefined,
+        isActive: dbPersona.isActive === 1,
+      };
+    }
 
     // Fallback to hardcoded
     return INITIAL_PERSONAS.find((p) => p.id === id);

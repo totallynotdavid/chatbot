@@ -10,6 +10,7 @@ import {
   buildStateContext,
 } from "../modules/chat/context.ts";
 import { db } from "../db/index.ts";
+import { getOne, getAll } from "../db/query.ts";
 import { requireRole } from "../middleware/auth.ts";
 import type { Conversation } from "@totem/types";
 
@@ -93,13 +94,11 @@ simulator.delete("/personas/:id", (c) => {
 
 // List all test conversations
 simulator.get("/conversations", (c) => {
-  const conversations = db
-    .prepare(
-      `SELECT * FROM conversations 
-       WHERE is_simulation = 1 
-       ORDER BY last_activity_at DESC`,
-    )
-    .all() as Conversation[];
+  const conversations = getAll<Conversation>(
+    `SELECT * FROM conversations 
+     WHERE is_simulation = 1 
+     ORDER BY last_activity_at DESC`
+  );
 
   return c.json(conversations);
 });
@@ -121,9 +120,10 @@ simulator.post("/conversations", async (c) => {
   }
 
   // Check if already exists
-  const existing = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation | undefined;
+  const existing = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  );
 
   if (existing) {
     return c.json({ error: "Conversation already exists" }, 400);
@@ -134,9 +134,10 @@ simulator.post("/conversations", async (c) => {
     "INSERT INTO conversations (phone_number, current_state, status, is_simulation, persona_id) VALUES (?, ?, ?, ?, ?)",
   ).run(phoneNumber, "INIT", "active", 1, personaId || null);
 
-  const conv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation;
+  const conv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  )!;
 
   return c.json(conv);
 });
@@ -163,9 +164,10 @@ simulator.post("/message", async (c) => {
   const output = await processMessagePipeline(phoneNumber, message);
 
   // Execute commands synchronously for immediate response
-  const conv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as Conversation;
+  const conv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [phoneNumber]
+  )!;
   const context = buildStateContext(conv);
 
   for (const command of output.commands) {
@@ -233,9 +235,10 @@ simulator.post("/load", async (c) => {
   }
 
   // Fetch source conversation
-  const sourceConv = db
-    .prepare("SELECT * FROM conversations WHERE phone_number = ?")
-    .get(sourcePhone) as Conversation | undefined;
+  const sourceConv = getOne<Conversation>(
+    "SELECT * FROM conversations WHERE phone_number = ?",
+    [sourcePhone]
+  );
 
   if (!sourceConv) {
     return c.json({ error: "Source conversation not found" }, 404);
