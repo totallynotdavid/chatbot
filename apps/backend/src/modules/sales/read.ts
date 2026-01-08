@@ -92,8 +92,7 @@ export function getOrderMetrics(): OrderMetrics {
     [thirtyDaysAgo],
   )!.revenue;
 
-  const avgOrderValue =
-    deliveredCount > 0 ? totalRevenue / deliveredCount : 0;
+  const avgOrderValue = deliveredCount > 0 ? totalRevenue / deliveredCount : 0;
 
   const approvalRate =
     totalOrders > 0
