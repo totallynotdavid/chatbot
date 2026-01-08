@@ -41,27 +41,6 @@ Some ideas:
 
 3. Patterns we could simplify
 
-- Database access (excessive use of "as any"). If the DB schema changes, the code compiles fine but crashes at runtime. Define types for your SQL results to catch errors during build. Wrap bun:sqlite in a generic function that enforces types.
-
-File: apps/backend/src/db/query.ts
-
-```ts
-import { db } from "./client";
-
-export function getOne<T>(sql: string, params: unknown[] = []): T | undefined {
-return db.prepare(sql).get(...params) as T | undefined;
-}
-
-export function getAll<T>(sql: string, params: unknown[] = []): T[] {
-return db.prepare(sql).all(...params) as T[];
-}
-
-export function run(sql: string, params: unknown[] = []): { changes: number } {
-const info = db.prepare(sql).run(...params);
-return { changes: info.changes };
-}
-```
-
 - apps/backend/src/services/llm.ts contains hardcoded template strings for prompts inside the functions. We could move prompts to packages/core/src/prompts.ts. Keep logic and content separate.
 
 - debouncer.ts uses a new Map() to store message buffers. If the process restarts (deployment or crash), user messages stuck in the buffer are lost forever. An idea could be to write every message to the DB with status pending_processing. A background loop (or the webhook trigger) processes them. This ensures zero data loss on restart.
