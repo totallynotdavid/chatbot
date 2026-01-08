@@ -3,6 +3,7 @@ import process from "node:process";
 import {
   buildIsQuestionPrompt,
   buildExtractCategoryPrompt,
+  buildShouldEscalatePrompt,
   buildAnswerQuestionPrompt,
   buildSuggestAlternativePrompt,
   buildHandleBacklogPrompt,
@@ -33,6 +34,27 @@ export async function isQuestion(message: string): Promise<boolean> {
     return res.isQuestion === true;
   } catch (e) {
     console.error("[isQuestion error]", e);
+    return false;
+  }
+}
+
+export async function shouldEscalate(message: string): Promise<boolean> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: buildShouldEscalatePrompt() },
+        { role: "user", content: message },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+    const choice = completion.choices[0];
+    const content = choice?.message.content;
+    const res = JSON.parse(content || "{}");
+    return res.shouldEscalate === true;
+  } catch (e) {
+    console.error("[shouldEscalate error]", e);
     return false;
   }
 }
@@ -71,8 +93,9 @@ export async function answerQuestion(
     segment?: string;
     creditLine?: number;
     state?: string;
+    availableCategories?: string[];
   },
-): Promise<{ answer: string; requiresHuman: boolean }> {
+): Promise<string> {
   try {
     const completion = await client.chat.completions.create({
       model: MODEL,
@@ -91,16 +114,9 @@ export async function answerQuestion(
     const content = choice?.message.content;
     const res = JSON.parse(content || "{}");
 
-    return {
-      answer:
-        res.answer || "Déjame conectarte con un asesor para responderte mejor.",
-      requiresHuman: res.requiresHuman || false,
-    };
+    return res.answer || "Déjame ayudarte con eso...";
   } catch {
-    return {
-      answer: "Déjame conectarte con un asesor para responderte mejor.",
-      requiresHuman: true,
-    };
+    return "Déjame ayudarte con eso...";
   }
 }
 

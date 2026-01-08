@@ -43,11 +43,6 @@ export function handleLLMQuestion(context: any): StateOutput | null {
       nextState: "ESCALATED",
       commands: [
         {
-          type: "SEND_MESSAGE",
-          content:
-            "Para darte información precisa sobre eso, te conectaré con un asesor.",
-        },
-        {
           type: "ESCALATE",
           reason: "complex_question_requires_human",
         },

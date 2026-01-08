@@ -14,20 +14,9 @@ export function handleObjection(message: string, context: any): StateOutput {
   if (context.llmDetectedQuestion) {
     // If requires human, escalate; otherwise answer and continue
     if (context.llmRequiresHuman) {
-      const { message: handoffMsg, updatedContext: variantCtx } =
-        selectVariantWithContext(
-          T.HANDOFF_TO_HUMAN,
-          "HANDOFF_TO_HUMAN",
-          context,
-          { frustrated: objectionCount > 1 },
-        );
       return {
         nextState: "ESCALATED",
         commands: [
-          {
-            type: "SEND_MESSAGE",
-            content: handoffMsg,
-          },
           {
             type: "ESCALATE",
             reason: "customer_question_during_objection",
@@ -38,7 +27,7 @@ export function handleObjection(message: string, context: any): StateOutput {
             message: `Cliente ${context.phoneNumber} tiene dudas durante objeción`,
           },
         ],
-        updatedContext: variantCtx,
+        updatedContext: {},
       };
     }
 

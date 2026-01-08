@@ -10,12 +10,10 @@ export function buildHandleBacklogPrompt(
         ? "más de una hora"
         : `${Math.floor(ageMinutes / 60)} horas`;
 
-  return `Totem vende electrodomésticos en Lima/Callao. Pago: cuotas mensuales en recibo de Calidda.
+  return `Mensaje del cliente hace ${timeAgo}: "${sanitized}"
 
-Mensaje recibido hace ${timeAgo}: "${sanitized}"
-
-Responde: reconoce demora brevemente, responde al mensaje, continúa conversación.
-2-3 líneas máximo, natural.
+Responde: reconoce brevemente la demora, responde al mensaje, continúa conversación.
+2 líneas máximo, natural y amigable.
 
 JSON: {"response": "respuesta"}`;
 }

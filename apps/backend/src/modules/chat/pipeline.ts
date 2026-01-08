@@ -69,15 +69,28 @@ async function executeTransition(
     const isQuestionResult = await LLM.isQuestion(message);
 
     if (isQuestionResult) {
-      const questionResponse = await LLM.answerQuestion(message, {
-        segment: context.segment,
-        creditLine: context.creditLine,
-        state,
-      });
+      const shouldEscalate = await LLM.shouldEscalate(message);
 
-      context.llmDetectedQuestion = true;
-      context.llmGeneratedAnswer = questionResponse.answer;
-      context.llmRequiresHuman = questionResponse.requiresHuman;
+      if (shouldEscalate) {
+        context.llmDetectedQuestion = true;
+        context.llmRequiresHuman = true;
+      } else {
+        const availableCategories =
+          context.segment === "fnb"
+            ? BundleService.getAvailableCategories("fnb")
+            : BundleService.getAvailableCategories("gaso");
+
+        const answer = await LLM.answerQuestion(message, {
+          segment: context.segment,
+          creditLine: context.creditLine,
+          state,
+          availableCategories,
+        });
+
+        context.llmDetectedQuestion = true;
+        context.llmGeneratedAnswer = answer;
+        context.llmRequiresHuman = false;
+      }
     }
   }
 
