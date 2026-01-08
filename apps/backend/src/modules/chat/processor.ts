@@ -10,6 +10,7 @@ import {
 } from "./queue.ts";
 import { executeCommand } from "./dispatcher.ts";
 import { assignNextAgent } from "../conversation/assignment.ts";
+import { isMaintenanceMode } from "../settings/system.ts";
 import { db } from "../../db/index.ts";
 import { buildStateContext } from "./context.ts";
 
@@ -66,6 +67,11 @@ export function stopProcessor(): void {
 
 async function processNextBatch(): Promise<void> {
   try {
+    // During maintenance, don't process - messages stay queued
+    if (isMaintenanceMode()) {
+      return;
+    }
+
     const messageGroup = dequeueNextGroup();
 
     if (!messageGroup || messageGroup.length === 0) {

@@ -102,9 +102,9 @@ export const HANDOFF_TO_HUMAN = {
     "Permíteme un momento para consultar.",
   ],
   empathetic: [
-    "Entiendo tu situación. Déjame revisar esto con alguien que pueda ayudarte mejor.",
-    "Veo que necesitas ayuda específica. Permíteme un momento para conseguir mejor asistencia.",
-    "Ok, déjame conectarte con alguien que pueda resolver esto mejor.",
+    "Entiendo tu situación. Déjame revisar esto con más calma.",
+    "Veo que necesitas ayuda específica. Dame un momento para revisar todo bien.",
+    "Ok, déjame verificar esto con más detalle para ayudarte mejor.",
   ],
 };
 
@@ -127,8 +127,8 @@ export const NON_TEXT_REJECTED = [
 ];
 
 export const DNI_NOT_AVAILABLE = [
-  "Entiendo. Puedo esperar mientras lo buscas, o si prefieres, un asesor puede contactarte más tarde. ¿Qué prefieres?",
-  "Sin problema. ¿Buscas tu DNI o prefieres que te contactemos después?",
+  "Entiendo. Puedo esperar mientras lo buscas, o si prefieres, te contacto más tarde. ¿Qué prefieres?",
+  "Sin problema. ¿Buscas tu DNI o prefieres que te contacte después?",
   "Tranquilo. ¿Lo buscas ahora o te llamo más tarde?",
 ];
 
