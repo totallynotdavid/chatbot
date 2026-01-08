@@ -8,13 +8,8 @@ import {
   checkSessionTimeout,
   resetSession,
 } from "./context.ts";
-import { isMaintenanceMode } from "../settings/system.ts";
 import * as LLM from "../llm/index.ts";
 import { BundleService } from "../../services/catalog/index.ts";
-
-const MAINTENANCE_MESSAGE =
-  "¡Hola! 👋 En este momento estamos realizando mejoras en nuestro sistema. " +
-  "Por favor, inténtalo de nuevo en unos minutos. ¡Gracias por tu paciencia!";
 
 export type PipelineOutput = {
   commands: Command[];
@@ -26,14 +21,6 @@ export async function processMessagePipeline(
   message: string,
   metadata?: { isBacklog: boolean; oldestMessageAge: number },
 ): Promise<PipelineOutput> {
-  // Check maintenance mode
-  if (isMaintenanceMode()) {
-    return {
-      commands: [{ type: "SEND_MESSAGE", content: MAINTENANCE_MESSAGE }],
-      shouldAssignAgent: false,
-    };
-  }
-
   const conv = getOrCreateConversation(phoneNumber);
 
   if (conv.current_state === "CLOSING" || conv.current_state === "ESCALATED") {
