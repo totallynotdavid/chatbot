@@ -2,44 +2,11 @@
 
 1. Flow issues
 
-Flow 1: agent operations (the salesperson)
-Path: frontend -> routes/conversations.ts -> db/connection.ts.
-The problem: the routes/conversations.ts file is manually constructing SQL queries, handling file system logic for contracts, and executing business logic (reassignment). The data flow is frontend -> HTTP handler -> raw SQL. This makes the route handler massive and hard to maintain. Routes are strictly for HTTP I/O. They validate inputs and call a module.
-
-File: apps/backend/src/routes/conversations.ts
-
-```ts
-import { Hono } from "hono";
-
-app.get("/:phone", (c) => {
-const phone = c.req.param("phone");
-const data = getConversationHistory(phone);
-
-if (!data) return c.json({ error: "Not found" }, 404);
-return c.json(data);
-});
-
-app.post("/:phone/assign", async (c) => {
-const phone = c.req.param("phone");
-const result = await assignAgent(phone);
-return c.json(result);
-});
-```
-
-Flow 2: catalog management (the admin)
+catalog management (the admin)
 Path: frontend -> routes/catalog.ts -> services/catalog/bundles.ts.
 The problem: BundleService.getAvailable constructs SQL strings via concatenation (query +=). While not an immediate security risk due to parameter binding, it is fragile and hard to read.
 
-2. Code maintainability
-
-- apps/backend/src/routes/conversations.ts contains SQL logic, file system logic, and validation logic. Routes should define endpoints, not implementation details. Move state handlers to packages/core/src/state-machine/handlers/*.ts.
-
-Some ideas:
-- Move SQL logic to services/conversation-data.ts.
-- Move file upload logic to services/contract-manager.ts.
-- The route should only validate input and call these functions.
-
-3. Patterns we could simplify
+2. Patterns we could simplify
 
 - apps/backend/src/services/llm.ts contains hardcoded template strings for prompts inside the functions. We could move prompts to packages/core/src/prompts.ts. Keep logic and content separate.
 

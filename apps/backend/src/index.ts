@@ -49,7 +49,7 @@ import orders from "./routes/orders.ts";
 import { health } from "./services/providers/health.ts";
 import { ReportService } from "./services/reports.ts";
 import { checkNotifierHealth } from "./services/notifier.ts";
-import { checkAndReassignTimeouts } from "./services/assignment.ts";
+import { checkAndReassignTimeouts } from "./modules/conversation/assignment.ts";
 import { checkEligibilityWithFallback } from "./modules/eligibility/orchestrator.ts";
 
 const app = new Hono();
