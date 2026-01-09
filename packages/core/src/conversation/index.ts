@@ -12,7 +12,5 @@ export type {
   EnrichmentResult,
   TransitionResult,
   TransitionInput,
-  TrackEvent,
-  ImageCommand,
-  NotifyCommand,
+  Command,
 } from "./types.ts";

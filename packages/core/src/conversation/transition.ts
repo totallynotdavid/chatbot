@@ -50,6 +50,6 @@ export function transition(input: TransitionInput): TransitionResult {
 
     case "escalated":
       // Escalated state is terminal (no transitions)
-      return { type: "stay" };
+      return { type: "update", nextPhase: phase, commands: [] };
   }
 }

@@ -3,9 +3,7 @@ import type {
   ConversationMetadata,
   TransitionResult,
   EnrichmentResult,
-  NotifyCommand,
-  ImageCommand,
-  TrackEvent,
+  Command,
 } from "@totem/core";
 import { transition } from "@totem/core";
 import { withLock } from "./locks.ts";
@@ -129,12 +127,19 @@ async function runEnrichmentLoop(
   // Safety: too many loops, escalate
   console.error(`[Handler] Max enrichment loops exceeded for ${phoneNumber}`);
   return {
-    type: "escalate",
-    reason: "enrichment_loop_exceeded",
-    notify: {
-      channel: "dev",
-      message: `Max enrichment loops for ${phoneNumber}`,
+    type: "update",
+    nextPhase: {
+      phase: "escalated",
+      reason: "enrichment_loop_exceeded",
     },
+    commands: [
+      {
+        type: "NOTIFY_TEAM",
+        channel: "dev",
+        message: `Max enrichment loops for ${phoneNumber}`,
+      },
+      { type: "ESCALATE", reason: "enrichment_loop_exceeded" },
+    ],
   };
 }
 
@@ -144,62 +149,78 @@ async function executeResult(
   metadata: ConversationMetadata,
   isSimulation: boolean,
 ): Promise<void> {
-  switch (result.type) {
-    case "stay":
-      // No state change, just send response if any
-      if (result.response) {
-        await sendMessage(phoneNumber, result.response, isSimulation);
+  if (result.type === "need_enrichment") {
+    // Should not reach here, loop should handle it
+    console.error("[Handler] Unexpected need_enrichment in executeResult");
+    await notifyTeam(
+      "dev",
+      `CRITICAL: need_enrichment leaked to executeResult for ${phoneNumber}`,
+    );
+    return;
+  }
+
+  // Update phase if it changed
+  const currentConversation = getOrCreateConversation(phoneNumber);
+  if (
+    JSON.stringify(currentConversation.phase) !==
+    JSON.stringify(result.nextPhase)
+  ) {
+    updateConversation(phoneNumber, result.nextPhase, metadata);
+  }
+
+  // Execute commands sequentially with delay between messages
+  for (let i = 0; i < result.commands.length; i++) {
+    const command = result.commands[i];
+    if (!command) continue;
+
+    // Add 150ms delay between SEND_MESSAGE commands for natural pacing
+    if (i > 0 && command.type === "SEND_MESSAGE") {
+      const prevCommand = result.commands[i - 1];
+      if (prevCommand?.type === "SEND_MESSAGE") {
+        await sleep(150);
       }
-      if (result.track) {
-        await executeTrack(result.track, phoneNumber, metadata);
-      }
+    }
+
+    await executeCommand(
+      command,
+      phoneNumber,
+      result.nextPhase,
+      metadata,
+      isSimulation,
+    );
+  }
+}
+
+async function executeCommand(
+  command: Command,
+  phoneNumber: string,
+  phase: ConversationPhase,
+  metadata: ConversationMetadata,
+  isSimulation: boolean,
+): Promise<void> {
+  switch (command.type) {
+    case "SEND_MESSAGE":
+      await sendMessage(phoneNumber, command.text, isSimulation);
       break;
 
-    case "advance":
-      // Update state and send response
-      updateConversation(phoneNumber, result.nextPhase, metadata);
-
-      if (result.response) {
-        await sendMessage(phoneNumber, result.response, isSimulation);
-      }
-      if (result.images) {
-        await executeImages(
-          result.images,
-          phoneNumber,
-          result.nextPhase,
-          isSimulation,
-        );
-      }
-      if (result.track) {
-        await executeTrack(result.track, phoneNumber, metadata);
-      }
-      if (result.notify) {
-        await executeNotify(result.notify);
-      }
+    case "SEND_IMAGES":
+      await executeImages(command, phoneNumber, phase, isSimulation);
       break;
 
-    case "escalate":
-      if (result.response) {
-        await sendMessage(phoneNumber, result.response, isSimulation);
-      }
-      // Update state to escalated
-      updateConversation(
-        phoneNumber,
-        { phase: "escalated", reason: result.reason },
-        metadata,
-      );
-      if (result.notify) {
-        await executeNotify(result.notify);
-      }
-      break;
-
-    case "need_enrichment":
-      // Should not reach here, loop should handle it
-      console.error("[Handler] Unexpected need_enrichment in executeResult");
-      await executeNotify({
-        channel: "dev",
-        message: `CRITICAL: need_enrichment leaked to executeResult for ${phoneNumber}`,
+    case "TRACK_EVENT":
+      trackEvent(phoneNumber, command.event, {
+        segment: metadata.segment,
+        ...command.metadata,
       });
+      break;
+
+    case "NOTIFY_TEAM":
+      await notifyTeam(command.channel, command.message);
+      break;
+
+    case "ESCALATE":
+      // Phase update already handled in executeResult
+      console.log(`[Handler] Escalation: ${command.reason}`);
       break;
   }
 }
@@ -223,7 +244,7 @@ async function sendMessage(
 }
 
 async function executeImages(
-  command: ImageCommand,
+  command: Extract<Command, { type: "SEND_IMAGES" }>,
   phoneNumber: string,
   phase: ConversationPhase,
   isSimulation: boolean,
@@ -246,21 +267,6 @@ async function executeImages(
     creditLine: credit,
     isSimulation,
   });
-}
-
-async function executeTrack(
-  event: TrackEvent,
-  phoneNumber: string,
-  metadata: ConversationMetadata,
-): Promise<void> {
-  trackEvent(phoneNumber, event.eventType, {
-    segment: metadata.segment,
-    ...event.metadata,
-  });
-}
-
-async function executeNotify(command: NotifyCommand): Promise<void> {
-  await notifyTeam(command.channel, command.message);
 }
 
 function sleep(ms: number): Promise<void> {
