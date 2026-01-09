@@ -1,14 +1,37 @@
 export const FNB_APPROVED = (name: string, credit: number) => [
-  `¡Excelente noticia, ${name}! 🎉 Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}. Tenemos celulares, laptops, televisores, electrodomésticos y más. ¿Qué te gustaría ver?`,
-  `${name}, ¡buenas noticias! 😊 Tu crédito aprobado es de S/ ${credit.toFixed(2)}. ¿Qué producto te gustaría conocer? Tenemos de todo: celulares, laptops, TVs, cocinas...`,
-  `Perfecto ${name} 🎉 Calificas con S/ ${credit.toFixed(2)} de línea. Tenemos celulares, laptops, televisores y más. ¿Qué buscas?`,
-  `¡Genial ${name}! Tienes S/ ${credit.toFixed(2)} disponibles. ¿Te interesan celulares, laptops, electrodomésticos...?`,
+  [
+    `¡Excelente noticia, ${name}! 🎉 Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}.`,
+    `Tenemos celulares, laptops, televisores, electrodomésticos y más. ¿Qué te gustaría ver?`,
+  ],
+  [
+    `${name}, ¡buenas noticias! 😊 Tu crédito aprobado es de S/ ${credit.toFixed(2)}.`,
+    `¿Qué producto te gustaría conocer? Tenemos celulares, laptops, TVs, cocinas...`,
+  ],
+  [
+    `Perfecto ${name} 🎉 Calificas con S/ ${credit.toFixed(2)} de línea.`,
+    `¿Qué buscas? Celulares, laptops, televisores...`,
+  ],
 ];
 
 export const GASO_OFFER_KITCHEN_BUNDLE = [
-  `¡Excelente noticia, calificas para nuestro programa! 🎉\\n\\nTenemos combos de cocina + electrodomésticos desde S/ 80 al mes (hasta 18 meses). Sé que quizás no necesites cocina, pero es requisito del financiamiento para que tengas mejores tasas. Hay varios modelos disponibles.\\n\\n¿Quieres ver las opciones?`,
-  `Perfecto, estás aprobado 😊 Tenemos combos cocina + electrodomésticos con cuotas desde S/ 80 mensuales (18 meses máximo).\\n\\nLa cocina es requisito para darte buenas condiciones de financiamiento, pero puedes elegir el modelo que más te guste.\\n\\n¿Te muestro qué hay disponible?`,
-  `Genial, calificas para el programa. Combo disponible: cocina + electrodomésticos desde S/ 80 al mes (hasta 18 meses).\\n\\nEl requisito de incluir cocina es para ofrecerte mejores tasas, pero hay varios modelos.\\n\\n¿Quieres conocerlos?`,
+  [
+    `¡Excelente noticia, calificas para nuestro programa! 🎉`,
+    `Tenemos combos de cocina + electrodomésticos desde S/ 80 al mes (hasta 18 meses).`,
+    `Sé que quizás no necesites cocina, pero es requisito del financiamiento para que tengas mejores tasas.`,
+    `¿Quieres ver las opciones?`,
+  ],
+  [
+    `Perfecto, estás aprobado 😊`,
+    `Tenemos combos cocina + electrodomésticos con cuotas desde S/ 80 mensuales (18 meses máximo).`,
+    `La cocina es requisito para darte buenas condiciones de financiamiento.`,
+    `¿Te muestro qué hay disponible?`,
+  ],
+  [
+    `Genial, calificas para el programa.`,
+    `Combo disponible: cocina + electrodomésticos desde S/ 80 al mes (hasta 18 meses).`,
+    `La cocina es requisito para ofrecerte mejores tasas.`,
+    `¿Quieres conocerlos?`,
+  ],
 ];
 
 export const KITCHEN_OBJECTION_RESPONSE = [
@@ -30,9 +53,18 @@ export const ASK_PRODUCT_INTEREST = [
 ];
 
 export const CONFIRM_PURCHASE = (name: string) => [
-  `¡Excelente, ${name}! 🎉 En unos minutos mi compañero te llamará a este número para realizar el contrato.`,
-  `Perfecto ${name} 😊 Te llamamos en breve a este número para finalizar los detalles del contrato.`,
-  `¡Genial, ${name}! 🎉 Te contacto pronto para coordinar el contrato por teléfono.`,
+  [
+    `¡Excelente, ${name}! 🎉`,
+    `En unos minutos mi compañero te llamará a este número para realizar el contrato.`,
+  ],
+  [
+    `Perfecto ${name} 😊`,
+    `Te llamamos en breve a este número para finalizar los detalles del contrato.`,
+  ],
+  [
+    `¡Genial, ${name}! 🎉`,
+    `Te contacto pronto para coordinar el contrato por teléfono.`,
+  ],
 ];
 
 export const PRICE_CONCERN = {
@@ -47,3 +79,4 @@ export const PRICE_CONCERN = {
     "Sí, entiendo tu preocupación. El financiamiento ayuda a distribuir el pago en cuotas cómodas. ¿Qué buscas?",
   ],
 };
+

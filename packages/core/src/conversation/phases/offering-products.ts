@@ -62,6 +62,14 @@ export function transitionOfferingProducts(
   // Check for purchase confirmation signals
   if (isPurchaseConfirmation(lower)) {
     const variants = S.CONFIRM_PURCHASE(phase.name || "");
+    const { message: response } = selectVariant(
+      variants,
+      "CONFIRM_PURCHASE",
+      {},
+    );
+
+    const messages = Array.isArray(response) ? response : [response];
+
     return {
       type: "update",
       nextPhase: { phase: "closing", purchaseConfirmed: true },
@@ -71,10 +79,7 @@ export function transitionOfferingProducts(
           event: "purchase_confirmed",
           metadata: { segment: phase.segment },
         },
-        {
-          type: "SEND_MESSAGE",
-          text: selectVariant(variants, "CONFIRM_PURCHASE", {}).message,
-        },
+        ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
         {
           type: "NOTIFY_TEAM",
           channel: "agent",
@@ -110,6 +115,7 @@ export function transitionOfferingProducts(
       "PRICE_CONCERN",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
@@ -120,7 +126,7 @@ export function transitionOfferingProducts(
         name: phase.name,
         objectionCount: 1,
       },
-      commands: [{ type: "SEND_MESSAGE", text: response }],
+      commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     };
   }
 
@@ -255,25 +261,27 @@ function handleEnrichmentResult(
       "ASK_PRODUCT_INTEREST",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
       nextPhase: phase,
-      commands: [{ type: "SEND_MESSAGE", text: response }],
+      commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     };
   }
 
   // Unknown enrichment, ask what they want
-  const { message: response } = selectVariant(
+  const { message: response2 } = selectVariant(
     S.ASK_PRODUCT_INTEREST,
     "ASK_PRODUCT_INTEREST",
     {},
   );
+  const messages2 = Array.isArray(response2) ? response2 : [response2];
 
   return {
     type: "update",
     nextPhase: phase,
-    commands: [{ type: "SEND_MESSAGE", text: response }],
+    commands: messages2.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
   };
 }
 

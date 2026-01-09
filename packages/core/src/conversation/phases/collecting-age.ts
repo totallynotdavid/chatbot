@@ -32,17 +32,19 @@ export function transitionCollectingAge(
       "INVALID_AGE",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
       nextPhase: phase,
-      commands: [{ type: "SEND_MESSAGE", text: response }],
+      commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     };
   }
 
   if (age < MIN_AGE) {
     const variants = T.AGE_TOO_LOW(MIN_AGE);
     const { message: response } = selectVariant(variants, "AGE_TOO_LOW", {});
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
@@ -53,7 +55,7 @@ export function transitionCollectingAge(
           event: "eligibility_failed",
           metadata: { reason: "age_too_low", age },
         },
-        { type: "SEND_MESSAGE", text: response },
+        ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
       ],
     };
   }
@@ -65,6 +67,8 @@ export function transitionCollectingAge(
     "GASO_OFFER",
     {},
   );
+
+  const messages = Array.isArray(response) ? response : [response];
 
   return {
     type: "update",
@@ -80,7 +84,7 @@ export function transitionCollectingAge(
         event: "eligibility_passed",
         metadata: { segment: "gaso", credit, age },
       },
-      { type: "SEND_MESSAGE", text: response },
+      ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     ],
   };
 }

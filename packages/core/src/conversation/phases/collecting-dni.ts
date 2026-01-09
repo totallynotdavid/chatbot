@@ -50,11 +50,12 @@ export function transitionCollectingDni(
       {},
       { needsPatience: true },
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
       nextPhase: { phase: "collecting_dni" },
-      commands: [{ type: "SEND_MESSAGE", text: response }],
+      commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     };
   }
 
@@ -91,10 +92,11 @@ export function transitionCollectingDni(
 
   // Invalid DNI format
   const { message: response } = selectVariant(T.INVALID_DNI, "INVALID_DNI", {});
+  const messages = Array.isArray(response) ? response : [response];
 
   return {
     type: "update",
     nextPhase: { phase: "collecting_dni" },
-    commands: [{ type: "SEND_MESSAGE", text: response }],
+    commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
   };
 }

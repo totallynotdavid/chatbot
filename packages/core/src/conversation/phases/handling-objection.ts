@@ -105,6 +105,7 @@ export function transitionHandlingObjection(
         "THERMA_ALTERNATIVE",
         {},
       );
+      const messages = Array.isArray(response) ? response : [response];
 
       return {
         type: "update",
@@ -112,7 +113,7 @@ export function transitionHandlingObjection(
           ...phase,
           objectionCount: phase.objectionCount + 1,
         },
-        commands: [{ type: "SEND_MESSAGE", text: response }],
+        commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
       };
     }
 
@@ -122,6 +123,7 @@ export function transitionHandlingObjection(
       "KITCHEN_OBJECTION",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
@@ -129,7 +131,7 @@ export function transitionHandlingObjection(
         ...phase,
         objectionCount: phase.objectionCount + 1,
       },
-      commands: [{ type: "SEND_MESSAGE", text: response }],
+      commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
     };
   }
 

@@ -30,6 +30,7 @@ export function transitionConfirmingClient(
       "CONFIRM_CLIENT_NO",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
@@ -40,7 +41,7 @@ export function transitionConfirmingClient(
           event: "not_calidda_client",
           metadata: { response: message },
         },
-        { type: "SEND_MESSAGE", text: response },
+        ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
       ],
     };
   }
@@ -100,6 +101,7 @@ export function transitionConfirmingClient(
       "CONFIRM_CLIENT_YES",
       {},
     );
+    const messages = Array.isArray(response) ? response : [response];
 
     return {
       type: "update",
@@ -110,7 +112,7 @@ export function transitionConfirmingClient(
           event: "confirmed_calidda_client",
           metadata: { response: message },
         },
-        { type: "SEND_MESSAGE", text: response },
+        ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
       ],
     };
   }

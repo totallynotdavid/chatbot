@@ -30,7 +30,7 @@ export function transitionCheckingEligibility(
   if (enrichment.type === "eligibility_result") {
     // Case 1: needs human intervention (both providers down)
     if (enrichment.status === "needs_human") {
-      const { message } = selectVariant(
+      const { message: response } = selectVariant(
         [
           "Perfecto, déjame verificar tu información. Te respondo en un momento.",
           "Genial, dame un momentito mientras reviso tu línea de crédito.",
@@ -39,6 +39,7 @@ export function transitionCheckingEligibility(
         "CHECKING_HOLD",
         {},
       );
+      const messages = Array.isArray(response) ? response : [response];
 
       return {
         type: "update",
@@ -47,7 +48,7 @@ export function transitionCheckingEligibility(
           reason: enrichment.handoffReason || "eligibility_check_failed",
         },
         commands: [
-          { type: "SEND_MESSAGE", text: message },
+          ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
@@ -86,7 +87,7 @@ export function transitionCheckingEligibility(
                 event: "eligibility_failed",
                 metadata: { segment: "fnb", credit, reason: "credit_too_low" },
               },
-              { type: "SEND_MESSAGE", text: response },
+              { type: "SEND_MESSAGE", text: response as string },
             ],
           };
         }
@@ -98,6 +99,8 @@ export function transitionCheckingEligibility(
           "FNB_APPROVED",
           {},
         );
+
+        const messages = Array.isArray(response) ? response : [response];
 
         return {
           type: "update",
@@ -113,7 +116,7 @@ export function transitionCheckingEligibility(
               event: "eligibility_passed",
               metadata: { segment: "fnb", credit },
             },
-            { type: "SEND_MESSAGE", text: response },
+            ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
           ],
         };
       }
@@ -122,6 +125,7 @@ export function transitionCheckingEligibility(
       if (segment === "gaso") {
         const variants = T.ASK_AGE(name);
         const { message: response } = selectVariant(variants, "ASK_AGE", {});
+        const messages = Array.isArray(response) ? response : [response];
 
         return {
           type: "update",
@@ -130,7 +134,7 @@ export function transitionCheckingEligibility(
             dni: phase.dni,
             name,
           },
-          commands: [{ type: "SEND_MESSAGE", text: response }],
+          commands: messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
         };
       }
     }
@@ -142,6 +146,7 @@ export function transitionCheckingEligibility(
         "NOT_ELIGIBLE",
         {},
       );
+      const messages = Array.isArray(response) ? response : [response];
 
       return {
         type: "update",
@@ -152,7 +157,7 @@ export function transitionCheckingEligibility(
             event: "eligibility_failed",
             metadata: { segment: "none", reason: "not_eligible" },
           },
-          { type: "SEND_MESSAGE", text: response },
+          ...messages.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
         ],
       };
     }

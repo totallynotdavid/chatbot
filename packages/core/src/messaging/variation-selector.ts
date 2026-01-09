@@ -14,16 +14,18 @@ export interface VariantContext {
 /**
  * Select a variant from an array, avoiding previously used ones in this session
  *
- * @param variants - Array of message variations
+ * Supports both single messages (string) and multi-message sequences (string[])
+ *
+ * @param variants - Array of message variations (strings or string arrays)
  * @param key - Unique key for this message type (e.g., "GREETING")
  * @param context - Conversation context containing used variant tracking
- * @returns Selected variant string and updated context
+ * @returns Selected variant (string or string[]) and updated context
  */
 export function selectVariant(
-  variants: string[],
+  variants: (string | string[])[],
   key: VariantKey,
   context: VariantContext,
-): { message: string; updatedContext: Partial<VariantContext> } {
+): { message: string | string[]; updatedContext: Partial<VariantContext> } {
   if (!variants || variants.length === 0) {
     throw new Error(`No variants provided for key: ${key}`);
   }
@@ -82,11 +84,11 @@ export interface ContextSignals {
 }
 
 export interface CategorizedVariants {
-  standard: string[];
-  empathetic?: string[];
-  patient?: string[];
-  casual?: string[];
-  formal?: string[];
+  standard: (string | string[])[];
+  empathetic?: (string | string[])[];
+  patient?: (string | string[])[];
+  casual?: (string | string[])[];
+  formal?: (string | string[])[];
 }
 
 export function selectVariantWithContext(
@@ -94,7 +96,7 @@ export function selectVariantWithContext(
   key: VariantKey,
   context: VariantContext,
   signals: ContextSignals = {},
-): { message: string; updatedContext: Partial<VariantContext> } {
+): { message: string | string[]; updatedContext: Partial<VariantContext> } {
   // Select appropriate category based on signals
   let selectedCategory = variants.standard;
 
