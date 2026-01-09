@@ -10,13 +10,23 @@ export type SendBundleParams = {
   isSimulation: boolean;
 };
 
+export type SendBundleResult = {
+  success: boolean;
+  products: Array<{
+    name: string;
+    position: number;
+    productId: string;
+    price: number;
+  }>;
+};
+
 /**
  * Send bundle images to customer with installment details
- * @returns true if bundles were sent, false if no bundles available
+ * @returns result with success flag and products sent
  */
 export async function sendBundleImages(
   params: SendBundleParams,
-): Promise<boolean> {
+): Promise<SendBundleResult> {
   const { phoneNumber, segment, category, creditLine, isSimulation } = params;
 
   const bundles = BundleService.getAvailable({
@@ -26,11 +36,13 @@ export async function sendBundleImages(
   }).slice(0, 3);
 
   if (bundles.length === 0) {
-    return false;
+    return { success: false, products: [] };
   }
 
+  const sentProducts = [];
+
   // Send each bundle image with formatted caption
-  for (const bundle of bundles) {
+  for (const [index, bundle] of bundles.entries()) {
     const installments = JSON.parse(bundle.installments_json);
     const firstOption = installments[0];
     const installmentText = firstOption
@@ -54,6 +66,13 @@ export async function sendBundleImages(
         caption,
       );
     }
+
+    sentProducts.push({
+      name: bundle.name,
+      position: index + 1,
+      productId: bundle.id,
+      price: bundle.price,
+    });
   }
 
   // Send follow-up message
@@ -74,5 +93,5 @@ export async function sendBundleImages(
     await WhatsAppService.sendMessage(phoneNumber, followUp);
   }
 
-  return true;
+  return { success: true, products: sentProducts };
 }

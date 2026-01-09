@@ -14,7 +14,15 @@ export const CATEGORIES = {
     key: "celulares",
     display: "Celulares",
     aliases: ["celular", "smartphone", "celu", "telefono", "phone", "movil"],
-    brands: ["iphone", "samsung", "xiaomi", "redmi", "motorola"],
+    brands: [
+      "iphone",
+      "samsung",
+      "galaxy",
+      "xiaomi",
+      "redmi",
+      "motorola",
+      "huawei",
+    ],
   },
   cocinas: {
     key: "cocinas",

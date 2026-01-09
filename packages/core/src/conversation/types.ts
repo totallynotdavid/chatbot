@@ -20,6 +20,13 @@ export type ConversationPhase =
       name: string;
       availableCategories?: string[];
       categoryDisplayNames?: string[];
+      lastShownCategory?: string;
+      sentProducts?: Array<{
+        name: string;
+        position: number;
+        productId?: string;
+        price?: number;
+      }>;
     }
   | {
       phase: "handling_objection";
@@ -27,6 +34,12 @@ export type ConversationPhase =
       credit: number;
       name: string;
       objectionCount: number;
+      sentProducts?: Array<{
+        name: string;
+        position: number;
+        productId?: string;
+        price?: number;
+      }>;
     }
   | {
       phase: "closing";

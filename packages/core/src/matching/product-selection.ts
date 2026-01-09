@@ -5,6 +5,7 @@ export type SentProduct = {
   name: string;
   position: number;
   productId?: string;
+  price?: number;
 };
 
 /**
@@ -13,28 +14,50 @@ export type SentProduct = {
  * 2. Ordinal/position match (FREE, 0ms)
  * 3. Fuzzy brand/model match (FREE, 0ms)
  * 4. Return null for LLM fallback (PAID, 200ms)
+ *
+ * @returns Single product if unique match, or null if no match/ambiguous
  */
 export function matchProductSelection(
   message: string,
   sentProducts: SentProduct[],
 ): SentProduct | null {
+  const matches = matchAllProducts(message, sentProducts);
+
+  // Only return if exactly one match
+  if (matches.length === 1) {
+    const match = matches[0];
+    return match ?? null;
+  }
+  return null;
+}
+
+/**
+ * Find all products that match the message
+ * Used for detecting ambiguous selections
+ */
+export function matchAllProducts(
+  message: string,
+  sentProducts: SentProduct[],
+): SentProduct[] {
   const lower = message.toLowerCase().trim();
 
-  // Priority 1: Exact product name match
+  // Priority 1: Exact product name match (may match multiple)
+  const cleanMessage = lower
+    .replace(/^(el|la|los|las|un|una|unos|unas)\s+/, "")
+    .replace(/\s+(por favor|gracias|pls?)$/i, "");
+
+  const exactMatches: SentProduct[] = [];
   for (const product of sentProducts) {
     const productNameLower = product.name.toLowerCase();
-    // Remove common prefixes/suffixes for better matching
-    const cleanMessage = lower
-      .replace(/^(el|la|los|las|un|una|unos|unas)\s+/, "")
-      .replace(/\s+(por favor|gracias|pls?)$/i, "");
 
     if (
       productNameLower.includes(cleanMessage) ||
       cleanMessage.includes(productNameLower)
     ) {
-      return product;
+      exactMatches.push(product);
     }
   }
+  if (exactMatches.length > 0) return exactMatches;
 
   // Priority 2: Ordinal/position match
   const ordinalMatch = lower.match(
@@ -53,12 +76,13 @@ export function matchProductSelection(
     else if (/\b(sext|6to|6ta|seis)\b/.test(ordinal)) position = 6;
 
     const product = sentProducts.find((p) => p.position === position);
-    if (product) return product;
+    if (product) return [product];
   }
 
-  // Priority 3: Fuzzy brand/model match
+  // Priority 3: Fuzzy brand/model match (may return multiple)
   const brandKeywords = extractBrandKeywords(lower);
   if (brandKeywords.length > 0) {
+    const matches: SentProduct[] = [];
     for (const product of sentProducts) {
       const productWords = product.name.toLowerCase().split(/\s+/);
       // Check if any brand keyword matches product name
@@ -69,13 +93,14 @@ export function matchProductSelection(
           ),
         )
       ) {
-        return product;
+        matches.push(product);
       }
     }
+    if (matches.length > 0) return matches;
   }
 
-  // Priority 4: No match found, return null for LLM fallback
-  return null;
+  // Priority 4: No match found
+  return [];
 }
 
 function extractBrandKeywords(message: string): string[] {

@@ -260,13 +260,23 @@ async function executeImages(
   const credit = "credit" in phase ? phase.credit : 0;
   const segment = "segment" in phase ? phase.segment : "fnb";
 
-  await sendBundleImages({
+  const result = await sendBundleImages({
     phoneNumber,
     segment,
     category: command.category,
     creditLine: credit,
     isSimulation,
   });
+
+  // Update phase with sent products for validation in next message
+  if (result.success && result.products.length > 0) {
+    const updatedPhase: ConversationPhase = {
+      ...phase,
+      sentProducts: result.products,
+    };
+    const conversation = getOrCreateConversation(phoneNumber);
+    updateConversation(phoneNumber, updatedPhase, conversation.metadata);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
