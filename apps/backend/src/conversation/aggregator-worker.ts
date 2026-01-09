@@ -65,9 +65,7 @@ async function processReadyMessages(): Promise<void> {
     `[Aggregator] Processing ${readyGroups.length} ready message groups`,
   );
 
-  for (const group of readyGroups) {
-    await processGroup(group);
-  }
+  await Promise.all(readyGroups.map((group) => processGroup(group)));
 }
 
 async function processGroup(group: {
