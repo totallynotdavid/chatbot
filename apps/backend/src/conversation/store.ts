@@ -1,7 +1,5 @@
 /**
- * Conversation Store
- *
- * Persistence layer for conversations using the new type system.
+ * Persistence layer for conversations-related data.
  * Stores ConversationPhase as discriminated union JSON.
  */
 

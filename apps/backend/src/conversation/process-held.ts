@@ -1,10 +1,3 @@
-/**
- * Process Held Messages
- *
- * When exiting maintenance mode, process all messages that were held.
- * This module can be called manually or on a schedule.
- */
-
 import {
   getHeldMessages,
   clearHeldMessages,

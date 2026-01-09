@@ -1,14 +1,3 @@
-/**
- * Message Handler
- *
- * Main entry point for processing incoming WhatsApp messages.
- * Implements:
- * - Per-user locking (parallel across users, serial per user)
- * - Enrichment loop (runs state machine, executes enrichments, repeats)
- * - Human-like response timing (configurable delay from message timestamp)
- * - Backlog detection (skip delay for old messages)
- */
-
 import { conversation } from "@totem/core";
 import { withLock } from "./locks.ts";
 import { executeEnrichment } from "./enrichment.ts";
@@ -31,7 +20,6 @@ import { notifyTeam } from "../services/notifier.ts";
 import { sendBundleImages } from "./images.ts";
 import { trackEvent } from "../services/analytics.ts";
 
-// Configuration
 const RESPONSE_DELAY_MS = parseInt(
   process.env.BOT_RESPONSE_DELAY_MS || "4000",
   10,
@@ -46,9 +34,6 @@ export type IncomingMessage = {
   messageId: string;
 };
 
-/**
- * Handle an incoming message with locking and enrichment loop
- */
 export async function handleMessage(message: IncomingMessage): Promise<void> {
   const { phoneNumber, content, timestamp, messageId } = message;
 
@@ -101,9 +86,6 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
   });
 }
 
-/**
- * Run the state machine with enrichment loop
- */
 async function runEnrichmentLoop(
   phase: ConversationPhase,
   message: string,
@@ -154,9 +136,6 @@ async function runEnrichmentLoop(
   };
 }
 
-/**
- * Execute the transition result (send messages, update state, etc.)
- */
 async function executeResult(
   result: TransitionResult,
   phoneNumber: string,

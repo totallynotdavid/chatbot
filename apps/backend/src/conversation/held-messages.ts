@@ -1,9 +1,3 @@
-/**
- * Held Messages Store
- *
- * Stores messages received during maintenance mode for processing later.
- */
-
 import { db } from "../db/index.ts";
 import { getAll } from "../db/query.ts";
 

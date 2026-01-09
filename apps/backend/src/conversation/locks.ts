@@ -1,7 +1,5 @@
 /**
- * Per-User Locks
- *
- * Ensures messages from the same user are processed sequentially,
+ * Makes sure that messages from the same user are processed sequentially,
  * while allowing messages from different users to be processed in parallel.
  */
 

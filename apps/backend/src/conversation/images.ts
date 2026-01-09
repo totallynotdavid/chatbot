@@ -1,10 +1,3 @@
-/**
- * Image Sending
- *
- * Handles sending product bundle images to customers.
- * Extracted from bundle-sender for the new architecture.
- */
-
 import type { Segment } from "@totem/types";
 import { BundleService } from "../services/catalog/index.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
