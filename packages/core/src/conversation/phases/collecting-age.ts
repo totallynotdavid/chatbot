@@ -34,8 +34,9 @@ export function transitionCollectingAge(
     );
 
     return {
-      type: "stay",
-      response,
+      type: "update",
+      nextPhase: phase,
+      commands: [{ type: "SEND_MESSAGE", text: response }],
     };
   }
 
@@ -44,13 +45,16 @@ export function transitionCollectingAge(
     const { message: response } = selectVariant(variants, "AGE_TOO_LOW", {});
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "closing", purchaseConfirmed: false },
-      response,
-      track: {
-        eventType: "eligibility_failed",
-        metadata: { reason: "age_too_low", age },
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "eligibility_failed",
+          metadata: { reason: "age_too_low", age },
+        },
+        { type: "SEND_MESSAGE", text: response },
+      ],
     };
   }
 
@@ -63,17 +67,20 @@ export function transitionCollectingAge(
   );
 
   return {
-    type: "advance",
+    type: "update",
     nextPhase: {
       phase: "offering_products",
       segment: "gaso",
       credit,
       name: phase.name,
     },
-    response,
-    track: {
-      eventType: "eligibility_passed",
-      metadata: { segment: "gaso", credit, age },
-    },
+    commands: [
+      {
+        type: "TRACK_EVENT",
+        event: "eligibility_passed",
+        metadata: { segment: "gaso", credit, age },
+      },
+      { type: "SEND_MESSAGE", text: response },
+    ],
   };
 }

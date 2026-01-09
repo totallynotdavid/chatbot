@@ -31,20 +31,33 @@ export function transitionHandlingObjection(
   if (enrichment) {
     if (enrichment.type === "question_answered") {
       return {
-        type: "stay",
-        response:
-          enrichment.answer + "\n\n¿Te gustaría ver alguna otra opción?",
+        type: "update",
+        nextPhase: phase,
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text:
+              enrichment.answer + "\n\n¿Te gustaría ver alguna otra opción?",
+          },
+        ],
       };
     }
 
     if (enrichment.type === "escalation_needed" && enrichment.shouldEscalate) {
       return {
-        type: "escalate",
-        reason: "customer_question_during_objection",
-        notify: {
-          channel: "agent",
-          message: `Cliente tiene dudas durante manejo de objeción`,
+        type: "update",
+        nextPhase: {
+          phase: "escalated",
+          reason: "customer_question_during_objection",
         },
+        commands: [
+          {
+            type: "NOTIFY_TEAM",
+            channel: "agent",
+            message: `Cliente tiene dudas durante manejo de objeción`,
+          },
+          { type: "ESCALATE", reason: "customer_question_during_objection" },
+        ],
       };
     }
   }
@@ -52,12 +65,19 @@ export function transitionHandlingObjection(
   // Too many objections - escalate
   if (phase.objectionCount >= MAX_OBJECTIONS) {
     return {
-      type: "escalate",
-      reason: "multiple_objections",
-      notify: {
-        channel: "agent",
-        message: `Cliente rechazó bundle múltiples veces. Requiere atención.`,
+      type: "update",
+      nextPhase: {
+        phase: "escalated",
+        reason: "multiple_objections",
       },
+      commands: [
+        {
+          type: "NOTIFY_TEAM",
+          channel: "agent",
+          message: `Cliente rechazó bundle múltiples veces. Requiere atención.`,
+        },
+        { type: "ESCALATE", reason: "multiple_objections" },
+      ],
     };
   }
 
@@ -66,14 +86,19 @@ export function transitionHandlingObjection(
     /\b(s[ií]|ok|claro|dale|bueno|ver|muestrame|quiero\s+ver)\b/.test(lower)
   ) {
     return {
-      type: "advance",
+      type: "update",
       nextPhase: {
         phase: "offering_products",
         segment: phase.segment,
         credit: phase.credit,
         name: phase.name,
       },
-      response: "¿Qué tipo de producto te gustaría ver?",
+      commands: [
+        {
+          type: "SEND_MESSAGE",
+          text: "¿Qué tipo de producto te gustaría ver?",
+        },
+      ],
     };
   }
 
@@ -88,12 +113,12 @@ export function transitionHandlingObjection(
       );
 
       return {
-        type: "advance",
+        type: "update",
         nextPhase: {
           ...phase,
           objectionCount: phase.objectionCount + 1,
         },
-        response,
+        commands: [{ type: "SEND_MESSAGE", text: response }],
       };
     }
 
@@ -105,12 +130,12 @@ export function transitionHandlingObjection(
     );
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: {
         ...phase,
         objectionCount: phase.objectionCount + 1,
       },
-      response,
+      commands: [{ type: "SEND_MESSAGE", text: response }],
     };
   }
 

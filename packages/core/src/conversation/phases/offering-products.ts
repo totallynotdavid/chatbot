@@ -48,13 +48,16 @@ export function transitionOfferingProducts(
   const matchedCategory = matchCategory(message);
   if (matchedCategory) {
     return {
-      type: "advance",
+      type: "update",
       nextPhase: phase, // Stay in offering_products
-      images: { category: matchedCategory },
-      track: {
-        eventType: "category_selected",
-        metadata: { category: matchedCategory, method: "regex" },
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "category_selected",
+          metadata: { category: matchedCategory, method: "regex" },
+        },
+        { type: "SEND_IMAGES", category: matchedCategory },
+      ],
     };
   }
 
@@ -62,31 +65,43 @@ export function transitionOfferingProducts(
   if (isPurchaseConfirmation(lower)) {
     const variants = S.CONFIRM_PURCHASE(phase.name || "");
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "closing", purchaseConfirmed: true },
-      response: selectVariant(variants, "CONFIRM_PURCHASE", {}).message,
-      notify: {
-        channel: "agent",
-        message: `Cliente confirmó interés de compra`,
-      },
-      track: {
-        eventType: "purchase_confirmed",
-        metadata: { segment: phase.segment },
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "purchase_confirmed",
+          metadata: { segment: phase.segment },
+        },
+        {
+          type: "SEND_MESSAGE",
+          text: selectVariant(variants, "CONFIRM_PURCHASE", {}).message,
+        },
+        {
+          type: "NOTIFY_TEAM",
+          channel: "agent",
+          message: `Cliente confirmó interés de compra`,
+        },
+      ],
     };
   }
 
   // Check for rejection
   if (isRejection(lower)) {
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "closing", purchaseConfirmed: false },
-      response:
-        "Entendido. ¡Gracias por tu tiempo! Si cambias de opinión, aquí estaré.",
-      track: {
-        eventType: "offer_rejected",
-        metadata: {},
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "offer_rejected",
+          metadata: {},
+        },
+        {
+          type: "SEND_MESSAGE",
+          text: "Entendido. ¡Gracias por tu tiempo! Si cambias de opinión, aquí estaré.",
+        },
+      ],
     };
   }
 
@@ -99,7 +114,7 @@ export function transitionOfferingProducts(
     );
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: {
         phase: "handling_objection",
         segment: phase.segment,
@@ -107,7 +122,7 @@ export function transitionOfferingProducts(
         name: phase.name,
         objectionCount: 1,
       },
-      response,
+      commands: [{ type: "SEND_MESSAGE", text: response }],
     };
   }
 
@@ -133,12 +148,19 @@ function handleEnrichmentResult(
     // If no categories available, gracefully handle
     if (enrichment.categories.length === 0) {
       return {
-        type: "escalate",
-        reason: "no_products_available",
-        notify: {
-          channel: "agent",
-          message: "No hay productos disponibles en catálogo activo",
+        type: "update",
+        nextPhase: {
+          phase: "escalated",
+          reason: "no_products_available",
         },
+        commands: [
+          {
+            type: "NOTIFY_TEAM",
+            channel: "agent",
+            message: "No hay productos disponibles en catálogo activo",
+          },
+          { type: "ESCALATE", reason: "no_products_available" },
+        ],
       };
     }
 
@@ -172,12 +194,19 @@ function handleEnrichmentResult(
   if (enrichment.type === "escalation_needed") {
     if (enrichment.shouldEscalate) {
       return {
-        type: "escalate",
-        reason: "customer_question_requires_human",
-        notify: {
-          channel: "agent",
-          message: `Cliente tiene pregunta que requiere atención humana`,
+        type: "update",
+        nextPhase: {
+          phase: "escalated",
+          reason: "customer_question_requires_human",
         },
+        commands: [
+          {
+            type: "NOTIFY_TEAM",
+            channel: "agent",
+            message: `Cliente tiene pregunta que requiere atención humana`,
+          },
+          { type: "ESCALATE", reason: "customer_question_requires_human" },
+        ],
       };
     }
 
@@ -200,8 +229,9 @@ function handleEnrichmentResult(
   // Question answered
   if (enrichment.type === "question_answered") {
     return {
-      type: "stay",
-      response: enrichment.answer,
+      type: "update",
+      nextPhase: phase,
+      commands: [{ type: "SEND_MESSAGE", text: enrichment.answer }],
     };
   }
 
@@ -209,13 +239,16 @@ function handleEnrichmentResult(
   if (enrichment.type === "category_extracted") {
     if (enrichment.category) {
       return {
-        type: "advance",
+        type: "update",
         nextPhase: phase, // Stay in offering_products
-        images: { category: enrichment.category },
-        track: {
-          eventType: "category_selected",
-          metadata: { category: enrichment.category, method: "llm" },
-        },
+        commands: [
+          {
+            type: "TRACK_EVENT",
+            event: "category_selected",
+            metadata: { category: enrichment.category, method: "llm" },
+          },
+          { type: "SEND_IMAGES", category: enrichment.category },
+        ],
       };
     }
 
@@ -227,8 +260,9 @@ function handleEnrichmentResult(
     );
 
     return {
-      type: "stay",
-      response,
+      type: "update",
+      nextPhase: phase,
+      commands: [{ type: "SEND_MESSAGE", text: response }],
     };
   }
 
@@ -240,8 +274,9 @@ function handleEnrichmentResult(
   );
 
   return {
-    type: "stay",
-    response,
+    type: "update",
+    nextPhase: phase,
+    commands: [{ type: "SEND_MESSAGE", text: response }],
   };
 }
 

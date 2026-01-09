@@ -41,13 +41,23 @@ export function transitionCheckingEligibility(
       );
 
       return {
-        type: "escalate",
-        reason: enrichment.handoffReason || "eligibility_check_failed",
-        notify: {
-          channel: "agent",
-          message: `🔴 Cliente esperando. Verificación de elegibilidad: DNI ${phase.dni}. ${enrichment.handoffReason === "both_providers_down" ? "Ambos proveedores caídos." : "Error en verificación."}`,
+        type: "update",
+        nextPhase: {
+          phase: "escalated",
+          reason: enrichment.handoffReason || "eligibility_check_failed",
         },
-        response: message,
+        commands: [
+          { type: "SEND_MESSAGE", text: message },
+          {
+            type: "NOTIFY_TEAM",
+            channel: "agent",
+            message: `🔴 Cliente esperando. Verificación de elegibilidad: DNI ${phase.dni}. ${enrichment.handoffReason === "both_providers_down" ? "Ambos proveedores caídos." : "Error en verificación."}`,
+          },
+          {
+            type: "ESCALATE",
+            reason: enrichment.handoffReason || "eligibility_check_failed",
+          },
+        ],
       };
     }
 
@@ -68,13 +78,16 @@ export function transitionCheckingEligibility(
           );
 
           return {
-            type: "advance",
+            type: "update",
             nextPhase: { phase: "closing", purchaseConfirmed: false },
-            response,
-            track: {
-              eventType: "eligibility_failed",
-              metadata: { segment: "fnb", credit, reason: "credit_too_low" },
-            },
+            commands: [
+              {
+                type: "TRACK_EVENT",
+                event: "eligibility_failed",
+                metadata: { segment: "fnb", credit, reason: "credit_too_low" },
+              },
+              { type: "SEND_MESSAGE", text: response },
+            ],
           };
         }
 
@@ -87,18 +100,21 @@ export function transitionCheckingEligibility(
         );
 
         return {
-          type: "advance",
+          type: "update",
           nextPhase: {
             phase: "offering_products",
             segment: "fnb",
             credit,
             name,
           },
-          response,
-          track: {
-            eventType: "eligibility_passed",
-            metadata: { segment: "fnb", credit },
-          },
+          commands: [
+            {
+              type: "TRACK_EVENT",
+              event: "eligibility_passed",
+              metadata: { segment: "fnb", credit },
+            },
+            { type: "SEND_MESSAGE", text: response },
+          ],
         };
       }
 
@@ -108,13 +124,13 @@ export function transitionCheckingEligibility(
         const { message: response } = selectVariant(variants, "ASK_AGE", {});
 
         return {
-          type: "advance",
+          type: "update",
           nextPhase: {
             phase: "collecting_age",
             dni: phase.dni,
             name,
           },
-          response,
+          commands: [{ type: "SEND_MESSAGE", text: response }],
         };
       }
     }
@@ -128,17 +144,24 @@ export function transitionCheckingEligibility(
       );
 
       return {
-        type: "advance",
+        type: "update",
         nextPhase: { phase: "closing", purchaseConfirmed: false },
-        response,
-        track: {
-          eventType: "eligibility_failed",
-          metadata: { segment: "none", reason: "not_eligible" },
-        },
+        commands: [
+          {
+            type: "TRACK_EVENT",
+            event: "eligibility_failed",
+            metadata: { segment: "none", reason: "not_eligible" },
+          },
+          { type: "SEND_MESSAGE", text: response },
+        ],
       };
     }
   }
 
   // For unknown cases, stay in phase
-  return { type: "stay" };
+  return {
+    type: "update",
+    nextPhase: phase,
+    commands: [],
+  };
 }

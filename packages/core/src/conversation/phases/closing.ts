@@ -33,16 +33,23 @@ export function transitionClosing(
 
   if (hasNewPurchaseIntent && metadata.segment && metadata.credit) {
     return {
-      type: "advance",
+      type: "update",
       nextPhase: {
         phase: "offering_products",
         segment: metadata.segment,
         credit: metadata.credit,
         name: metadata.name || "",
       },
-      response:
-        "¡Claro! Te puedo mostrar más opciones. ¿Qué categoría te interesa?",
-      track: { eventType: "additional_purchase_intent" },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "additional_purchase_intent",
+        },
+        {
+          type: "SEND_MESSAGE",
+          text: "¡Claro! Te puedo mostrar más opciones. ¿Qué categoría te interesa?",
+        },
+      ],
     };
   }
 
@@ -80,13 +87,13 @@ export function transitionClosing(
   // Handle question answered
   if (enrichment.type === "question_answered") {
     return {
-      type: "advance",
+      type: "update",
       nextPhase: {
         phase: "closing",
         purchaseConfirmed: phase.purchaseConfirmed,
         subPhase: "post_sale_support",
       },
-      response: enrichment.answer,
+      commands: [{ type: "SEND_MESSAGE", text: enrichment.answer }],
     };
   }
 
@@ -108,27 +115,37 @@ export function transitionClosing(
     // First acknowledgment after confirmation
     if (!phase.subPhase || phase.subPhase === "just_confirmed") {
       return {
-        type: "advance",
+        type: "update",
         nextPhase: {
           phase: "closing",
           purchaseConfirmed: phase.purchaseConfirmed,
           subPhase: "post_sale_support",
         },
-        response: "¡Perfecto! Si tienes más preguntas, aquí estoy.",
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text: "¡Perfecto! Si tienes más preguntas, aquí estoy.",
+          },
+        ],
       };
     }
     // For subsequent acknowledgments, stay quiet
-    return { type: "stay" };
+    return { type: "update", nextPhase: phase, commands: [] };
   }
 
   // Longer message that's not a question
   if (normalized.length > 15) {
     return {
-      type: "stay",
-      response:
-        "Entendido. El agente que se contactará contigo podrá ayudarte con cualquier detalle adicional.",
+      type: "update",
+      nextPhase: phase,
+      commands: [
+        {
+          type: "SEND_MESSAGE",
+          text: "Entendido. El agente que se contactará contigo podrá ayudarte con cualquier detalle adicional.",
+        },
+      ],
     };
   }
 
-  return { type: "stay" };
+  return { type: "update", nextPhase: phase, commands: [] };
 }

@@ -32,13 +32,16 @@ export function transitionConfirmingClient(
     );
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "closing", purchaseConfirmed: false },
-      response,
-      track: {
-        eventType: "not_calidda_client",
-        metadata: { response: message },
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "not_calidda_client",
+          metadata: { response: message },
+        },
+        { type: "SEND_MESSAGE", text: response },
+      ],
     };
   }
 
@@ -54,30 +57,40 @@ export function transitionConfirmingClient(
     if (metadata.dni && metadata.segment && metadata.credit !== undefined) {
       if (metadata.segment === "fnb") {
         return {
-          type: "advance",
+          type: "update",
           nextPhase: {
             phase: "offering_products",
             segment: "fnb",
             credit: metadata.credit,
             name: metadata.name || "",
           },
-          response: metadata.name
-            ? `¡Excelente ${metadata.name}! Sigamos viendo opciones para ti.`
-            : `¡Excelente! Sigamos viendo opciones para ti.`,
+          commands: [
+            {
+              type: "SEND_MESSAGE",
+              text: metadata.name
+                ? `¡Excelente ${metadata.name}! Sigamos viendo opciones para ti.`
+                : `¡Excelente! Sigamos viendo opciones para ti.`,
+            },
+          ],
         };
       }
 
       // GASO needs age confirmation
       return {
-        type: "advance",
+        type: "update",
         nextPhase: {
           phase: "collecting_age",
           dni: metadata.dni,
           name: metadata.name || "",
         },
-        response: metadata.name
-          ? `¡Excelente ${metadata.name}! Sigamos viendo opciones para ti.`
-          : `¡Excelente! Sigamos viendo opciones para ti.`,
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text: metadata.name
+              ? `¡Excelente ${metadata.name}! Sigamos viendo opciones para ti.`
+              : `¡Excelente! Sigamos viendo opciones para ti.`,
+          },
+        ],
       };
     }
 
@@ -89,19 +102,27 @@ export function transitionConfirmingClient(
     );
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "collecting_dni" },
-      response,
-      track: {
-        eventType: "confirmed_calidda_client",
-        metadata: { response: message },
-      },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "confirmed_calidda_client",
+          metadata: { response: message },
+        },
+        { type: "SEND_MESSAGE", text: response },
+      ],
     };
   }
 
   return {
-    type: "stay",
-    response:
-      "Disculpa, no entendí. ¿Eres titular del servicio de gas natural de Calidda? (Responde Sí o No)",
+    type: "update",
+    nextPhase: { phase: "confirming_client" },
+    commands: [
+      {
+        type: "SEND_MESSAGE",
+        text: "Disculpa, no entendí. ¿Eres titular del servicio de gas natural de Calidda? (Responde Sí o No)",
+      },
+    ],
   };
 }
