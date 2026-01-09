@@ -1,6 +1,3 @@
-// Sales-focused message variations with natural Peruvian Spanish
-// Variations maintain enthusiasm without sounding pushy
-
 export const FNB_APPROVED = (name: string, credit: number) => [
   `¡Excelente noticia, ${name}! 🎉 Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}. Tenemos celulares, laptops, televisores, electrodomésticos y más. ¿Qué te gustaría ver?`,
   `${name}, ¡buenas noticias! 😊 Tu crédito aprobado es de S/ ${credit.toFixed(2)}. ¿Qué producto te gustaría conocer? Tenemos de todo: celulares, laptops, TVs, cocinas...`,
@@ -38,21 +35,6 @@ export const CONFIRM_PURCHASE = (name: string) => [
   `¡Genial, ${name}! 🎉 Te contacto pronto para coordinar el contrato por teléfono.`,
 ];
 
-export const ASK_FOR_SPECS = [
-  "Si necesitas más detalles técnicos de algún producto, solo pregúntame 😊 ¿Cuál te interesa más?",
-  "¿Quieres saber especificaciones de alguno? Pregúntame lo que necesites.",
-  "Si tienes dudas de algún producto, pregúntame nomás 😊",
-];
-
-export const INSTALLMENTS_INFO = (
-  installments: number,
-  monthlyPayment: number,
-) => [
-  `Este producto se puede pagar en ${installments} cuotas mensuales de aproximadamente S/ ${monthlyPayment.toFixed(2)} cada una 😊`,
-  `Puedes pagarlo en ${installments} meses, alrededor de S/ ${monthlyPayment.toFixed(2)} por mes.`,
-  `Lo pagas en ${installments} cuotas de S/ ${monthlyPayment.toFixed(2)} mensuales.`,
-];
-
 export const PRICE_CONCERN = {
   standard: [
     "Te entiendo 😊 Por eso está el financiamiento en cuotas que salen en tu recibo de Cálidda para hacerlo más cómodo. ¿Qué producto te interesa?",
@@ -65,15 +47,3 @@ export const PRICE_CONCERN = {
     "Sí, entiendo tu preocupación. El financiamiento ayuda a distribuir el pago en cuotas cómodas. ¿Qué buscas?",
   ],
 };
-
-export const OUT_OF_CATALOG_REQUEST = [
-  "Ese producto específico no lo tengo en el catálogo ahora, pero déjame verificarlo 😊",
-  "No tengo ese modelo exacto aquí, pero puedo consultar si lo conseguimos. Dame un momento.",
-  "Ese no lo veo disponible ahora mismo. Déjame revisar qué podemos hacer.",
-];
-
-export const CREDIT_EXCEEDED = [
-  "Ese producto supera tu línea actual, pero déjame verificar si hay opciones especiales 😊",
-  "El monto de ese excede tu crédito disponible. Déjame consultar alternativas.",
-  "Está un poco por encima de tu línea. Dame un momento para revisar opciones.",
-];
