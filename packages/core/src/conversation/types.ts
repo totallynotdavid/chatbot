@@ -87,46 +87,24 @@ export type EnrichmentResult =
   | { type: "question_answered"; answer: string }
   | { type: "backlog_apology"; apology: string };
 
+export type Command =
+  | { type: "SEND_MESSAGE"; text: string }
+  | { type: "SEND_IMAGES"; category: string }
+  | { type: "TRACK_EVENT"; event: string; metadata?: Record<string, unknown> }
+  | { type: "NOTIFY_TEAM"; channel: "agent" | "dev" | "sales"; message: string }
+  | { type: "ESCALATE"; reason: string };
+
 export type TransitionResult =
   | {
-      type: "stay";
-      response?: string;
-      track?: TrackEvent;
-    }
-  | {
-      type: "advance";
+      type: "update";
       nextPhase: ConversationPhase;
-      response?: string;
-      images?: ImageCommand;
-      track?: TrackEvent;
-      notify?: NotifyCommand;
+      commands: Command[];
     }
   | {
       type: "need_enrichment";
       enrichment: EnrichmentRequest;
       pendingPhase?: ConversationPhase;
-    }
-  | {
-      type: "escalate";
-      reason: string;
-      response?: string;
-      notify?: NotifyCommand;
     };
-
-export type TrackEvent = {
-  eventType: string;
-  metadata?: Record<string, unknown>;
-};
-
-export type ImageCommand = {
-  category: string;
-  productIds?: string[];
-};
-
-export type NotifyCommand = {
-  channel: "agent" | "dev" | "sales";
-  message: string;
-};
 
 export type TransitionInput = {
   phase: ConversationPhase;

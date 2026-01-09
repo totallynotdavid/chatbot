@@ -15,19 +15,31 @@ export function transitionGreeting(
     const { message } = selectVariant(variants, "GREETING_RETURNING", {});
 
     return {
-      type: "advance",
+      type: "update",
       nextPhase: { phase: "confirming_client" },
-      response: message,
-      track: { eventType: "session_start", metadata: { returning: true } },
+      commands: [
+        {
+          type: "TRACK_EVENT",
+          event: "session_start",
+          metadata: { returning: true },
+        },
+        { type: "SEND_MESSAGE", text: message },
+      ],
     };
   }
 
   const { message } = selectVariant(T.GREETING, "GREETING", {});
 
   return {
-    type: "advance",
+    type: "update",
     nextPhase: { phase: "confirming_client" },
-    response: message,
-    track: { eventType: "session_start", metadata: { returning: false } },
+    commands: [
+      {
+        type: "TRACK_EVENT",
+        event: "session_start",
+        metadata: { returning: false },
+      },
+      { type: "SEND_MESSAGE", text: message },
+    ],
   };
 }
