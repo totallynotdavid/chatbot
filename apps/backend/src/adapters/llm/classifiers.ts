@@ -7,7 +7,7 @@ import {
   buildHandleBacklogPrompt,
   getCategoryMetadata,
 } from "@totem/core";
-import { client, MODEL } from "./client.ts";
+import { client, MODEL, parseLLMResponse } from "./client.ts";
 import { classifyLLMError } from "./types.ts";
 import { logLLMError } from "./error-logger.ts";
 
@@ -28,7 +28,11 @@ export async function isQuestion(
     });
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ isQuestion?: boolean }>(
+      content,
+      "isQuestion",
+      {},
+    );
     return res.isQuestion === true;
   } catch (e) {
     logLLMError(phoneNumber, "isQuestion", classifyLLMError(e), state);
@@ -53,7 +57,11 @@ export async function shouldEscalate(
     });
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ shouldEscalate?: boolean }>(
+      content,
+      "shouldEscalate",
+      {},
+    );
     return res.shouldEscalate === true;
   } catch (e) {
     logLLMError(phoneNumber, "shouldEscalate", classifyLLMError(e), state);
@@ -84,7 +92,11 @@ export async function extractCategory(
     });
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ category?: string }>(
+      content,
+      "extractCategory",
+      {},
+    );
     return res.category ?? null;
   } catch (e) {
     logLLMError(phoneNumber, "extractCategory", classifyLLMError(e), state, {
@@ -120,7 +132,11 @@ export async function answerQuestion(
 
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ answer?: string }>(
+      content,
+      "answerQuestion",
+      {},
+    );
 
     return res.answer || "Déjame ayudarte con eso...";
   } catch (e) {
@@ -165,7 +181,11 @@ export async function suggestAlternative(
 
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ suggestion?: string }>(
+      content,
+      "suggestAlternative",
+      {},
+    );
 
     return (
       res.suggestion ||
@@ -211,7 +231,11 @@ export async function handleBacklogResponse(
 
     const choice = completion.choices[0];
     const content = choice?.message.content;
-    const res = JSON.parse(content || "{}");
+    const res = parseLLMResponse<{ response?: string }>(
+      content,
+      "handleBacklogResponse",
+      {},
+    );
 
     return res.response || `¡Hola! Disculpa la demora. ¿En qué puedo ayudarte?`;
   } catch (e) {

@@ -17,7 +17,7 @@ import {
   BUSINESS_FACTS,
   type QuestionType,
 } from "@totem/core";
-import { client, MODEL } from "./client.ts";
+import { client, MODEL, parseLLMResponse } from "./client.ts";
 import { classifyLLMError } from "./types.ts";
 import { logLLMError } from "./error-logger.ts";
 import { BundleService } from "../../domains/catalog/bundles.ts";
@@ -46,7 +46,11 @@ async function classifyQuestion(
     });
 
     const content = completion.choices[0]?.message.content;
-    const result = JSON.parse(content || "{}");
+    const result = parseLLMResponse<{ type?: string }>(
+      content,
+      "classifyQuestion",
+      {},
+    );
     return (result.type as QuestionType) || "general";
   } catch (error) {
     logLLMError(phoneNumber, "classifyQuestion", classifyLLMError(error));
@@ -176,7 +180,11 @@ async function answerWithPrompt(
   });
 
   const content = completion.choices[0]?.message.content;
-  const result = JSON.parse(content || "{}");
+  const result = parseLLMResponse<{ answer?: string }>(
+    content,
+    "answerWithPrompt",
+    {},
+  );
   return result.answer || "Déjame ayudarte con eso.";
 }
 

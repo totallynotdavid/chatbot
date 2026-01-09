@@ -8,6 +8,11 @@ const client = new OpenAI({
 
 const MODEL = "gemini-2.5-flash-lite";
 
+function extractString(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
+}
+
 export type ExtractedProductData = {
   name: string | null;
   price: number | null;
@@ -76,18 +81,29 @@ Ejemplo de respuesta correcta:
     const content = completion.choices[0]?.message?.content;
     if (!content) return {};
 
-    const parsed = JSON.parse(content);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.error(`[Vision] Failed to parse JSON in extractProductInfo:`, {
+        error:
+          parseError instanceof Error ? parseError.message : String(parseError),
+        rawContent: content,
+        contentPreview: content.substring(0, 300),
+      });
+      return {};
+    }
 
     // Clean and validate extracted data
     return {
-      name: parsed.name || null,
+      name: extractString(parsed.name),
       price: parsed.price
         ? parseFloat(String(parsed.price).replace(/[,\s]/g, ""))
         : null,
       installments: parsed.installments
         ? parseInt(String(parsed.installments), 10)
         : null,
-      category: parsed.category || null,
+      category: extractString(parsed.category),
     };
   } catch (error) {
     console.error("Main flyer extraction error:", error);
@@ -155,10 +171,23 @@ Ejemplo de respuesta correcta:
     const content = completion.choices[0]?.message?.content;
     if (!content) return {};
 
-    const parsed = JSON.parse(content);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.error(`[Vision] Failed to parse JSON in extractSpecifications:`, {
+        error:
+          parseError instanceof Error ? parseError.message : String(parseError),
+        rawContent: content,
+        contentPreview: content.substring(0, 300),
+      });
+      return {};
+    }
 
     return {
-      description: parsed.description || parsed.specifications || null,
+      description:
+        extractString(parsed.description) ||
+        extractString(parsed.specifications),
     };
   } catch (error) {
     console.error("Specs flyer extraction error:", error);
