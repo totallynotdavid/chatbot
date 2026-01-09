@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import process from "node:process";
-import { messageAggregator, handleMessage } from "../conversation/index.ts";
 import { WhatsAppService } from "../services/whatsapp/index.ts";
 import { isMaintenanceMode } from "../modules/settings/system.ts";
 import { holdMessage } from "../conversation/held-messages.ts";
+import { storeIncomingMessage } from "../conversation/message-inbox.ts";
 
 const webhook = new Hono();
 
@@ -47,7 +47,6 @@ webhook.post("/", async (c) => {
     const timestamp =
       (message.timestamp || Math.floor(Date.now() / 1000)) * 1000;
 
-    // Log inbound message
     WhatsAppService.logMessage(
       phoneNumber,
       "inbound",
@@ -62,23 +61,9 @@ webhook.post("/", async (c) => {
       return c.json({ status: "maintenance_held" });
     }
 
-    // Use aggregator to debounce burst messages
-    messageAggregator.add(
-      phoneNumber,
-      text,
-      timestamp,
-      messageId,
-      async (aggregatedContent, oldestTimestamp, latestMessageId) => {
-        await handleMessage({
-          phoneNumber,
-          content: aggregatedContent,
-          timestamp: oldestTimestamp,
-          messageId: latestMessageId,
-        });
-      },
-    );
+    storeIncomingMessage(phoneNumber, text, messageId, timestamp);
 
-    return c.json({ status: "queued" });
+    return c.json({ status: "received" });
   } catch (error) {
     console.error("Webhook error:", error);
     return c.json({ status: "error" }, 500);

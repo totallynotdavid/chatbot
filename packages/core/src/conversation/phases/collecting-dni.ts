@@ -1,7 +1,3 @@
-/**
- * Collecting DNI phase transition
- */
-
 import type { ConversationMetadata, TransitionResult } from "../types.ts";
 import {
   selectVariant,
@@ -18,10 +14,10 @@ export function transitionCollectingDni(
   const lower = message.toLowerCase();
 
   if (dni) {
-    // Valid DNI - request provider check
+    // Valid DNI, request provider check
     return {
       type: "need_enrichment",
-      enrichment: { type: "check_fnb", dni },
+      enrichment: { type: "check_eligibility", dni },
       pendingPhase: { phase: "checking_eligibility", dni },
     };
   }
@@ -57,7 +53,7 @@ export function transitionCollectingDni(
     };
   }
 
-  // Pure acknowledgment - stay silent
+  // For pure acknowledgment messages, stay silent
   const isAck = /^(ok|ya|listo|ahi|ahí|va|bien|dale|okey|oki)$/i.test(
     message.trim(),
   );
@@ -65,13 +61,13 @@ export function transitionCollectingDni(
     return { type: "stay" };
   }
 
-  // Progress update - stay silent
+  // For progress update, stay silent
   const isProgressUpdate = /(ya\s+casi|casi|esperame|un\s+segundo)/.test(lower);
   if (isProgressUpdate) {
     return { type: "stay" };
   }
 
-  // Very short response - stay silent
+  // For very short responses, stay silent
   if (message.trim().length <= 3) {
     return { type: "stay" };
   }

@@ -7,4 +7,5 @@ export {
   suggestAlternative,
   handleBacklogResponse,
 } from "./classifiers.ts";
+export { answerQuestionFocused } from "./question-answering.ts";
 export type { LLMError, LLMErrorType } from "./types.ts";

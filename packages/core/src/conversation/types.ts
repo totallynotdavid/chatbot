@@ -1,15 +1,5 @@
-/**
- * Core Conversation Types
- *
- * These types define the state machine interface.
- * Backend implements these with concrete types.
- */
-
 import type { Segment } from "@totem/types";
 
-/**
- * Conversation phase - discriminated union
- */
 export type ConversationPhase =
   | { phase: "greeting" }
   | { phase: "confirming_client" }
@@ -30,12 +20,13 @@ export type ConversationPhase =
       name: string;
       objectionCount: number;
     }
-  | { phase: "closing"; purchaseConfirmed: boolean }
+  | {
+      phase: "closing";
+      purchaseConfirmed: boolean;
+      subPhase?: "just_confirmed" | "post_sale_support";
+    }
   | { phase: "escalated"; reason: string };
 
-/**
- * Conversation metadata
- */
 export type ConversationMetadata = {
   dni?: string;
   name?: string;
@@ -49,12 +40,8 @@ export type ConversationMetadata = {
   lastActivityAt: number;
 };
 
-/**
- * Enrichment requests
- */
 export type EnrichmentRequest =
-  | { type: "check_fnb"; dni: string }
-  | { type: "check_gaso"; dni: string }
+  | { type: "check_eligibility"; dni: string }
   | { type: "fetch_categories"; segment: Segment }
   | { type: "detect_question"; message: string }
   | { type: "should_escalate"; message: string }
@@ -84,18 +71,14 @@ export type EnrichmentRequest =
  */
 export type EnrichmentResult =
   | {
-      type: "fnb_result";
-      eligible: boolean;
-      credit?: number;
-      name?: string;
-    }
-  | {
-      type: "gaso_result";
-      eligible: boolean;
+      type: "eligibility_result";
+      status: "eligible" | "not_eligible" | "needs_human";
+      segment?: Segment;
       credit?: number;
       name?: string;
       nse?: number;
       requiresAge?: boolean;
+      handoffReason?: string;
     }
   | { type: "categories_fetched"; categories: string[] }
   | { type: "question_detected"; isQuestion: boolean }
@@ -104,9 +87,6 @@ export type EnrichmentResult =
   | { type: "question_answered"; answer: string }
   | { type: "backlog_apology"; apology: string };
 
-/**
- * Transition result
- */
 export type TransitionResult =
   | {
       type: "stay";
@@ -129,6 +109,7 @@ export type TransitionResult =
   | {
       type: "escalate";
       reason: string;
+      response?: string;
       notify?: NotifyCommand;
     };
 

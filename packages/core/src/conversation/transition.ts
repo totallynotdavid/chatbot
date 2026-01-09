@@ -46,10 +46,10 @@ export function transition(input: TransitionInput): TransitionResult {
       return transitionHandlingObjection(phase, message, metadata, enrichment);
 
     case "closing":
-      return transitionClosing();
+      return transitionClosing(phase, message, metadata, enrichment);
 
     case "escalated":
-      // Escalated state is terminal - no transitions
+      // Escalated state is terminal (no transitions)
       return { type: "stay" };
   }
 }

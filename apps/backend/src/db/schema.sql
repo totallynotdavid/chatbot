@@ -107,13 +107,18 @@ CREATE TABLE IF NOT EXISTS analytics_events (
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
-CREATE TABLE IF NOT EXISTS held_messages (
+CREATE TABLE IF NOT EXISTS message_inbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone_number TEXT NOT NULL,
     message_text TEXT NOT NULL,
-    message_id TEXT NOT NULL,
+    message_id TEXT UNIQUE NOT NULL,
     whatsapp_timestamp INTEGER NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'processed', 'failed')),
+    aggregate_id TEXT,
+    attempts INTEGER DEFAULT 0,
+    last_error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    processed_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -193,6 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_conversation ON orders(conversation_phone)
 CREATE INDEX IF NOT EXISTS idx_orders_agent ON orders(assigned_agent);
 CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(assigned_agent);
 CREATE INDEX IF NOT EXISTS idx_users_available ON users(role, is_available, is_active);CREATE INDEX IF NOT EXISTS idx_message_queue_status ON message_queue(status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_message_inbox_pending ON message_inbox(status, phone_number, created_at);
 CREATE INDEX IF NOT EXISTS idx_message_queue_phone ON message_queue(phone_number, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_message_queue_group ON message_queue(group_id);
 CREATE INDEX IF NOT EXISTS idx_llm_errors_phone ON llm_error_log(phone_number, created_at DESC);

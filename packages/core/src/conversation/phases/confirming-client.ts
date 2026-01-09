@@ -1,7 +1,3 @@
-/**
- * Confirming client phase transition
- */
-
 import type { ConversationMetadata, TransitionResult } from "../types.ts";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import { extractDNI } from "../../validation/regex.ts";
@@ -16,7 +12,7 @@ export function transitionConfirmingClient(
   // Check if user volunteered DNI early
   const earlyDNI = extractDNI(message);
 
-  // NEGATIVE - specific "no" patterns
+  // NEGATIVE patterns
   if (
     /no\s+(tengo|soy)/.test(lower) ||
     /^no(\s|,|!|$)/.test(lower) ||
@@ -39,7 +35,7 @@ export function transitionConfirmingClient(
     };
   }
 
-  // POSITIVE - clear affirmations
+  // POSITIVE patterns
   if (
     /\bs[ií]+(\s|,|!|\?|$)/.test(lower) ||
     /\b(claro|ok|vale|dale|afirmativo|correcto|sep|bueno)(\s|,|!|\?|$)/.test(
@@ -47,7 +43,7 @@ export function transitionConfirmingClient(
     ) ||
     /(soy|tengo)\s+(cliente|c[ií]lidda|gas)/.test(lower)
   ) {
-    // SMART RESUME: If we have previous session data
+    // If we have previous session data
     if (metadata.dni && metadata.segment && metadata.credit !== undefined) {
       if (metadata.segment === "fnb") {
         return {
@@ -82,12 +78,12 @@ export function transitionConfirmingClient(
     if (earlyDNI) {
       return {
         type: "need_enrichment",
-        enrichment: { type: "check_fnb", dni: earlyDNI },
+        enrichment: { type: "check_eligibility", dni: earlyDNI },
         pendingPhase: { phase: "checking_eligibility", dni: earlyDNI },
       };
     }
 
-    // Normal flow - ask for DNI
+    // Normal flow, ask for DNI
     const { message: response } = selectVariant(
       T.CONFIRM_CLIENT_YES,
       "CONFIRM_CLIENT_YES",
@@ -105,7 +101,6 @@ export function transitionConfirmingClient(
     };
   }
 
-  // Unclear response
   return {
     type: "stay",
     response:

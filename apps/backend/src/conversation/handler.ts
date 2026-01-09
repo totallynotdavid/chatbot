@@ -198,6 +198,9 @@ async function executeResult(
       break;
 
     case "escalate":
+      if (result.response) {
+        await sendMessage(phoneNumber, result.response, isSimulation);
+      }
       // Update state to escalated
       updateConversation(
         phoneNumber,
@@ -210,7 +213,7 @@ async function executeResult(
       break;
 
     case "need_enrichment":
-      // Should not reach here - loop should handle it
+      // Should not reach here, loop should handle it
       console.error("[Handler] Unexpected need_enrichment in executeResult");
       break;
   }

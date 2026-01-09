@@ -1,32 +1,22 @@
 /**
- * Enrichment Executor
- *
  * Executes async operations requested by the state machine.
- * This is the ONLY place where side effects happen during transition processing.
  */
 
 import { conversation } from "@totem/core";
-import { checkFNB } from "../modules/eligibility/fnb.ts";
+import { checkEligibilityWithFallback } from "../modules/eligibility/orchestrator.ts";
 
 type EnrichmentRequest = conversation.EnrichmentRequest;
 type EnrichmentResult = conversation.EnrichmentResult;
-import { checkGASO } from "../modules/eligibility/gaso.ts";
 import * as LLM from "../modules/llm/index.ts";
 import { getActiveCategoriesBySegment } from "../services/catalog/index.ts";
 
-/**
- * Execute an enrichment request and return the result
- */
 export async function executeEnrichment(
   request: EnrichmentRequest,
   phoneNumber: string,
 ): Promise<EnrichmentResult> {
   switch (request.type) {
-    case "check_fnb":
-      return await executeFNBCheck(request.dni, phoneNumber);
-
-    case "check_gaso":
-      return await executeGASOCheck(request.dni, phoneNumber);
+    case "check_eligibility":
+      return await executeEligibilityCheck(request.dni, phoneNumber);
 
     case "fetch_categories":
       return await executeFetchCategories(request.segment);
@@ -60,46 +50,47 @@ export async function executeEnrichment(
   }
 }
 
-async function executeFNBCheck(
+async function executeEligibilityCheck(
   dni: string,
   phoneNumber: string,
 ): Promise<EnrichmentResult> {
   try {
-    const result = await checkFNB(dni, phoneNumber);
-    return {
-      type: "fnb_result",
-      eligible: result.eligible,
-      credit: result.credit,
-      name: result.name,
-    };
-  } catch (error) {
-    console.error(`[Enrichment] FNB check failed for ${dni}:`, error);
-    return {
-      type: "fnb_result",
-      eligible: false,
-    };
-  }
-}
+    const result = await checkEligibilityWithFallback(dni, phoneNumber);
 
-async function executeGASOCheck(
-  dni: string,
-  phoneNumber: string,
-): Promise<EnrichmentResult> {
-  try {
-    const result = await checkGASO(dni, phoneNumber);
+    if (result.needsHuman) {
+      return {
+        type: "eligibility_result",
+        status: "needs_human",
+        handoffReason: result.handoffReason,
+      };
+    }
+
+    if (result.eligible) {
+      // Determine segment from result or default
+      const segment = result.nse !== undefined ? "gaso" : "fnb";
+
+      return {
+        type: "eligibility_result",
+        status: "eligible",
+        segment: segment as "fnb" | "gaso",
+        credit: result.credit,
+        name: result.name,
+        nse: result.nse,
+        requiresAge: segment === "gaso",
+      };
+    }
+
     return {
-      type: "gaso_result",
-      eligible: result.eligible,
-      credit: result.credit,
-      name: result.name,
-      nse: result.nse,
-      requiresAge: result.eligible, // GASO always requires age if eligible
+      type: "eligibility_result",
+      status: "not_eligible",
     };
   } catch (error) {
-    console.error(`[Enrichment] GASO check failed for ${dni}:`, error);
+    console.error(`[Enrichment] Eligibility check failed for ${dni}:`, error);
+
     return {
-      type: "gaso_result",
-      eligible: false,
+      type: "eligibility_result",
+      status: "needs_human",
+      handoffReason: "eligibility_check_error",
     };
   }
 }
@@ -118,7 +109,7 @@ async function executeFetchCategories(
       `[Enrichment] Fetch categories failed for ${segment}:`,
       error,
     );
-    // Fallback to empty array - phase will handle gracefully
+    // Fallback to empty array, phase will handle gracefully
     return {
       type: "categories_fetched",
       categories: [],
@@ -208,12 +199,12 @@ async function executeAnswerQuestion(
   phoneNumber: string,
 ): Promise<EnrichmentResult> {
   try {
-    const answer = await LLM.answerQuestion(
+    const answer = await LLM.answerQuestionFocused(
       message,
       {
         segment: context.segment,
         creditLine: context.credit,
-        state: context.phase,
+        phase: context.phase,
         availableCategories: context.availableCategories,
       },
       phoneNumber,

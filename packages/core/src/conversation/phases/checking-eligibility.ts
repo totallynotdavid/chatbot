@@ -1,10 +1,3 @@
-/**
- * Checking eligibility phase transition
- *
- * This phase handles the enrichment loop for provider checks.
- * It's re-entered after each enrichment completes.
- */
-
 import type {
   ConversationPhase,
   TransitionResult,
@@ -26,92 +19,126 @@ export function transitionCheckingEligibility(
   _message: string,
   enrichment?: EnrichmentResult,
 ): TransitionResult {
-  // No enrichment yet - this shouldn't happen, but handle gracefully
+  // If no enrichment, request eligibility check
   if (!enrichment) {
     return {
       type: "need_enrichment",
-      enrichment: { type: "check_fnb", dni: phase.dni },
+      enrichment: { type: "check_eligibility", dni: phase.dni },
     };
   }
 
-  // Handle FNB result
-  if (enrichment.type === "fnb_result") {
-    if (enrichment.eligible && enrichment.credit) {
-      // Check business rules
-      if (!checkFNBEligibility(enrichment.credit)) {
-        // Credit too low - try GASO
+  if (enrichment.type === "eligibility_result") {
+    // Case 1: needs human intervention (both providers down)
+    if (enrichment.status === "needs_human") {
+      const { message } = selectVariant(
+        [
+          "Perfecto, déjame verificar tu información. Te respondo en un momento.",
+          "Genial, dame un momentito mientras reviso tu línea de crédito.",
+          "Déjame consultar tu información. Ya te confirmo.",
+        ],
+        "CHECKING_HOLD",
+        {},
+      );
+
+      return {
+        type: "escalate",
+        reason: enrichment.handoffReason || "eligibility_check_failed",
+        notify: {
+          channel: "agent",
+          message: `🔴 Cliente esperando. Verificación de elegibilidad: DNI ${phase.dni}. ${enrichment.handoffReason === "both_providers_down" ? "Ambos proveedores caídos." : "Error en verificación."}`,
+        },
+        response: message,
+      };
+    }
+
+    // Case 2: Customer is eligible
+    if (enrichment.status === "eligible" && enrichment.segment) {
+      const segment = enrichment.segment;
+      const credit = enrichment.credit || 0;
+      const name = formatFirstName(enrichment.name || "");
+
+      // For FNB, check business rules
+      if (segment === "fnb") {
+        if (!checkFNBEligibility(credit)) {
+          // Credit too low for FNB
+          const { message: response } = selectVariant(
+            T.NOT_ELIGIBLE,
+            "NOT_ELIGIBLE",
+            {},
+          );
+
+          return {
+            type: "advance",
+            nextPhase: { phase: "closing", purchaseConfirmed: false },
+            response,
+            track: {
+              eventType: "eligibility_failed",
+              metadata: { segment: "fnb", credit, reason: "credit_too_low" },
+            },
+          };
+        }
+
+        // FNB approved
+        const variants = S.FNB_APPROVED(name, credit);
+        const { message: response } = selectVariant(
+          variants,
+          "FNB_APPROVED",
+          {},
+        );
+
         return {
-          type: "need_enrichment",
-          enrichment: { type: "check_gaso", dni: phase.dni },
+          type: "advance",
+          nextPhase: {
+            phase: "offering_products",
+            segment: "fnb",
+            credit,
+            name,
+          },
+          response,
+          track: {
+            eventType: "eligibility_passed",
+            metadata: { segment: "fnb", credit },
+          },
         };
       }
 
-      const firstName = formatFirstName(enrichment.name || "");
-      const variants = S.FNB_APPROVED(firstName, enrichment.credit);
-      const { message: response } = selectVariant(variants, "FNB_APPROVED", {});
+      // For GASO, always requires age verification
+      if (segment === "gaso") {
+        const variants = T.ASK_AGE(name);
+        const { message: response } = selectVariant(variants, "ASK_AGE", {});
+
+        return {
+          type: "advance",
+          nextPhase: {
+            phase: "collecting_age",
+            dni: phase.dni,
+            name,
+          },
+          response,
+        };
+      }
+    }
+
+    // Case 3: Customer not eligible
+    if (enrichment.status === "not_eligible") {
+      const { message: response } = selectVariant(
+        T.NOT_ELIGIBLE,
+        "NOT_ELIGIBLE",
+        {},
+      );
 
       return {
         type: "advance",
-        nextPhase: {
-          phase: "offering_products",
-          segment: "fnb",
-          credit: enrichment.credit,
-          name: firstName,
-        },
+        nextPhase: { phase: "closing", purchaseConfirmed: false },
         response,
         track: {
-          eventType: "eligibility_passed",
-          metadata: { segment: "fnb", credit: enrichment.credit },
+          eventType: "eligibility_failed",
+          metadata: { segment: "none", reason: "not_eligible" },
         },
       };
     }
-
-    // FNB not eligible - try GASO
-    return {
-      type: "need_enrichment",
-      enrichment: { type: "check_gaso", dni: phase.dni },
-    };
   }
 
-  // Handle GASO result
-  if (enrichment.type === "gaso_result") {
-    if (enrichment.eligible && enrichment.credit) {
-      const firstName = formatFirstName(enrichment.name || "");
-
-      // GASO always requires age verification for final eligibility check
-      // The age-based business rules are applied in collecting_age phase
-      const variants = T.ASK_AGE(firstName);
-      const { message: response } = selectVariant(variants, "ASK_AGE", {});
-
-      return {
-        type: "advance",
-        nextPhase: {
-          phase: "collecting_age",
-          dni: phase.dni,
-          name: firstName,
-        },
-        response,
-      };
-    }
-
-    // Not eligible in either provider
-    const { message: response } = selectVariant(
-      T.NOT_ELIGIBLE,
-      "NOT_ELIGIBLE",
-      {},
-    );
-
-    return {
-      type: "advance",
-      nextPhase: { phase: "closing", purchaseConfirmed: false },
-      response,
-      track: {
-        eventType: "eligibility_failed",
-        metadata: { segment: "none", reason: "not_eligible" },
-      },
-    };
-  }
-
-  // Unknown enrichment type - stay in current phase
+  // For unknown cases, stay in phase
   return { type: "stay" };
 }
