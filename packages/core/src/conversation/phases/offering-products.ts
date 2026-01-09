@@ -60,11 +60,11 @@ export function transitionOfferingProducts(
 
   // Check for purchase confirmation signals
   if (isPurchaseConfirmation(lower)) {
+    const variants = S.CONFIRM_PURCHASE(phase.name || "");
     return {
       type: "advance",
       nextPhase: { phase: "closing", purchaseConfirmed: true },
-      response: selectVariant(S.CONFIRM_PURCHASE, "CONFIRM_PURCHASE", {})
-        .message,
+      response: selectVariant(variants, "CONFIRM_PURCHASE", {}).message,
       notify: {
         channel: "agent",
         message: `Cliente confirmó interés de compra`,
