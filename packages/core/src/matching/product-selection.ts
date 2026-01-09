@@ -1,4 +1,11 @@
-import type { SentProduct } from "@totem/core";
+/**
+ * Product that was sent to the customer
+ */
+export type SentProduct = {
+  name: string;
+  position: number;
+  productId?: string;
+};
 
 /**
  * Smart product selection matcher with layered approach:
@@ -58,7 +65,7 @@ export function matchProductSelection(
       if (
         brandKeywords.some((keyword) =>
           productWords.some(
-            (word) => word.includes(keyword) || keyword.includes(word),
+            (word: string) => word.includes(keyword) || keyword.includes(word),
           ),
         )
       ) {
@@ -67,13 +74,10 @@ export function matchProductSelection(
     }
   }
 
-  // Priority 4: No match found - return null for LLM fallback
+  // Priority 4: No match found, return null for LLM fallback
   return null;
 }
 
-/**
- * Extract potential brand/model keywords from message
- */
 function extractBrandKeywords(message: string): string[] {
   const words = message.toLowerCase().split(/\s+/);
   const brandKeywords: string[] = [];
