@@ -490,7 +490,7 @@ function isRejection(lower: string): boolean {
 }
 
 function isPriceConcern(lower: string): boolean {
-  return /(caro|muy\s+caro|precio|cuesta\s+mucho|no\s+puedo\s+pagar|no\s+tengo\s+plata|presupuesto)/.test(
+  return /(caro|muy\s+caro|precio|cuesta\s+mucho|no\s+puedo\s+pagar|no\s+tengo\s+tanta\s+plata|no\s+tengo\s+mucha\s+plata|no\s+tengo\s+suficiente\s+plata|no\s+tengo\s+plata|no\s+me\s+alcanza|no\s+tengo\s+ese\s+dinero|no\s+tengo\s+dinero|fuera\s+de\s+mi\s+presupuesto|fuera\s+de\s+presupuesto)/.test(
     lower,
   );
 }
