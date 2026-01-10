@@ -173,11 +173,11 @@ async function executeResult(
     const command = result.commands[i];
     if (!command) continue;
 
-    // Add 150ms delay between SEND_MESSAGE commands for natural pacing
+    // Add 1 second delay between SEND_MESSAGE commands for natural pacing
     if (i > 0 && command.type === "SEND_MESSAGE") {
       const prevCommand = result.commands[i - 1];
       if (prevCommand?.type === "SEND_MESSAGE") {
-        await sleep(150);
+        await sleep(1000);
       }
     }
 
