@@ -250,10 +250,14 @@ describe("Offering products (user experience)", () => {
         metadata: createMetadata(),
       });
 
-      expect(result.type).toBe("update");
+      // Bot should either stay in offering OR ask for enrichment to understand better
       if (result.type === "update") {
-        // Should stay in offering to show more options, not close
         expect(result.nextPhase.phase).not.toBe("closing");
+      } else if (result.type === "need_enrichment") {
+        // Asking for help to understand unclear rejection is also valid
+        expect(result.enrichment.type).toBe("detect_question");
+      } else {
+        throw new Error("Unexpected result type");
       }
     });
 

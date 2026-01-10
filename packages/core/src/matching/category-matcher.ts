@@ -23,11 +23,21 @@ export function matchCategory(input: string): CategoryKey | null {
 
     // Check if any brand is mentioned
     for (const brand of config.brands) {
-      if (normalized.includes(brand)) {
+      const escapedBrand = escapeRegex(brand);
+      // Match as whole word OR brand followed by digit (for model numbers like LG55UP7750)
+      const brandPattern = new RegExp(
+        `(\\b${escapedBrand}\\b|\\b${escapedBrand}(?=\\d))`,
+        "i",
+      );
+      if (brandPattern.test(normalized)) {
         return key as CategoryKey;
       }
     }
   }
 
   return null; // No match - need LLM
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
