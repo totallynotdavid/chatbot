@@ -8,7 +8,8 @@ import {
 } from "./message-inbox.ts";
 import { handleMessage } from "./handler.ts";
 
-const QUIET_WINDOW_MS = 3000; // Wait 3s of quiet before processing
+// Time window for possible new messages before processing
+const QUIET_WINDOW_MS = 2000;
 const POLL_INTERVAL_MS = 100; // Check for ready messages every 100ms
 
 let isRunning = false;

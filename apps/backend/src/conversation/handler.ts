@@ -20,8 +20,9 @@ import { notifyTeam } from "../adapters/notifier/client.ts";
 import { sendBundleImages } from "./images.ts";
 import { trackEvent } from "../domains/analytics/index.ts";
 
+// Artificial delay to mimic human response time
 const RESPONSE_DELAY_MS = parseInt(
-  process.env.BOT_RESPONSE_DELAY_MS || "3000",
+  process.env.BOT_RESPONSE_DELAY_MS || "2300",
   10,
 );
 const BACKLOG_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
