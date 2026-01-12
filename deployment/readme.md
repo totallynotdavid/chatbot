@@ -1,33 +1,39 @@
 # Deployment
 
-Deploy to Ubuntu server:
+Installs mise, bun, prompts for credentials, builds frontend, installs systemd services:
 
 ```bash
-./scripts/deploy.sh
+chmod +x deploy.sh
+sudo -E ./deploy.sh
 ```
 
-The script installs mise, Bun (via mise), grants port 80 access, builds
-frontend, and sets up systemd services.
-
-Edit `.env.production` with your secrets:
+It starts the following services:
 
 ```
-NODE_ENV=production
-BACKEND_URL=http://localhost:3001
-PORT=3001
-DB_PATH=./data/database.sqlite
-JWT_SECRET=
-WHATSAPP_TOKEN=
-WHATSAPP_PHONE_ID=
+totem-backend.service    :3000
+totem-notifier.service   :3001
+totem-frontend.service   :80
 ```
 
-Service commands:
+Useful commands:
 
 ```bash
-sudo systemctl status totem-frontend
-sudo journalctl -u totem-frontend -f
-sudo systemctl restart totem-frontend
+# Status
+sudo systemctl status totem-*
+
+# Logs
+sudo journalctl -u totem-backend -f
+
+# Restart
+sudo systemctl restart totem-*
+
+# Health
+curl localhost:3000/health
 ```
 
-Backend runs on localhost:3001. Frontend runs on 0.0.0.0:80. Frontend makes
-server-side calls to backend.
+To trigger a reconfiguration, remove the .env.production file and run deploy.sh again:
+
+```bash
+rm .env.production
+bash deployment/deploy.sh
+```
