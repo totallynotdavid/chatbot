@@ -1,22 +1,33 @@
 [Unit]
 Description=Totem Frontend
-After=network.target totem-backend.service
-Wants=totem-backend.service
+After=network-online.target totem-backend.service
+Wants=network-online.target totem-backend.service
 
 [Service]
 Type=simple
 User=DEPLOY_USER
 WorkingDirectory=PROJECT_ROOT/apps/frontend
 Environment="NODE_ENV=production"
-Environment="BACKEND_URL=http://localhost:3001"
-Environment="PORT=80"
-Environment="HOST=0.0.0.0"
-Environment="ORIGIN=http://192.168.5.25"
-ExecStart=/usr/local/bin/bun build/index.js
+ExecStart=/usr/local/bin/bun --bun vite preview --host 0.0.0.0 --port 5173
+
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
 Restart=always
 RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+MemoryMax=1G
+TasksMax=256
+
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=totem-frontend
 
 [Install]
 WantedBy=multi-user.target

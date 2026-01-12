@@ -1,6 +1,7 @@
 [Unit]
 Description=Totem Backend
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -8,10 +9,26 @@ User=DEPLOY_USER
 WorkingDirectory=PROJECT_ROOT/apps/backend
 Environment="NODE_ENV=production"
 ExecStart=/usr/local/bin/bun run --env-file=PROJECT_ROOT/.env.production src/index.ts
+
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
 Restart=always
 RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=PROJECT_ROOT/data PROJECT_ROOT/apps/backend/data
+
+MemoryMax=2G
+TasksMax=512
+
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=totem-backend
 
 [Install]
 WantedBy=multi-user.target
