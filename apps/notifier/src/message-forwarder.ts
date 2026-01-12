@@ -66,7 +66,7 @@ export async function forwardToBackend(msg: Message): Promise<void> {
                       ? { body: incomingMessage.body }
                       : undefined,
                   context: incomingMessage.quotedContext
-                    ? { quoted_message: incomingMessage.quotedContext }
+                    ? { id: incomingMessage.quotedContext.id }
                     : undefined,
                 },
               ],
