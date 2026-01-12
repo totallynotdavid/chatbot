@@ -83,6 +83,11 @@ export const CloudApiAdapter: WhatsAppAdapter = {
         image: { link, ...(caption && { caption }) },
       };
 
+      logger.debug(
+        { to, link, caption, publicUrl: PUBLIC_URL },
+        "Attempting to send image",
+      );
+
       const response = await fetch(API_URL, {
         method: "POST",
         headers: {
@@ -95,15 +100,26 @@ export const CloudApiAdapter: WhatsAppAdapter = {
       if (!response.ok) {
         const error = await response.json();
         logger.error(
-          { error, to, imagePath, status: response.status },
+          {
+            error,
+            to,
+            imagePath,
+            link,
+            status: response.status,
+            publicUrl: PUBLIC_URL,
+          },
           "WhatsApp image send failed",
         );
         return false;
       }
 
+      logger.info({ to, link }, "Image sent successfully");
       return true;
     } catch (error) {
-      logger.error({ error, to, imagePath }, "WhatsApp image send failed");
+      logger.error(
+        { error, to, imagePath, link },
+        "WhatsApp image send failed",
+      );
       return false;
     }
   },

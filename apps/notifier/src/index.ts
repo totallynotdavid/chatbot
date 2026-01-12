@@ -14,12 +14,12 @@ try {
   logger.info("Notifier service ready");
 } catch (error) {
   logger.error(
-    { 
+    {
       err: error,
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    }, 
-    "Failed to start notifier service"
+      stack: error instanceof Error ? error.stack : undefined,
+    },
+    "Failed to start notifier service",
   );
   process.exit(1);
 }
