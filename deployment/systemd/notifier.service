@@ -1,5 +1,5 @@
 [Unit]
-Description=Totem Notifier
+Description=totem notifier
 After=network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,9 @@ Type=simple
 User=DEPLOY_USER
 WorkingDirectory=PROJECT_ROOT/apps/notifier
 Environment="NODE_ENV=production"
-ExecStart=/usr/local/bin/bun run --env-file=PROJECT_ROOT/.env.production src/index.ts
+Environment="PATH=DEPLOY_HOME/.local/share/mise/shims:DEPLOY_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)"'
+ExecStart=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)" && exec bun run --env-file=PROJECT_ROOT/.env.production src/index.ts'
 
 KillMode=mixed
 KillSignal=SIGTERM
@@ -21,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=PROJECT_ROOT/data PROJECT_ROOT/apps/notifier/data
+ReadWritePaths=PROJECT_ROOT/data
 
 MemoryMax=1G
 TasksMax=256

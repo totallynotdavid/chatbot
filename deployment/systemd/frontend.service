@@ -1,5 +1,5 @@
 [Unit]
-Description=Totem Frontend
+Description=totem frontend
 After=network-online.target totem-backend.service
 Wants=network-online.target totem-backend.service
 
@@ -8,7 +8,9 @@ Type=simple
 User=DEPLOY_USER
 WorkingDirectory=PROJECT_ROOT/apps/frontend
 Environment="NODE_ENV=production"
-ExecStart=/usr/local/bin/bun --bun vite preview --host 0.0.0.0 --port 5173
+Environment="PATH=DEPLOY_HOME/.local/share/mise/shims:DEPLOY_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)"'
+ExecStart=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)" && exec bun --bun vite preview --host 0.0.0.0 --port 5173'
 
 KillMode=mixed
 KillSignal=SIGTERM
