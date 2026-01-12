@@ -24,37 +24,48 @@ setup_tools() {
 setup_env() {
     [ -f "$PROJECT_ROOT/.env.production" ] && return
     cat > "$PROJECT_ROOT/.env.production" << 'EOF'
+# ENVIRONMENT
 NODE_ENV=production
-BACKEND_URL=http://localhost:3001
-PORT=3001
+LOG_LEVEL=info
+
+# SERVICES (ports in sequence: 3000, 3001, 5173)
+PORT=3000
+NOTIFIER_PORT=3001
+FRONTEND_URL=http://localhost:5173
+
+# BACKEND
 DB_PATH=./data/database.sqlite
 UPLOAD_DIR=./data/uploads
-
 JWT_SECRET=
+PUBLIC_URL=
 
-# WhatsApp
+# NOTIFIER (team notifications via whatsapp-web.js)
+NOTIFIER_URL=http://localhost:3001
+NOTIFIER_DATA_PATH=./data/notifier
+BACKEND_URL=http://localhost:3000
+
+# WhatsApp groups (optional, can be auto-registered with @activate)
+WHATSAPP_GROUP_AGENT=
+WHATSAPP_GROUP_DEV=
+
+# WHATSAPP CLOUD API (required in production)
 WHATSAPP_TOKEN=
 WHATSAPP_PHONE_ID=
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=
-PUBLIC_URL=
 
-# Notifier
-NOTIFIER_URL=http://localhost:3001
-NOTIFIER_PORT=3001
-NOTIFIER_DATA_PATH=./data/notifier
-
-# Providers
-CALIDDA_BASE_URL=
+# EXTERNAL PROVIDERS
+# Calidda FNB
+CALIDDA_BASE_URL=https://appweb.calidda.com.pe
 CALIDDA_USERNAME=
 CALIDDA_PASSWORD=
 
-# PowerBI
-POWERBI_DATASET_ID=
-POWERBI_REPORT_ID=
-POWERBI_MODEL_ID=
+# Calidda Gaso (PowerBI)
 POWERBI_RESOURCE_KEY=
+POWERBI_REPORT_ID=
+POWERBI_DATASET_ID=
+POWERBI_MODEL_ID=
 
-# LLM / Vision
+# LLM
 GEMINI_API_KEY=
 EOF
 }
