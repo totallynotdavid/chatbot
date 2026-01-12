@@ -7,7 +7,8 @@
         "packages/*"
     ],
     "scripts": {
-        "clean": "bun x shx rm -rf apps/*/node_modules node_modules",
+        "clean": "bun run clean:deps && bun run clean:sessions && bun run clean:logs",
+        "clean:deps": "bun x shx rm -rf apps/*/node_modules node_modules",
         "clean:sessions": "bun x shx rm -rf apps/notifier/data/session apps/notifier/data/.wwebjs_auth",
         "clean:logs": "bun x shx rm -rf apps/*/data/logs",
         "dev": "bun x concurrently -n notifier,backend,frontend,tunnel -c cyan,green,blue,magenta \"bun run dev:notifier\" \"bun run dev:backend\" \"bun run dev:frontend\" \"bun run dev:tunnel\"",
