@@ -38,6 +38,13 @@ export const MessageStore = {
     return result?.product_id ?? null;
   },
 
+  getMessageById(whatsappMessageId: string): ConversationMessage | null {
+    const result = db
+      .prepare(`SELECT * FROM messages WHERE whatsapp_message_id = ?`)
+      .get(whatsappMessageId) as ConversationMessage | undefined;
+    return result ?? null;
+  },
+
   getHistory(phoneNumber: string, limit: number = 50): ConversationMessage[] {
     return db
       .prepare(

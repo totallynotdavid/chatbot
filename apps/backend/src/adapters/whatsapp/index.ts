@@ -80,4 +80,8 @@ export const WhatsAppService = {
   findProductByQuotedMessage(whatsappMessageId: string): string | null {
     return MessageStore.findProductByMessageId(whatsappMessageId);
   },
+
+  getMessageById(whatsappMessageId: string): ConversationMessage | null {
+    return MessageStore.getMessageById(whatsappMessageId);
+  },
 };

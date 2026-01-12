@@ -32,17 +32,25 @@ export function transitionOfferingProducts(
     return handleEnrichmentResult(phase, message, enrichment);
   }
 
-  // If user is responding to a specific product
+  // Handle quoted message context, user is responding to a specific product
   if (quotedContext && phase.sentProducts && phase.sentProducts.length > 0) {
-    const quotedProduct = phase.sentProducts.find((product) =>
-      quotedContext.body.toLowerCase().includes(product.name.toLowerCase()),
-    );
+    let quotedProduct: any = null;
+
+    if (quotedContext.type === "image" && quotedContext.body.includes("/")) {
+      const imageFilename = quotedContext.body.split("/").pop()?.split(".")[0];
+      if (imageFilename) {
+        quotedProduct = phase.sentProducts.find((product) =>
+          product.productId?.includes(imageFilename),
+        );
+      }
+    } else {
+      // For text messages, match by message content
+      quotedProduct = phase.sentProducts.find((product) =>
+        quotedContext.body.toLowerCase().includes(product.name.toLowerCase()),
+      );
+    }
 
     if (quotedProduct) {
-      console.log(
-        `[OfferingProducts] Found quoted product:`,
-        quotedProduct.name,
-      );
       const priceText = quotedProduct.price
         ? ` (S/ ${quotedProduct.price.toFixed(2)})`
         : "";
@@ -69,22 +77,20 @@ export function transitionOfferingProducts(
           },
         ],
       };
+    } else {
+      // No product found matching quoted message, continue to normal flow
     }
   }
 
   // If we have sent products, check for product match first (even without explicit interest phrase)
   // After showing products and asking "¿Alguno te interesa?", any mention is implicit interest
   if (phase.sentProducts && phase.sentProducts.length > 0) {
-    console.log(
-      `[OfferingProducts] Checking message "${message}" against ${phase.sentProducts.length} sent products`,
-    );
     const allMatches = matchAllProducts(message, phase.sentProducts);
 
     if (allMatches.length === 1) {
       // Unique match, transition to confirmation gate
       const selected = allMatches[0];
       if (selected) {
-        console.log(`[OfferingProducts] Unique match found:`, selected.name);
         const priceText = selected.price
           ? ` (S/ ${selected.price.toFixed(2)})`
           : "";
@@ -138,10 +144,6 @@ export function transitionOfferingProducts(
 
     if (allMatches.length > 1) {
       // Ambiguous, ask for clarification
-      console.log(
-        `[OfferingProducts] Multiple matches (${allMatches.length}), asking for clarification:`,
-        allMatches.map((p) => p.name),
-      );
       const options = allMatches
         .map((p, idx) => {
           const priceText = p.price ? ` - S/ ${p.price.toFixed(2)}` : "";
@@ -162,9 +164,6 @@ export function transitionOfferingProducts(
     }
 
     // No matches found in sent products, continue with normal flow below
-    console.log(
-      `[OfferingProducts] No product matches found, continuing to normal flow`,
-    );
   }
 
   // If user expresses interest without context (no sentProducts), ask what they want to see

@@ -39,6 +39,19 @@ webhook.post("/", async (c) => {
     const incomingMessage = parseIncomingMessage(webhookMessage);
     phoneNumber = incomingMessage.from;
 
+    if (incomingMessage.quotedContext) {
+      const quotedMessageContent = WhatsAppService.getMessageById(
+        incomingMessage.quotedContext.id,
+      );
+      if (quotedMessageContent) {
+        incomingMessage.quotedContext.body = quotedMessageContent.content;
+        incomingMessage.quotedContext.type = quotedMessageContent.type;
+        incomingMessage.quotedContext.timestamp = new Date(
+          quotedMessageContent.created_at,
+        ).getTime();
+      }
+    }
+
     // Log quoted message detection
     if (incomingMessage.quotedContext) {
       logger.info(

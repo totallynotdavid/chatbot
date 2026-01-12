@@ -41,11 +41,6 @@ export async function parseIncomingMessage(
         type: mapWebjsType(quoted.type),
         timestamp: quoted.timestamp,
       };
-
-      logger.debug(
-        { messageId: msg.id._serialized, quotedId: quotedContext.id },
-        "Quoted message extracted",
-      );
     } catch (error) {
       logger.warn(
         { error, messageId: msg.id._serialized },

@@ -22,18 +22,17 @@ function mapCloudApiType(cloudApiType: string): MessageType {
 }
 
 export function parseIncomingMessage(webhookMessage: any): IncomingMessage {
-  const quotedContext: QuotedMessageContext | undefined = webhookMessage.context
-    ?.quoted_message
-    ? {
-        id: webhookMessage.context.quoted_message.id,
-        body: webhookMessage.context.quoted_message.body || "",
-        type: mapCloudApiType(
-          webhookMessage.context.quoted_message.type || "text",
-        ),
-        timestamp:
-          (webhookMessage.context.quoted_message.timestamp || 0) * 1000,
-      }
-    : undefined;
+  // Format: { "context": { "from": "sender_id", "id": "quoted_message_id" } }
+  let quotedContext: QuotedMessageContext | undefined;
+
+  if (webhookMessage.context?.id) {
+    quotedContext = {
+      id: webhookMessage.context.id,
+      body: "", // Will be populated by looking up the message in our store
+      type: "text", // Default to text since Business API doesn't provide original type
+      timestamp: 0, // Will be populated by looking up the message in our store
+    };
+  }
 
   return {
     id: webhookMessage.id,
