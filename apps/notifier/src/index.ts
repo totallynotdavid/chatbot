@@ -3,7 +3,7 @@ import { initializeWhatsAppClient } from "./whatsapp-client.ts";
 import { loadGroupMapping } from "./group-registry.ts";
 import { createLogger } from "./logger.ts";
 
-const logger = createLogger("app");
+const logger = createLogger("notifier");
 
 logger.info("Starting notifier service");
 

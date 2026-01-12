@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { appLogger } from "./logger.ts";
+import { createLogger } from "./logger.ts";
+
+const logger = createLogger("group-registry");
 
 const DATA_PATH = process.env.NOTIFIER_DATA_PATH || "./data/notifier";
 const MAPPING_FILE = path.join(DATA_PATH, "group_mapping.json");
@@ -16,7 +18,7 @@ export function loadGroupMapping() {
     groupMapping.set(key, jid as string);
   });
 
-  appLogger.info(
+  logger.info(
     { groups: Array.from(groupMapping.keys()) },
     "Loaded group mapping",
   );
