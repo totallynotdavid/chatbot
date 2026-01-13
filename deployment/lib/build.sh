@@ -29,7 +29,7 @@ build_project() {
 
 	cd "$root/apps/frontend"
 	if [ ! -d "dist" ] || [ "package.json" -nt "dist" ]; then
-		"$bun" run build --silent || {
+		"$bun" run build || {
 			echo "Error: Frontend build failed" >&2
 			exit 1
 		}
