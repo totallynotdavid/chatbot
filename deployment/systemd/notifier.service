@@ -8,9 +8,8 @@ Type=simple
 User=DEPLOY_USER
 WorkingDirectory=PROJECT_ROOT/apps/notifier
 Environment="NODE_ENV=production"
-Environment="PATH=DEPLOY_HOME/.local/share/mise/shims:DEPLOY_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStartPre=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)"'
-ExecStart=/bin/bash -c 'eval "$(DEPLOY_HOME/.local/bin/mise activate bash)" && exec bun run --env-file=PROJECT_ROOT/.env.production src/index.ts'
+Environment="PATH=DEPLOY_HOME/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=DEPLOY_HOME/.bun/bin/bun run --env-file=PROJECT_ROOT/.env.production src/index.ts
 
 KillMode=mixed
 KillSignal=SIGTERM
