@@ -27,11 +27,17 @@ deploy_as_system() {
 	setup_system_deployment "$repo_url"
 	copy_env_to_system "$source_root" "$env_file"
 
-	sudo -H -u totem bash -c "
+	sudo -H -u totem bash <<'EOSCRIPT'
         export HOME=/opt/totem
-        source /opt/totem/deployment/lib/bun.sh
-        install_bun /opt/totem
-    "
+        bun_bin="$HOME/.bun/bin/bun"
+
+        if [ ! -x "$bun_bin" ]; then
+            curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+            echo "  ✓ bun installed"
+        else
+            echo "  ✓ bun already installed"
+        fi
+EOSCRIPT
 
 	local bun_bin=$(get_bun_path "/opt/totem")
 	set_bun_capabilities "$bun_bin"
