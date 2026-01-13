@@ -3,8 +3,8 @@
 Installs mise, bun, prompts for credentials, builds frontend, installs systemd services:
 
 ```bash
-chmod +x deploy.sh
-sudo -E ./deploy.sh
+chmod +x deployment/deploy.sh
+sudo deployment/deploy.sh .env.production
 ```
 
 It starts the following services:
