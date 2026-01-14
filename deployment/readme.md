@@ -1,6 +1,7 @@
 # Deployment
 
-Installs mise, bun, prompts for credentials, builds frontend, installs systemd services:
+Installs mise, bun, prompts for credentials, builds frontend, installs systemd
+services:
 
 ```bash
 chmod +x deployment/deploy.sh
@@ -31,9 +32,42 @@ sudo systemctl restart totem-*
 curl localhost:3000/health
 ```
 
-To trigger a reconfiguration, remove the .env.production file and run deploy.sh again:
+To trigger a reconfiguration, remove the .env.production file and run deploy.sh
+again:
 
 ```bash
 rm .env.production
 bash deployment/deploy.sh
+```
+
+## Clean up
+
+Preview and confirm:
+
+```bash
+sudo ./deployment/cleanup.sh
+```
+
+Force without confirmation:
+
+```bash
+sudo ./deployment/cleanup.sh --force
+```
+
+Only remove services:
+
+```bash
+sudo ./deployment/cleanup.sh --services-only
+```
+
+Remove everything except data:
+
+```bash
+sudo ./deployment/cleanup.sh --keep-data
+```
+
+Force full cleanup:
+
+```bash
+sudo ./deployment/cleanup.sh --force
 ```
