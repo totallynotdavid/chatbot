@@ -1,6 +1,9 @@
 import type { Client } from "whatsapp-web.js";
 import { MessageMedia } from "whatsapp-web.js";
-import { formatPhoneToJid, formatPhoneToCloudJid } from "@totem/whatsapp-utils";
+import {
+  formatPhoneToJid,
+  formatPhoneToCloudJid,
+} from "./lib/whatsapp-formatters.ts";
 
 export class MessagingService {
   constructor(private client: Client) {}

@@ -2,7 +2,7 @@ import type { Client, Message } from "whatsapp-web.js";
 import process from "node:process";
 import { forwardToBackend } from "./message-forwarder.ts";
 import { saveGroupMapping } from "./group-registry.ts";
-import { isGroupJid, isBroadcastJid } from "@totem/whatsapp-utils";
+import { isGroupJid, isBroadcastJid } from "./lib/whatsapp-formatters.ts";
 import { createLogger } from "./logger.ts";
 
 const logger = createLogger("messages");

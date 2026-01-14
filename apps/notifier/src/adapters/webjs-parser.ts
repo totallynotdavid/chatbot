@@ -4,7 +4,7 @@ import type {
   MessageType,
   QuotedMessageContext,
 } from "@totem/types";
-import { extractPhoneNumber } from "@totem/whatsapp-utils";
+import { extractPhoneNumber } from "../lib/whatsapp-formatters.ts";
 import { createLogger } from "../logger.ts";
 
 const logger = createLogger("webjs-parser");
