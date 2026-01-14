@@ -3,7 +3,7 @@ setup_nginx() {
 	local nginx_enabled="/etc/nginx/sites-enabled/totem"
 
 	# Check if nginx is installed
-	if ! command -v nginx &> /dev/null; then
+	if ! command -v nginx &>/dev/null; then
 		apt-get update && apt-get install -y nginx >/dev/null 2>&1
 		substep "nginx installed"
 	else
