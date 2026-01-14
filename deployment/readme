@@ -1,13 +1,14 @@
-This file documents invocation, runtime topology, and operational boundaries.
+This file documents deployment invocation, runtime topology, and operational
+boundaries.
 
-Deployment is driven by "deployment/deploy.sh". The script installs required
+Deployment is driven by `deployment/deploy.sh`. The script installs required
 tooling, builds the frontend, and installs systemd services. It may be run with
 or without elevated privileges, depending on the target environment. Supplying
 `.env.production` disables interactive prompting.
 
-```bash
-sudo deployment/deploy.sh .env.production
-```
+Invocation:
+
+deployment/deploy.sh .env.production
 
 In development, services run directly. In production, external traffic enters
 through Nginx on port 80 and is proxied to internal services. Nginx is
@@ -34,12 +35,19 @@ Deployment is configuration-aware. If `.env.production` is present, re-running
 `deploy.sh` will not reconfigure services. Removing the file forces
 reconfiguration.
 
-```bash
-rm .env.production
-sudo bash deployment/deploy.sh
-```
+Reconfiguration:
 
-Teardown is handled by `deployment/cleanup.sh`.
+rm .env.production deployment/deploy.sh
+
+Updates are handled by `deployment/update.sh`. The update process stops running
+services, pulls the latest repository state, rebuilds dependencies and frontend
+assets, and restarts services. Configuration is preserved.
+
+Update invocation:
+
+deployment/update.sh
+
+Teardown is handled by `deployment/cleanup.sh`. Cleanup is destructive.
 
 ## Mode / effect
 
