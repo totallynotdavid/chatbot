@@ -75,14 +75,6 @@
     }
   }
 
-  async function loadPeriods() {
-    try {
-      localPeriods = await fetchApi<CatalogPeriod[]>("/api/periods");
-    } catch (error) {
-      console.error("Failed to load periods:", error);
-    }
-  }
-
   function handlePeriodChange(period: CatalogPeriod) {
     selectedPeriod = period;
     goto(`?period=${period.id}`, { replaceState: true });
@@ -136,9 +128,7 @@
   onMount(() => {
     if (!data.user) {
       window.location.href = "/login";
-      return;
     }
-    loadPeriods();
   });
 </script>
 
