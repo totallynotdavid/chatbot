@@ -1,5 +1,4 @@
 import type { PageServerLoad } from "./$types";
-import { fetchBackend } from "$lib/utils/server-fetch";
 
 export const load: PageServerLoad = async ({ cookies, url }) => {
   const sessionToken = cookies.get("session");
@@ -17,7 +16,7 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 
   try {
     // Load periods
-    const periodsRes = await fetchBackend("/api/periods", { headers });
+    const periodsRes = await fetch("/api/periods", { headers });
     const periods = periodsRes.ok ? await periodsRes.json() : [];
 
     // Get selected period from URL or use active period
@@ -32,14 +31,14 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 
     // Load data in parallel
     const [productsRes, bundlesRes, fnbRes] = await Promise.all([
-      fetchBackend("/api/catalog/products", { headers }),
+      fetch("/api/catalog/products", { headers }),
       activePeriod
-        ? fetchBackend(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=gaso`, {
+        ? fetch(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=gaso`, {
           headers,
         })
         : Promise.resolve({ ok: false, json: () => [] }),
       activePeriod
-        ? fetchBackend(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=fnb`, {
+        ? fetch(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=fnb`, {
           headers,
         })
         : Promise.resolve({ ok: false, json: () => [] }),

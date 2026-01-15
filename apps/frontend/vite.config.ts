@@ -7,10 +7,6 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
 
   server: {
-    proxy: {
-      "/api": "http://localhost:3000",
-      "/static": "http://localhost:3000",
-    },
     allowedHosts: [".trycloudflare.com"],
   },
 });

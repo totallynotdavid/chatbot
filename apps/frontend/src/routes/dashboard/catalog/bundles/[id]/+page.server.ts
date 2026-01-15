@@ -1,5 +1,4 @@
 import type { PageServerLoad } from "./$types";
-import { fetchBackend } from "$lib/utils/server-fetch";
 import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ cookies, params, url }) => {
@@ -14,9 +13,9 @@ export const load: PageServerLoad = async ({ cookies, params, url }) => {
   const segment = url.searchParams.get("segment") as "gaso" | "fnb" | null;
 
   const [productsRes, bundleRes] = await Promise.all([
-    fetchBackend("/api/catalog/products", { headers }),
+    fetch("/api/catalog/products", { headers }),
     id !== "new"
-      ? fetchBackend(`/api/catalog/bundles/${id}`, { headers })
+      ? fetch(`/api/catalog/bundles/${id}`, { headers })
       : Promise.resolve(null)
   ]);
 

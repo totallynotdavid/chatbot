@@ -1,5 +1,4 @@
 import type { PageServerLoad } from "./$types";
-import { fetchBackend } from "$lib/utils/server-fetch";
 import { error } from "@sveltejs/kit";
 
 export const load: PageServerLoad = async ({ cookies, params }) => {
@@ -14,7 +13,7 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
   }
 
   const headers = { cookie: `session=${sessionToken}` };
-  const getRes = await fetchBackend(`/api/catalog/products/${id}`, { headers });
+  const getRes = await fetch(`/api/catalog/products/${id}`, { headers });
   
   if (!getRes.ok) {
         throw error(getRes.status, "Product not found");

@@ -1,6 +1,5 @@
 import type { PageServerLoad } from "./$types";
 import { redirect } from "@sveltejs/kit";
-import { fetchBackend } from "$lib/utils/server-fetch";
 
 export const load: PageServerLoad = async ({ cookies, locals }) => {
   // Role check: only admin, developer, supervisor
@@ -20,10 +19,10 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 
   try {
     const [statsRes, eventsRes] = await Promise.all([
-      fetchBackend("/api/analytics/funnel", {
+      fetch("/api/analytics/funnel", {
         headers: { cookie: `session=${sessionToken}` },
       }),
-      fetchBackend("/api/analytics/events?limit=100", {
+      fetch("/api/analytics/events?limit=100", {
         headers: { cookie: `session=${sessionToken}` },
       }),
     ]);
