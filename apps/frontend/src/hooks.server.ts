@@ -1,4 +1,5 @@
 import type { Handle } from "@sveltejs/kit";
+import { getBackendUrl } from "@totem/utils";
 
 /**
  * Server hook that runs on every request
@@ -10,7 +11,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   if (sessionToken) {
     try {
-      const response = await event.fetch("/api/auth/me", {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/auth/me`, {
         headers: {
           cookie: `session=${sessionToken}`,
         },
