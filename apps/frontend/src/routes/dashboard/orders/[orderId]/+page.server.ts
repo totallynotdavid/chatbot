@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ params, cookies }) => {
+export const load: PageServerLoad = async ({ params, cookies, fetch }) => {
   const sessionToken = cookies.get("session");
   if (!sessionToken) {
     return { order: null };
