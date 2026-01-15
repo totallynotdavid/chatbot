@@ -16,7 +16,7 @@ async function proxyRequest(
 ): Promise<Response> {
 	// Strip /api prefix and rebuild path
 	const backendPath = pathname.startsWith('/api/')
-		? pathname.replace(/^\/api/, '')
+		? pathname
 		: pathname === '/webhook'
 			? '/api/webhook'
 			: pathname;
@@ -24,8 +24,8 @@ async function proxyRequest(
 	const url = `${backendUrl}${backendPath}${query}`;
 
 	try {
-		const body = request.method !== 'GET' && request.method !== 'HEAD' 
-			? await request.text() 
+		const body = request.method !== 'GET' && request.method !== 'HEAD'
+			? await request.text()
 			: undefined;
 
 		const response = await fetch(url, {
