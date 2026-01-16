@@ -1,9 +1,29 @@
 import type { Database } from "bun:sqlite";
+import type { ConversationStatus, SaleStatus, Segment } from "@totem/types";
 
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 
-const TEST_CONVERSATIONS = [
+type TestMessage = {
+  role: "incoming" | "outgoing";
+  text: string;
+  offsetMs: number;
+};
+
+type TestConversation = {
+  phoneNumber: string;
+  clientName: string;
+  dni: string;
+  segment: Segment;
+  creditLine: number;
+  status: ConversationStatus;
+  messages: TestMessage[];
+  assignedAgent?: string;
+  saleStatus?: SaleStatus;
+  assignmentNotifiedAt?: number;
+};
+
+const TEST_CONVERSATIONS: TestConversation[] = [
   {
     phoneNumber: "+51999888777",
     clientName: "Juan Pérez",
@@ -42,9 +62,9 @@ const TEST_CONVERSATIONS = [
     dni: "87654321",
     segment: "gaso" as const,
     creditLine: 2500,
-    status: "human_takeover" as const,
+    status: "closed" as const,
     assignedAgent: "agent-001",
-    assignmentNotifiedAt: -2 * MINUTE_MS,
+    saleStatus: "confirmed" as const,
     messages: [
       {
         role: "incoming" as const,
@@ -94,8 +114,8 @@ export async function seedTestData(db: Database) {
     `INSERT INTO conversations (
       phone_number, client_name, dni, segment, credit_line, status,
       assigned_agent, assignment_notified_at, is_simulation,
-      last_activity_at, context_data
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      last_activity_at, context_data, sale_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
   const messageStmt = db.prepare(
@@ -114,15 +134,17 @@ export async function seedTestData(db: Database) {
     const contextData = {
       phase: {
         phase:
-          conversation.status === "human_takeover"
+          conversation.status === "human_takeover" ||
+          conversation.status === "closed"
             ? "closing"
             : "offering_products",
         segment: conversation.segment,
         credit: conversation.creditLine,
         name: conversation.clientName,
-        ...(conversation.status === "human_takeover" && {
-          purchaseConfirmed: true,
-        }),
+        ...(conversation.status === "human_takeover" ||
+        conversation.status === "closed"
+          ? { purchaseConfirmed: true }
+          : {}),
       },
       metadata: {
         dni: conversation.dni,
@@ -146,6 +168,7 @@ export async function seedTestData(db: Database) {
       0,
       lastActivityAt,
       JSON.stringify(contextData),
+      conversation.saleStatus || "pending",
     );
 
     for (const message of conversation.messages) {
