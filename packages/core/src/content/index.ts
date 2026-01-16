@@ -5,6 +5,7 @@ export { buildAnswerQuestionPrompt } from "./answer-question-prompt.ts";
 export { buildSuggestAlternativePrompt } from "./suggest-alternative-prompt.ts";
 export { buildHandleBacklogPrompt } from "./handle-backlog-prompt.ts";
 export { buildClassifyQuestionPrompt } from "./classify-question-prompt.ts";
+export { buildRecoverUnclearPrompt } from "./recover-unclear-prompt.ts";
 export type { QuestionType } from "./classify-question-prompt.ts";
 export {
   buildWarrantyAnswerPrompt,
