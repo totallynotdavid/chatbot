@@ -8,7 +8,7 @@ export const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const MODEL = "gemini-2.5-flash-lite";
+export const MODEL = "gpt-5-nano-2025-08-07";
 
 export function parseLLMResponse<T = Record<string, unknown>>(
   content: string | null | undefined,

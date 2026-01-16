@@ -5,11 +5,51 @@ import {
   buildAnswerQuestionPrompt,
   buildSuggestAlternativePrompt,
   buildHandleBacklogPrompt,
+  buildRecoverUnclearPrompt,
   getCategoryMetadata,
 } from "@totem/core";
 import { client, MODEL, parseLLMResponse } from "./client.ts";
 import { classifyLLMError } from "./types.ts";
 import { logLLMError } from "./error-logger.ts";
+
+export async function recoverUnclearResponse(
+  message: string,
+  context: {
+    phase: string;
+    lastQuestion?: string;
+    expectedOptions?: string[];
+  },
+  phoneNumber: string,
+): Promise<string> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: buildRecoverUnclearPrompt(context) },
+        { role: "user", content: message },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.9,
+    });
+
+    const content = completion.choices[0]?.message.content;
+    const res = parseLLMResponse<{ recovery: string }>(
+      content,
+      "recoverUnclearResponse",
+      { recovery: "Disculpa, no te entendí. ¿Puedes repetirlo?" },
+    );
+
+    return res.recovery;
+  } catch (e) {
+    logLLMError(
+      phoneNumber,
+      "recoverUnclearResponse",
+      classifyLLMError(e),
+      context.phase,
+    );
+    return "Disculpa, no entendí bien. ¿Podrías decirme de nuevo?";
+  }
+}
 
 export async function isQuestion(
   message: string,
