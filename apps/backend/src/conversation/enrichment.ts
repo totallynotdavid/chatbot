@@ -42,7 +42,31 @@ export async function executeEnrichment(
         request.ageMinutes,
         phoneNumber,
       );
+
+    case "recover_unclear_response":
+      return await executeRecoverUnclearResponse(
+        request.message,
+        request.context,
+        phoneNumber,
+      );
   }
+}
+
+async function executeRecoverUnclearResponse(
+  message: string,
+  context: {
+    phase: string;
+    lastQuestion?: string;
+    expectedOptions?: string[];
+  },
+  phoneNumber: string,
+): Promise<EnrichmentResult> {
+  const recoveryText = await LLM.recoverUnclearResponse(
+    message,
+    context,
+    phoneNumber,
+  );
+  return { type: "recovery_response", text: recoveryText };
 }
 
 async function executeEligibilityCheck(
