@@ -25,13 +25,15 @@ export function matchGroup(input: string): CategoryGroup | null {
       return key;
     }
 
-    if (normalized.includes(removeAccents(config.display.toLowerCase()))) {
+    // Check if the display name contains user input (reversed from before!)
+    const normalizedDisplay = removeAccents(config.display.toLowerCase());
+    if (normalizedDisplay.includes(normalized)) {
       return key;
     }
 
     if (
       key === "hogar" &&
-      /línea\s+blanca|para\s+el\s+hogar|electrodom[eé]sticos|para\s+casa/.test(
+      /linea\s+blanca|para\s+el\s+hogar|electrodom[ee]sticos|para\s+casa/.test(
         normalized,
       )
     ) {
@@ -40,7 +42,7 @@ export function matchGroup(input: string): CategoryGroup | null {
 
     if (
       key === "tecnología" &&
-      /tecnolog[ií]a|tech|electr[oó]nica/.test(normalized)
+      /tecnolog[ii]a|tech|electr[oo]nica/.test(normalized)
     ) {
       return "tecnología";
     }
