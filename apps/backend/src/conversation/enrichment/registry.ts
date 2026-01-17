@@ -3,7 +3,6 @@ import type { EnrichmentHandler } from "./handler-interface.ts";
 
 /**
  * Registry that maps enrichment types to their handlers.
- * Provides type-safe handler lookup and registration.
  */
 export class EnrichmentHandlerRegistry {
   private handlers = new Map<string, EnrichmentHandler<any, any>>();
@@ -36,7 +35,4 @@ export class EnrichmentHandlerRegistry {
   }
 }
 
-/**
- * Singleton registry instance used by the enrichment orchestrator.
- */
 export const enrichmentRegistry = new EnrichmentHandlerRegistry();
