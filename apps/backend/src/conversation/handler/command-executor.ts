@@ -8,6 +8,7 @@ import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { notifyTeam } from "../../adapters/notifier/client.ts";
 import { sendBundleImages } from "../images.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
+import { BundleService } from "../../domains/catalog/index.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
@@ -93,6 +94,10 @@ async function executeCommand(
       await executeImages(command, phoneNumber, phase, isSimulation);
       break;
 
+    case "SEND_BUNDLE":
+      await executeSingleBundle(command, phoneNumber, phase, isSimulation);
+      break;
+
     case "TRACK_EVENT":
       trackEvent(phoneNumber, command.event, {
         segment: metadata.segment,
@@ -175,4 +180,79 @@ async function executeImages(
     const conversation = getOrCreateConversation(phoneNumber);
     updateConversation(phoneNumber, updatedPhase, conversation.metadata);
   }
+}
+
+async function executeSingleBundle(
+  command: Extract<Command, { type: "SEND_BUNDLE" }>,
+  phoneNumber: string,
+  phase: ConversationPhase,
+  isSimulation: boolean,
+): Promise<void> {
+  if (
+    phase.phase !== "offering_products" &&
+    phase.phase !== "handling_objection"
+  ) {
+    logger.warn(
+      { phoneNumber, currentPhase: phase.phase },
+      "Bundle requested outside offering phase",
+    );
+    return;
+  }
+
+  const bundle = BundleService.getById(command.bundleId);
+
+  if (!bundle) {
+    logger.warn(
+      { phoneNumber, bundleId: command.bundleId },
+      "Bundle not found",
+    );
+    return;
+  }
+
+  const installments = JSON.parse(bundle.installments_json);
+  const firstOption = installments[0];
+  const installmentText = firstOption
+    ? `Desde S/ ${firstOption.monthlyAmount.toFixed(2)}/mes (${firstOption.months} cuotas)`
+    : "";
+
+  const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
+
+  if (isSimulation) {
+    WhatsAppService.logMessage(
+      phoneNumber,
+      "outbound",
+      "image",
+      caption,
+      "sent",
+    );
+  } else {
+    await WhatsAppService.sendImage(
+      phoneNumber,
+      `images/${bundle.image_id}.jpg`,
+      caption,
+      bundle.id,
+    );
+  }
+
+  // Update phase with sent product
+  const updatedPhase: ConversationPhase = {
+    ...phase,
+    sentProducts: [
+      {
+        name: bundle.name,
+        position: 1,
+        productId: bundle.id,
+        price: bundle.price,
+      },
+    ],
+    lastAction: {
+      type: "showed_products",
+      category: bundle.primary_category,
+      productCount: 1,
+      timestamp: Date.now(),
+    },
+  } as ConversationPhase;
+
+  const conversation = getOrCreateConversation(phoneNumber);
+  updateConversation(phoneNumber, updatedPhase, conversation.metadata);
 }
