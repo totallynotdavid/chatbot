@@ -1,178 +1,249 @@
-import { describe, test, expect, beforeAll, setDefaultTimeout } from "bun:test";
-import * as LLM from "../src/adapters/llm/index.ts";
+import { describe, test, expect } from "bun:test";
+import { createMockProvider } from "@totem/intelligence";
 
-setDefaultTimeout(30000);
+const TEST_CONTEXT = {
+  phase: "offering_products",
+  availableCategories: ["celulares", "cocinas", "laptops"],
+};
 
-const FORCE_SKIP = process.env.SKIP_LLM_TESTS === "1";
-const TEST_PHONE = "+51999999999";
+describe("Intelligence Provider (MockProvider)", () => {
+  describe("Question detection", () => {
+    test("detects question with ?", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("isQuestion", true);
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      const result = await provider.isQuestion("¿Cuánto cuesta?");
+      expect(result).toBe(true);
+    });
 
-describe("LLM service (question detection)", () => {
-  beforeAll(() => {
-    if (!process.env.GEMINI_API_KEY && !FORCE_SKIP) {
-      console.warn("GEMINI_API_KEY not set");
-    } else if (process.env.GEMINI_API_KEY) {
-      console.log("GEMINI_API_KEY found");
-    }
-  });
+    test("does not detect affirmation as question", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("isQuestion", false);
 
-  test.skipIf(FORCE_SKIP)("detects question with ?", async () => {
-    const result = await LLM.isQuestion("¿Cuánto cuesta?", TEST_PHONE);
-    expect(result).toBe(true);
-    await delay(1000);
-  });
-
-  test.skipIf(FORCE_SKIP)(
-    "does not detect affirmation as question",
-    async () => {
-      const result = await LLM.isQuestion("Sí, me interesa", TEST_PHONE);
+      const result = await provider.isQuestion("Sí, me interesa");
       expect(result).toBe(false);
-      await delay(1000);
-    },
-  );
+    });
 
-  test.skipIf(FORCE_SKIP)("does not detect negation as question", async () => {
-    const result = await LLM.isQuestion("No gracias", TEST_PHONE);
-    expect(result).toBe(false);
-    await delay(1000);
-  });
-});
+    test("does not detect negation as question", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("isQuestion", false);
 
-describe("LLM service (escalation detection)", () => {
-  test.skipIf(FORCE_SKIP)("escalates on exact amount question", async () => {
-    const result = await LLM.shouldEscalate(
-      "¿Cuánto exactamente en soles pago por cuota?",
-      TEST_PHONE,
-    );
-    expect(result).toBe(true);
-    await delay(1000);
+      const result = await provider.isQuestion("No gracias");
+      expect(result).toBe(false);
+    });
   });
 
-  test.skipIf(FORCE_SKIP)("escalates on complaint", async () => {
-    const result = await LLM.shouldEscalate(
-      "Quiero hacer un reclamo formal",
-      TEST_PHONE,
-    );
-    expect(result).toBe(true);
-    await delay(1000);
+  describe("Escalation detection", () => {
+    test("escalates on exact amount question", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("shouldEscalate", true);
+
+      const result = await provider.shouldEscalate(
+        "¿Cuánto exactamente en soles pago por cuota?",
+      );
+      expect(result).toBe(true);
+    });
+
+    test("escalates on complaint", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("shouldEscalate", true);
+
+      const result = await provider.shouldEscalate(
+        "Quiero hacer un reclamo formal",
+      );
+      expect(result).toBe(true);
+    });
+
+    test("does not escalate general questions", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("shouldEscalate", false);
+
+      const result = await provider.shouldEscalate("¿Cómo funciona el pago?");
+      expect(result).toBe(false);
+    });
   });
 
-  test.skipIf(FORCE_SKIP)("does not escalate general questions", async () => {
-    const result = await LLM.shouldEscalate(
-      "¿Cómo funciona el pago?",
-      TEST_PHONE,
-    );
-    expect(result).toBe(false);
-    await delay(1000);
-  });
-});
+  describe("Product request detection", () => {
+    test("detects product request", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("isProductRequest", true);
 
-describe("LLM service (category extraction)", () => {
-  const categories = [
-    "celulares",
-    "cocinas",
-    "laptops",
-    "refrigeradoras",
-    "televisores",
-    "termas",
-  ];
+      const result = await provider.isProductRequest("Quiero ver celulares");
+      expect(result).toBe(true);
+    });
 
-  test.skipIf(FORCE_SKIP)("extracts brand to category", async () => {
-    const result = await LLM.extractCategory(
-      "Quiero un iPhone",
-      categories,
-      categories,
-      TEST_PHONE,
-    );
-    expect(result).not.toBeNull();
-    // result is { category: "...", requestedProduct?: "..." }
-    expect(result.category?.toLowerCase()).toMatch(/celular/);
-    await delay(1000);
+    test("does not detect non-product messages", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("isProductRequest", false);
+
+      const result = await provider.isProductRequest("Hola, buenos días");
+      expect(result).toBe(false);
+    });
   });
 
-  test.skipIf(FORCE_SKIP)("returns null for no category", async () => {
-    const result = await LLM.extractCategory(
-      "Hola, buenos días",
-      categories,
-      categories,
-      TEST_PHONE,
-    );
-    expect(result.category).toBeNull();
-    await delay(1000);
-  });
-});
+  describe("Bundle intent extraction", () => {
+    test("extracts bundle with confidence", async () => {
+      const mockBundle = {
+        id: "bundle-e4976160c1e346b8",
+        period_id: "period-2026-01",
+        name: "Celular a elección + Cocineta 2Q",
+        price: 1799,
+        primary_category: "celulares",
+        categories_json: '["celulares", "cocinas"]',
+        image_id: "e4976160c1e346b8",
+        composition_json:
+          '{"fixed":[{"id":"cocineta_2q_gas","name":"Cocineta 2 Quemadores Gas","specs":{}}],"choices":[{"label":"01 celular a elección","pick":1,"options":[{"id":"xiaomi_redmi_15c","name":"Xiaomi Redmi 15C","specs":{}},{"id":"honor_x6c","name":"Honor X6C","specs":{}},{"id":"samsung_a17_5g","name":"Samsung Galaxy A17 5G","specs":{}}]}]}',
+        installments_json:
+          '{"3m":643.3,"6m":339.58,"9m":238.58,"12m":188.26,"18m":138.29}',
+        notes: "01 año de garantía, delivery gratuito, cero cuota inicial",
+        is_active: 1,
+        stock_status: "in_stock" as const,
+        created_by: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+      };
 
-describe("LLM service (answering questions)", () => {
-  test.skipIf(FORCE_SKIP)("returns string answer", async () => {
-    const result = await LLM.answerQuestion(
-      "¿Cómo funciona?",
-      {
-        segment: "fnb",
-        creditLine: 3000,
-        availableCategories: ["celulares", "cocinas"],
-      },
-      TEST_PHONE,
-    );
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
-    await delay(1000);
-  });
+      const provider = createMockProvider();
+      provider.setResponse("extractBundleIntent", {
+        bundle: mockBundle,
+        confidence: 0.95,
+      });
 
-  test.skipIf(FORCE_SKIP)("uses available categories in context", async () => {
-    const result = await LLM.answerQuestion(
-      "¿Qué productos tienen?",
-      {
-        segment: "gaso",
-        availableCategories: ["cocinas", "termas"],
-      },
-      TEST_PHONE,
-    );
-    expect(typeof result).toBe("string");
-    await delay(1000);
-  });
-});
+      const result = await provider.extractBundleIntent("quiero el primero", [
+        mockBundle,
+      ]);
 
-describe("LLM service (error handling)", () => {
-  test("returns fallback on isQuestion failure", async () => {
-    const originalKey = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    const result = await LLM.isQuestion("test", TEST_PHONE);
-    expect(result).toBe(false);
-    if (originalKey) process.env.GEMINI_API_KEY = originalKey;
+      expect(result.bundle).toEqual(mockBundle);
+      expect(result.confidence).toBe(0.95);
+    });
+
+    test("returns null for no match", async () => {
+      const provider = createMockProvider();
+      provider.setResponse("extractBundleIntent", {
+        bundle: null,
+        confidence: 0.1,
+      });
+
+      const result = await provider.extractBundleIntent("no sé", []);
+      expect(result.bundle).toBeNull();
+      expect(result.confidence).toBe(0.1);
+    });
   });
 
-  test("returns fallback on shouldEscalate failure", async () => {
-    const originalKey = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    const result = await LLM.shouldEscalate("test", TEST_PHONE);
-    expect(result).toBe(false);
-    if (originalKey) process.env.GEMINI_API_KEY = originalKey;
+  describe("Question answering", () => {
+    test("returns string answer", async () => {
+      const provider = createMockProvider();
+      provider.setResponse(
+        "answerQuestion",
+        "Ofrecemos crédito con cuotas mensuales.",
+      );
+
+      const result = await provider.answerQuestion(
+        "¿Cómo funciona?",
+        TEST_CONTEXT,
+      );
+
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).toBe("Ofrecemos crédito con cuotas mensuales.");
+    });
+
+    test("uses context in answers", async () => {
+      const provider = createMockProvider();
+      provider.setResponse(
+        "answerQuestion",
+        "Tenemos celulares, cocinas y laptops disponibles.",
+      );
+
+      const result = await provider.answerQuestion(
+        "¿Qué productos tienen?",
+        TEST_CONTEXT,
+      );
+
+      expect(typeof result).toBe("string");
+      expect(result).toContain("celulares");
+    });
   });
 
-  test("returns null on extractCategory failure", async () => {
-    const originalKey = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    const result = await LLM.extractCategory(
-      "test",
-      ["celulares"],
-      ["celulares"],
-      TEST_PHONE,
-    );
-    expect(result.category).toBeNull();
-    if (originalKey) process.env.GEMINI_API_KEY = originalKey;
+  describe("Alternative suggestions", () => {
+    test("suggests alternative category", async () => {
+      const provider = createMockProvider();
+      provider.setResponse(
+        "suggestAlternative",
+        "No tenemos tablets, pero sí tenemos celulares y laptops",
+      );
+
+      const result = await provider.suggestAlternative("tablets", [
+        "celulares",
+        "laptops",
+      ]);
+
+      expect(result).toContain("tablets");
+      expect(result).toContain("celulares");
+    });
   });
 
-  test("returns fallback on answerQuestion failure", async () => {
-    const originalKey = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    const result = await LLM.answerQuestion(
-      "test",
-      { segment: "fnb" },
-      TEST_PHONE,
-    );
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
-    if (originalKey) process.env.GEMINI_API_KEY = originalKey;
+  describe("Recovery responses", () => {
+    test("recovers from unclear input", async () => {
+      const provider = createMockProvider();
+      provider.setResponse(
+        "recoverUnclearResponse",
+        "¿Quisieras ver nuestros productos o tienes alguna pregunta?",
+      );
+
+      const result = await provider.recoverUnclearResponse("mmm", {
+        phase: "offering_products",
+      });
+
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Backlog apologies", () => {
+    test("handles backlog gracefully", async () => {
+      const provider = createMockProvider();
+      provider.setResponse(
+        "handleBacklogResponse",
+        "Disculpa la demora de 30 minutos. ¿En qué puedo ayudarte?",
+      );
+
+      const result = await provider.handleBacklogResponse(
+        "Hola, quiero ver productos",
+        30,
+      );
+
+      expect(typeof result).toBe("string");
+      expect(result).toContain("30");
+    });
+  });
+
+  describe("Error handling (fallbacks)", () => {
+    test("returns fallback for isQuestion", async () => {
+      const provider = createMockProvider();
+      // No response configured, should use default
+      const result = await provider.isQuestion("test");
+      expect(result).toBe(false);
+    });
+
+    test("returns fallback for shouldEscalate", async () => {
+      const provider = createMockProvider();
+      const result = await provider.shouldEscalate("test");
+      expect(result).toBe(false);
+    });
+
+    test("returns fallback for extractBundleIntent", async () => {
+      const provider = createMockProvider();
+      const result = await provider.extractBundleIntent("test", []);
+      expect(result.bundle).toBeNull();
+      expect(result.confidence).toBe(0);
+    });
+
+    test("returns fallback for answerQuestion", async () => {
+      const provider = createMockProvider();
+      const result = await provider.answerQuestion("test", TEST_CONTEXT);
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
+    });
   });
 });

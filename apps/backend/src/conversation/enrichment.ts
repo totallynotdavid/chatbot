@@ -1,8 +1,17 @@
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
 import type { Bundle } from "@totem/types";
+import type { IntelligenceProvider } from "@totem/intelligence";
 import { checkEligibilityWithFallback } from "../domains/eligibility/orchestrator.ts";
+import {
+  safeIsQuestion,
+  safeShouldEscalate,
+  safeIsProductRequest,
+  safeExtractBundleIntent,
+  safeAnswerQuestion,
+  safeHandleBacklogResponse,
+  safeRecoverUnclearResponse,
+} from "../intelligence/wrapper.ts";
 
-import * as LLM from "../adapters/llm/index.ts";
 import { BundleService } from "../domains/catalog/index.ts";
 import { getCategoryDisplayNames } from "../adapters/catalog/display.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -12,25 +21,39 @@ const logger = createLogger("enrichment");
 export async function executeEnrichment(
   request: EnrichmentRequest,
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
   switch (request.type) {
     case "check_eligibility":
       return await executeEligibilityCheck(request.dni, phoneNumber);
 
     case "detect_question":
-      return await executeDetectQuestion(request.message, phoneNumber);
+      return await executeDetectQuestion(
+        request.message,
+        phoneNumber,
+        provider,
+      );
 
     case "should_escalate":
-      return await executeShouldEscalate(request.message, phoneNumber);
+      return await executeShouldEscalate(
+        request.message,
+        phoneNumber,
+        provider,
+      );
 
     case "is_product_request":
-      return await executeIsProductRequest(request.message, phoneNumber);
+      return await executeIsProductRequest(
+        request.message,
+        phoneNumber,
+        provider,
+      );
 
     case "extract_bundle_intent":
       return await executeExtractBundleIntent(
         request.message,
         request.affordableBundles,
         phoneNumber,
+        provider,
       );
 
     case "answer_question":
@@ -38,6 +61,7 @@ export async function executeEnrichment(
         request.message,
         request.context,
         phoneNumber,
+        provider,
       );
 
     case "generate_backlog_apology":
@@ -45,6 +69,7 @@ export async function executeEnrichment(
         request.message,
         request.ageMinutes,
         phoneNumber,
+        provider,
       );
 
     case "recover_unclear_response":
@@ -52,6 +77,7 @@ export async function executeEnrichment(
         request.message,
         request.context,
         phoneNumber,
+        provider,
       );
   }
 }
@@ -64,8 +90,10 @@ async function executeRecoverUnclearResponse(
     expectedOptions?: string[];
   },
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  const recoveryText = await LLM.recoverUnclearResponse(
+  const recoveryText = await safeRecoverUnclearResponse(
+    provider,
     message,
     context,
     phoneNumber,
@@ -154,116 +182,72 @@ async function executeEligibilityCheck(
 async function executeDetectQuestion(
   message: string,
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const isQuestion = await LLM.isQuestion(
-      message,
-      phoneNumber,
-      "offering_products",
-    );
-    return {
-      type: "question_detected",
-      isQuestion,
-    };
-  } catch (error) {
-    logger.error(
-      { error, phoneNumber, enrichmentType: "detect_question", message },
-      "Detect question failed",
-    );
-    return {
-      type: "question_detected",
-      isQuestion: false,
-    };
-  }
+  const isQuestion = await safeIsQuestion(provider, message, phoneNumber);
+  return {
+    type: "question_detected",
+    isQuestion,
+  };
 }
 
 async function executeShouldEscalate(
   message: string,
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const shouldEscalate = await LLM.shouldEscalate(
-      message,
-      phoneNumber,
-      "offering_products",
-    );
-    return {
-      type: "escalation_needed",
-      shouldEscalate,
-    };
-  } catch (error) {
-    logger.error(
-      { error, phoneNumber, enrichmentType: "should_escalate", message },
-      "Should escalate check failed",
-    );
-    return {
-      type: "escalation_needed",
-      shouldEscalate: false,
-    };
-  }
+  const shouldEscalate = await safeShouldEscalate(
+    provider,
+    message,
+    phoneNumber,
+  );
+  return {
+    type: "escalation_needed",
+    shouldEscalate,
+  };
 }
 
 async function executeIsProductRequest(
   message: string,
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const isProductRequest = await LLM.isProductRequest(
-      message,
-      phoneNumber,
-      "offering_products",
-    );
-    return {
-      type: "product_request_detected",
-      isProductRequest,
-    };
-  } catch (error) {
-    logger.error(
-      { error, phoneNumber, enrichmentType: "is_product_request", message },
-      "Is product request check failed",
-    );
-    return {
-      type: "product_request_detected",
-      isProductRequest: false,
-    };
-  }
+  const isProductRequest = await safeIsProductRequest(
+    provider,
+    message,
+    phoneNumber,
+  );
+  return {
+    type: "product_request_detected",
+    isProductRequest,
+  };
 }
 
 async function executeExtractBundleIntent(
   message: string,
   affordableBundles: Bundle[],
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const result = await LLM.extractBundleIntent(
-      message,
-      affordableBundles,
-      phoneNumber,
-      "offering_products",
-    );
+  const segment = "fnb";
+  const maxPrice =
+    affordableBundles.length > 0
+      ? Math.max(...affordableBundles.map((b) => b.price))
+      : 0;
 
-    return {
-      type: "bundle_intent_extracted",
-      bundle: result.bundle,
-      confidence: result.confidence,
-    };
-  } catch (error) {
-    logger.error(
-      {
-        error,
-        phoneNumber,
-        enrichmentType: "extract_bundle_intent",
-        message,
-        bundleCount: affordableBundles.length,
-      },
-      "Extract bundle intent failed",
-    );
-    return {
-      type: "bundle_intent_extracted",
-      bundle: null,
-      confidence: 0,
-    };
-  }
+  const result = await safeExtractBundleIntent(
+    provider,
+    message,
+    phoneNumber,
+    segment as "fnb" | "gaso",
+    maxPrice,
+  );
+
+  return {
+    type: "bundle_intent_extracted",
+    bundle: result.bundle,
+    confidence: result.confidence,
+  };
 }
 
 async function executeAnswerQuestion(
@@ -275,69 +259,34 @@ async function executeAnswerQuestion(
     availableCategories: string[];
   },
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const answer = await LLM.answerQuestionFocused(
-      message,
-      {
-        segment: context.segment,
-        creditLine: context.credit,
-        phase: context.phase,
-        availableCategories: context.availableCategories,
-      },
-      phoneNumber,
-    );
-    return {
-      type: "question_answered",
-      answer,
-    };
-  } catch (error) {
-    logger.error(
-      {
-        error,
-        phoneNumber,
-        enrichmentType: "answer_question",
-        message,
-        phase: context.phase,
-      },
-      "Answer question failed",
-    );
-    return {
-      type: "question_answered",
-      answer: "Déjame revisar eso y te respondo.",
-    };
-  }
+  const answer = await safeAnswerQuestion(
+    provider,
+    message,
+    context,
+    phoneNumber,
+  );
+  return {
+    type: "question_answered",
+    answer,
+  };
 }
 
 async function executeBacklogApology(
   message: string,
   ageMinutes: number,
   phoneNumber: string,
+  provider: IntelligenceProvider,
 ): Promise<EnrichmentResult> {
-  try {
-    const apology = await LLM.handleBacklogResponse(
-      message,
-      ageMinutes,
-      phoneNumber,
-      "greeting",
-    );
-    return {
-      type: "backlog_apology",
-      apology: apology || "Disculpa la demora, recién vi tu mensaje.",
-    };
-  } catch (error) {
-    logger.error(
-      {
-        error,
-        phoneNumber,
-        enrichmentType: "generate_backlog_apology",
-        ageMinutes,
-      },
-      "Backlog apology failed",
-    );
-    return {
-      type: "backlog_apology",
-      apology: "Disculpa la demora, recién vi tu mensaje.",
-    };
-  }
+  const apology = await safeHandleBacklogResponse(
+    provider,
+    message,
+    ageMinutes,
+    phoneNumber,
+  );
+  return {
+    type: "backlog_apology",
+    apology: apology || "Disculpa la demora, recién vi tu mensaje.",
+  };
 }

@@ -1,0 +1,13 @@
+{
+    "name": "@totem/intelligence",
+    "version": "0.1.0",
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "dependencies": {
+        "@totem/core": "workspace:*",
+        "@totem/types": "workspace:*",
+        "openai": "^6.16.0"
+    }
+}
