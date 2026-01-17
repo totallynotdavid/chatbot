@@ -7,6 +7,7 @@ import type {
 import type { IntelligenceProvider } from "@totem/intelligence";
 import { transition } from "@totem/core";
 import { enrichmentRegistry } from "../enrichment/index.ts";
+import { applyEnrichmentToMetadata } from "../enrichment/metadata-manager.ts";
 import { updateConversation } from "../store.ts";
 import { createLogger } from "../../lib/logger.ts";
 
@@ -80,33 +81,8 @@ export async function runEnrichmentLoop(
       provider,
     });
 
-    // Track DNI attempts in metadata after eligibility check
-    if (
-      result.enrichment.type === "check_eligibility" &&
-      enrichment.type === "eligibility_result"
-    ) {
-      const dni = result.enrichment.dni;
-      const triedDnis = metadata.triedDnis || [];
-
-      // Add DNI to tried list if not already tracked
-      if (!triedDnis.includes(dni)) {
-        metadata.triedDnis = [...triedDnis, dni];
-        logger.debug(
-          { phoneNumber, dni, attemptCount: metadata.triedDnis.length },
-          "DNI attempt tracked",
-        );
-      }
-
-      // Only persist DNI to main metadata field if eligible
-      if (enrichment.status === "eligible") {
-        metadata.dni = dni;
-        if (enrichment.name) metadata.name = enrichment.name;
-        if (enrichment.segment) metadata.segment = enrichment.segment;
-        if (enrichment.credit !== undefined)
-          metadata.credit = enrichment.credit;
-        if (enrichment.nse !== undefined) metadata.nse = enrichment.nse;
-      }
-    }
+    // Apply enrichment results to metadata (e.g., DNI tracking, customer data)
+    applyEnrichmentToMetadata(enrichment, result.enrichment, metadata);
   }
 
   // Safety: too many loops, escalate
