@@ -6,8 +6,10 @@ import type {
 } from "../types.ts";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import { matchCategory } from "../../matching/category-matcher.ts";
+import { matchGroup } from "../../matching/group-matcher.ts";
 import { matchAllProducts } from "../../matching/product-selection.ts";
 import { isAffirmative } from "../../validation/affirmation.ts";
+import { CATEGORY_GROUPS, CATEGORIES, type CategoryKey } from "@totem/types";
 import * as S from "../../templates/sales.ts";
 
 type OfferingProductsPhase = Extract<
@@ -238,6 +240,59 @@ export function transitionOfferingProducts(
         {
           type: "SEND_MESSAGE",
           text: `¿Qué producto te interesa? Tenemos: ${productList}`,
+        },
+      ],
+    };
+  }
+
+  // Progressive disclosure: Check if user selected a group (step 1)
+  const matchedGroup = matchGroup(message);
+  if (matchedGroup && !phase.exploringGroup) {
+    const groupConfig = CATEGORY_GROUPS[matchedGroup];
+    const groupCategorySet = new Set(groupConfig.categories);
+    const availableInGroup =
+      phase.availableCategories?.filter((cat) =>
+        groupCategorySet.has(cat as CategoryKey),
+      ) || [];
+
+    if (availableInGroup.length === 0) {
+      // Group exists but no products available
+      return {
+        type: "update",
+        nextPhase: phase,
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text: `Uy, en ${groupConfig.display.toLowerCase()} no tengo productos disponibles ahora 😕. ¿Te muestro otras opciones?`,
+          },
+        ],
+      };
+    }
+
+    // Show categories within the group
+    const categoryNames = availableInGroup
+      .map((key) => CATEGORIES[key as CategoryKey]?.display.toLowerCase())
+      .filter(Boolean);
+
+    const categoryList =
+      categoryNames.length === 1
+        ? categoryNames[0]
+        : categoryNames.length === 2
+          ? `${categoryNames[0]} o ${categoryNames[1]}`
+          : categoryNames.slice(0, -1).join(", ") +
+            ` o ${categoryNames[categoryNames.length - 1]}`;
+
+    return {
+      type: "update",
+      nextPhase: {
+        ...phase,
+        currentGroup: matchedGroup,
+        exploringGroup: true,
+      },
+      commands: [
+        {
+          type: "SEND_MESSAGE",
+          text: `¡Perfecto! En ${groupConfig.display.toLowerCase()} tengo ${categoryList}. ¿Cuál te interesa más? 😊`,
         },
       ],
     };

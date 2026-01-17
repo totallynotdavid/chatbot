@@ -70,6 +70,7 @@ export function transitionCheckingEligibility(
       const name = formatFirstName(enrichment.name || "");
       const affordableCategories = enrichment.affordableCategories || [];
       const categoryDisplayNames = enrichment.categoryDisplayNames || [];
+      const groupDisplayNames = enrichment.groupDisplayNames || [];
 
       // For FNB, check business rules
       if (segment === "fnb") {
@@ -94,13 +95,8 @@ export function transitionCheckingEligibility(
           };
         }
 
-        // FNB approved, show message with affordable products
-        const productList =
-          categoryDisplayNames.length > 0
-            ? categoryDisplayNames.join(", ")
-            : "nuestros productos disponibles";
-
-        const variants = S.FNB_APPROVED(name, credit, productList);
+        // FNB approved, show message with affordable product groups
+        const variants = S.FNB_APPROVED(name, credit, groupDisplayNames);
         const { message } = selectVariant(variants, "FNB_APPROVED", {});
 
         return {

@@ -6,6 +6,12 @@ import type {
 import { checkEligibilityWithFallback } from "../../../domains/eligibility/orchestrator.ts";
 import { BundleService } from "../../../domains/catalog/index.ts";
 import { getCategoryDisplayNames } from "../../../adapters/catalog/display.ts";
+import {
+  CATEGORIES,
+  CATEGORY_GROUPS,
+  type CategoryGroup,
+  type CategoryKey,
+} from "@totem/types";
 import { createLogger } from "../../../lib/logger.ts";
 
 const logger = createLogger("enrichment");
@@ -57,6 +63,18 @@ export class CheckEligibilityHandler
         const categoryDisplayNames =
           getCategoryDisplayNames(affordableCategories);
 
+        const groups = new Set<CategoryGroup>();
+        for (const categoryKey of affordableCategories) {
+          const category = CATEGORIES[categoryKey as CategoryKey];
+          if (category?.group) {
+            groups.add(category.group);
+          }
+        }
+
+        const groupDisplayNames = Array.from(groups)
+          .map((groupKey) => CATEGORY_GROUPS[groupKey]?.display.toLowerCase())
+          .filter(Boolean);
+
         logger.info(
           {
             dni: request.dni,
@@ -83,6 +101,7 @@ export class CheckEligibilityHandler
           requiresAge: segment === "gaso",
           affordableCategories,
           categoryDisplayNames,
+          groupDisplayNames,
           affordableBundles,
         };
       }

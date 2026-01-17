@@ -17,8 +17,9 @@ export type {
   Bundle,
   CategoryConfig,
   CategoryKey,
+  CategoryGroup,
 } from "./catalog.ts";
-export { CATEGORIES } from "./catalog.ts";
+export { CATEGORIES, CATEGORY_GROUPS } from "./catalog.ts";
 
 export type ConversationState =
   | "INIT"

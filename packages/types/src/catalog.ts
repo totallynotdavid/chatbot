@@ -1,11 +1,15 @@
 import type { StockStatus } from "./index.ts";
 
+/** Category group for progressive disclosure */
+export type CategoryGroup = "tecnología" | "hogar" | "combos";
+
 /** Product category configuration */
 export type CategoryConfig = {
   key: string;
   display: string;
   aliases: string[];
   brands: string[];
+  group: CategoryGroup;
 };
 
 /** Canonical product categories */
@@ -23,12 +27,14 @@ export const CATEGORIES = {
       "motorola",
       "huawei",
     ],
+    group: "tecnología" as const,
   },
   cocinas: {
     key: "cocinas",
     display: "Cocinas",
     aliases: ["cocina", "cocineta"],
     brands: [],
+    group: "hogar" as const,
   },
   tv: {
     key: "tv",
@@ -42,34 +48,101 @@ export const CATEGORIES = {
       "smart tv",
     ],
     brands: ["lg", "samsung", "sony", "hisense", "jvc"],
+    group: "hogar" as const,
   },
   refrigeradoras: {
     key: "refrigeradoras",
     display: "Refrigeradoras",
     aliases: ["refrigeradora", "refri", "refrigerador", "heladera"],
     brands: ["lg", "samsung", "mabe"],
+    group: "hogar" as const,
   },
   lavadoras: {
     key: "lavadoras",
     display: "Lavadoras",
     aliases: ["lavadora", "lava"],
     brands: ["lg", "samsung", "mabe"],
+    group: "hogar" as const,
   },
   termas: {
     key: "termas",
     display: "Termas",
     aliases: ["terma", "calentador", "calentadora"],
     brands: [],
+    group: "hogar" as const,
   },
   fusion: {
     key: "fusion",
     display: "Combos",
     aliases: ["combo", "combos", "paquete", "bundle"],
     brands: [],
+    group: "combos" as const,
+  },
+  audio: {
+    key: "audio",
+    display: "Parlantes y Torres de Sonido",
+    aliases: [
+      "audio",
+      "parlante",
+      "parlantes",
+      "sonido",
+      "torre",
+      "torres",
+      "barra",
+      "barras",
+      "equipo de sonido",
+      "torre de sonido",
+      "torres de sonido",
+      "barra de sonido",
+    ],
+    brands: ["samsung", "lg", "sony", "jbl"],
+    group: "tecnología" as const,
+  },
+  laptops: {
+    key: "laptops",
+    display: "Laptops",
+    aliases: ["laptop", "computadora", "notebook", "portátil", "pc"],
+    brands: ["lenovo", "hp", "acer", "dell", "asus"],
+    group: "tecnología" as const,
+  },
+  pequeños: {
+    key: "pequeños",
+    display: "Pequeños Electrodomésticos",
+    aliases: ["licuadora", "exprimidor", "pequeño", "pequeños"],
+    brands: [],
+    group: "hogar" as const,
   },
 } as const satisfies Record<string, CategoryConfig>;
 
 export type CategoryKey = keyof typeof CATEGORIES;
+
+export const CATEGORY_GROUPS = {
+  tecnología: {
+    key: "tecnología",
+    display: "Tecnología",
+    description: "celulares, laptops, parlantes",
+    categories: ["celulares", "laptops", "audio"] as const,
+  },
+  hogar: {
+    key: "hogar",
+    display: "Línea blanca y hogar",
+    description: "lavadoras, refrigeradoras, cocinas, termas, televisores",
+    categories: [
+      "lavadoras",
+      "refrigeradoras",
+      "cocinas",
+      "termas",
+      "tv",
+      "pequeños",
+    ] as const,
+  },
+  combos: {
+    key: "combos",
+    display: "Combos",
+    description: "paquetes promocionales",
+    categories: ["fusion"] as const,
+  },
+} as const;
 
 /** Base product template (segment-agnostic inventory) */
 export type Product = {

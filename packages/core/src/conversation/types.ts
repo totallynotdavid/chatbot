@@ -1,4 +1,4 @@
-import type { Segment, Bundle } from "@totem/types";
+import type { Segment, Bundle, CategoryGroup } from "@totem/types";
 
 export type ConversationPhase =
   | { phase: "greeting" }
@@ -23,6 +23,8 @@ export type ConversationPhase =
       availableCategories?: string[];
       affordableBundles?: Bundle[];
       categoryDisplayNames?: string[];
+      currentGroup?: CategoryGroup;
+      exploringGroup?: boolean;
       lastShownCategory?: string;
       sentProducts?: Array<{
         name: string;
@@ -136,6 +138,7 @@ export type EnrichmentResult =
       affordableCategories?: string[];
       affordableBundles?: Bundle[];
       categoryDisplayNames?: string[];
+      groupDisplayNames?: string[];
     }
   | { type: "question_detected"; isQuestion: boolean }
   | { type: "escalation_needed"; shouldEscalate: boolean }

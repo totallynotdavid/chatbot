@@ -1,21 +1,26 @@
 export const FNB_APPROVED = (
   name: string,
   credit: number,
-  productList: string,
-) => [
-  [
-    `¡Excelente noticia, ${name}! 🎉 Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}.`,
-    `Tenemos ${productList}. ¿Qué te gustaría ver?`,
-  ],
-  [
-    `${name}, ¡buenas noticias! 😊 Tu crédito aprobado es de S/ ${credit.toFixed(2)}.`,
-    `¿Qué producto te gustaría conocer? Tenemos ${productList}.`,
-  ],
-  [
-    `Perfecto ${name} 🎉 Calificas con S/ ${credit.toFixed(2)} de línea.`,
-    `¿Qué tienes en mente? ¿${productList}?`,
-  ],
-];
+  groups: string[],
+) => {
+  const groupList =
+    groups.length > 0 ? groups.join(", ") : "productos disponibles";
+
+  return [
+    [
+      `¡Excelente noticia, ${name}! 🎉 Tienes una línea de crédito aprobada de S/ ${credit.toFixed(2)}.`,
+      `¿Qué estás buscando? Tengo ${groupList}.`,
+    ],
+    [
+      `${name}, ¡buenas noticias! 😊 Tu crédito aprobado es de S/ ${credit.toFixed(2)}.`,
+      `¿${groupList} o algo más? Cuéntame qué te interesa.`,
+    ],
+    [
+      `Perfecto ${name} 🎉 Calificas con S/ ${credit.toFixed(2)} de línea.`,
+      `¿Qué tienes en mente? ¿${groupList}?`,
+    ],
+  ];
+};
 
 export const GASO_OFFER_KITCHEN_BUNDLE = (productList: string) => [
   [
