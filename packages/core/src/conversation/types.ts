@@ -12,6 +12,7 @@ export type ConversationPhase =
       name: string;
       credit?: number;
       affordableCategories?: string[];
+      affordableBundles?: Bundle[];
       categoryDisplayNames?: string[];
     }
   | {
@@ -20,6 +21,7 @@ export type ConversationPhase =
       credit: number;
       name: string;
       availableCategories?: string[];
+      affordableBundles?: Bundle[];
       categoryDisplayNames?: string[];
       lastShownCategory?: string;
       sentProducts?: Array<{
@@ -137,6 +139,7 @@ export type EnrichmentResult =
       requiresAge?: boolean;
       handoffReason?: string;
       affordableCategories?: string[];
+      affordableBundles?: Bundle[];
       categoryDisplayNames?: string[];
     }
   | { type: "question_detected"; isQuestion: boolean }

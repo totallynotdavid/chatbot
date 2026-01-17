@@ -121,6 +121,11 @@ async function executeEligibilityCheck(
         "Customer eligible",
       );
 
+      const affordableBundles = BundleService.getAvailable({
+        segment: segment as "fnb" | "gaso",
+        maxPrice: credit,
+      });
+
       return {
         type: "eligibility_result",
         status: "eligible",
@@ -131,6 +136,7 @@ async function executeEligibilityCheck(
         requiresAge: segment === "gaso",
         affordableCategories,
         categoryDisplayNames,
+        affordableBundles,
       };
     }
 

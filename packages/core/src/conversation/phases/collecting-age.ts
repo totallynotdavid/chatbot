@@ -73,6 +73,7 @@ export function transitionCollectingAge(
   // Age valid, proceed to offer
   const credit = phase.credit || metadata.credit || 0;
   const affordableCategories = phase.affordableCategories || [];
+  const affordableBundles = phase.affordableBundles || [];
   const categoryDisplayNames = phase.categoryDisplayNames || [];
 
   const productList =
@@ -94,6 +95,7 @@ export function transitionCollectingAge(
       credit,
       name: phase.name,
       availableCategories: affordableCategories,
+      affordableBundles,
       categoryDisplayNames,
     },
     commands: [

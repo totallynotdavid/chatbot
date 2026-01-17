@@ -111,6 +111,7 @@ export function transitionCheckingEligibility(
             credit,
             name,
             availableCategories: affordableCategories,
+            affordableBundles: enrichment.affordableBundles,
             categoryDisplayNames,
           },
           commands: [
@@ -137,6 +138,7 @@ export function transitionCheckingEligibility(
             name,
             credit,
             affordableCategories,
+            affordableBundles: enrichment.affordableBundles,
             categoryDisplayNames,
           },
           commands: message.map((text) => ({
