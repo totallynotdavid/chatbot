@@ -84,10 +84,23 @@ describe("Intelligence Provider (MockProvider)", () => {
   describe("Bundle intent extraction", () => {
     test("extracts bundle with confidence", async () => {
       const mockBundle = {
-        id: "1",
-        name: "iPhone 15",
-        price: 2999,
+        id: "bundle-e4976160c1e346b8",
+        period_id: "period-2026-01",
+        name: "Celular a elección + Cocineta 2Q",
+        price: 1799,
         primary_category: "celulares",
+        categories_json: '["celulares", "cocinas"]',
+        image_id: "e4976160c1e346b8",
+        composition_json:
+          '{"fixed":[{"id":"cocineta_2q_gas","name":"Cocineta 2 Quemadores Gas","specs":{}}],"choices":[{"label":"01 celular a elección","pick":1,"options":[{"id":"xiaomi_redmi_15c","name":"Xiaomi Redmi 15C","specs":{}},{"id":"honor_x6c","name":"Honor X6C","specs":{}},{"id":"samsung_a17_5g","name":"Samsung Galaxy A17 5G","specs":{}}]}]}',
+        installments_json:
+          '{"3m":643.3,"6m":339.58,"9m":238.58,"12m":188.26,"18m":138.29}',
+        notes: "01 año de garantía, delivery gratuito, cero cuota inicial",
+        is_active: 1,
+        stock_status: "in_stock" as const,
+        created_by: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
       };
 
       const provider = createMockProvider();
