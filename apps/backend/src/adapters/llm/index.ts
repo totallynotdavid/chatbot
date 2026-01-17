@@ -3,6 +3,8 @@ export {
   isQuestion,
   shouldEscalate,
   extractCategory,
+  isProductRequest,
+  extractBundleIntent,
   answerQuestion,
   suggestAlternative,
   handleBacklogResponse,

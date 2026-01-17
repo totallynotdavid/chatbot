@@ -1,6 +1,8 @@
 import {
   buildIsQuestionPrompt,
   buildExtractCategoryPrompt,
+  buildIsProductRequestPrompt,
+  buildExtractBundleIntentPrompt,
   buildShouldEscalatePrompt,
   buildAnswerQuestionPrompt,
   buildSuggestAlternativePrompt,
@@ -8,6 +10,7 @@ import {
   buildRecoverUnclearPrompt,
   getCategoryMetadata,
 } from "@totem/core";
+import type { Bundle } from "@totem/types";
 import { client, MODEL, parseLLMResponse } from "./client.ts";
 import { classifyLLMError } from "./types.ts";
 import { logLLMError } from "./error-logger.ts";
@@ -106,6 +109,90 @@ export async function shouldEscalate(
   } catch (e) {
     logLLMError(phoneNumber, "shouldEscalate", classifyLLMError(e), state);
     return false;
+  }
+}
+
+export async function isProductRequest(
+  message: string,
+  phoneNumber: string,
+  state?: string,
+): Promise<boolean> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: buildIsProductRequestPrompt() },
+        { role: "user", content: message },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    });
+
+    const content = completion.choices[0]?.message.content;
+    const res = parseLLMResponse<{ isProductRequest?: boolean }>(
+      content,
+      "isProductRequest",
+      {},
+    );
+    return res.isProductRequest === true;
+  } catch (e) {
+    logLLMError(phoneNumber, "isProductRequest", classifyLLMError(e), state);
+    return false;
+  }
+}
+
+export async function extractBundleIntent(
+  message: string,
+  affordableBundles: Bundle[],
+  phoneNumber: string,
+  state?: string,
+): Promise<{ bundle: Bundle | null; confidence: number }> {
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: "system",
+          content: buildExtractBundleIntentPrompt(affordableBundles),
+        },
+        { role: "user", content: message },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+
+    const content = completion.choices[0]?.message.content;
+    const res = parseLLMResponse<{
+      bundleIndex?: number;
+      confidence?: number;
+    }>(content, "extractBundleIntent", {});
+
+    const bundleIndex = res.bundleIndex;
+    if (
+      bundleIndex !== null &&
+      bundleIndex !== undefined &&
+      bundleIndex >= 1 &&
+      bundleIndex <= affordableBundles.length
+    ) {
+      const bundle = affordableBundles[bundleIndex - 1];
+      return {
+        bundle: bundle || null,
+        confidence: res.confidence || 0,
+      };
+    }
+
+    return { bundle: null, confidence: res.confidence || 0 };
+  } catch (e) {
+    logLLMError(
+      phoneNumber,
+      "extractBundleIntent",
+      classifyLLMError(e),
+      state,
+      {
+        bundleCount: affordableBundles.length,
+      },
+    );
+    return { bundle: null, confidence: 0 };
   }
 }
 

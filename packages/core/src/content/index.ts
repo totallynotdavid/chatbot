@@ -1,5 +1,7 @@
 export { buildIsQuestionPrompt } from "./is-question-prompt.ts";
 export { buildExtractCategoryPrompt } from "./extract-category-prompt.ts";
+export { buildIsProductRequestPrompt } from "./is-product-request-prompt.ts";
+export { buildExtractBundleIntentPrompt } from "./extract-bundle-intent-prompt.ts";
 export { buildShouldEscalatePrompt } from "./should-escalate-prompt.ts";
 export { buildAnswerQuestionPrompt } from "./answer-question-prompt.ts";
 export { buildSuggestAlternativePrompt } from "./suggest-alternative-prompt.ts";
