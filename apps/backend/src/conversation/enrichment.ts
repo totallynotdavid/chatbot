@@ -1,4 +1,5 @@
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
+import type { Bundle } from "@totem/types";
 import { checkEligibilityWithFallback } from "../domains/eligibility/orchestrator.ts";
 
 import * as LLM from "../adapters/llm/index.ts";
@@ -21,6 +22,16 @@ export async function executeEnrichment(
 
     case "should_escalate":
       return await executeShouldEscalate(request.message, phoneNumber);
+
+    case "is_product_request":
+      return await executeIsProductRequest(request.message, phoneNumber);
+
+    case "extract_bundle_intent":
+      return await executeExtractBundleIntent(
+        request.message,
+        request.affordableBundles,
+        phoneNumber,
+      );
 
     case "extract_category":
       return await executeExtractCategory(
@@ -189,6 +200,69 @@ async function executeShouldEscalate(
     return {
       type: "escalation_needed",
       shouldEscalate: false,
+    };
+  }
+}
+
+async function executeIsProductRequest(
+  message: string,
+  phoneNumber: string,
+): Promise<EnrichmentResult> {
+  try {
+    const isProductRequest = await LLM.isProductRequest(
+      message,
+      phoneNumber,
+      "offering_products",
+    );
+    return {
+      type: "product_request_detected",
+      isProductRequest,
+    };
+  } catch (error) {
+    logger.error(
+      { error, phoneNumber, enrichmentType: "is_product_request", message },
+      "Is product request check failed",
+    );
+    return {
+      type: "product_request_detected",
+      isProductRequest: false,
+    };
+  }
+}
+
+async function executeExtractBundleIntent(
+  message: string,
+  affordableBundles: Bundle[],
+  phoneNumber: string,
+): Promise<EnrichmentResult> {
+  try {
+    const result = await LLM.extractBundleIntent(
+      message,
+      affordableBundles,
+      phoneNumber,
+      "offering_products",
+    );
+
+    return {
+      type: "bundle_intent_extracted",
+      bundle: result.bundle,
+      confidence: result.confidence,
+    };
+  } catch (error) {
+    logger.error(
+      {
+        error,
+        phoneNumber,
+        enrichmentType: "extract_bundle_intent",
+        message,
+        bundleCount: affordableBundles.length,
+      },
+      "Extract bundle intent failed",
+    );
+    return {
+      type: "bundle_intent_extracted",
+      bundle: null,
+      confidence: 0,
     };
   }
 }

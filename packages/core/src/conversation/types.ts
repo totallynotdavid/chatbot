@@ -1,4 +1,4 @@
-import type { Segment } from "@totem/types";
+import type { Segment, Bundle } from "@totem/types";
 
 export type ConversationPhase =
   | { phase: "greeting" }
@@ -90,6 +90,12 @@ export type EnrichmentRequest =
   | { type: "check_eligibility"; dni: string }
   | { type: "detect_question"; message: string }
   | { type: "should_escalate"; message: string }
+  | { type: "is_product_request"; message: string }
+  | {
+      type: "extract_bundle_intent";
+      message: string;
+      affordableBundles: Bundle[];
+    }
   | {
       type: "extract_category";
       message: string;
@@ -135,6 +141,12 @@ export type EnrichmentResult =
     }
   | { type: "question_detected"; isQuestion: boolean }
   | { type: "escalation_needed"; shouldEscalate: boolean }
+  | { type: "product_request_detected"; isProductRequest: boolean }
+  | {
+      type: "bundle_intent_extracted";
+      bundle: Bundle | null;
+      confidence: number;
+    }
   | {
       type: "category_extracted";
       category: string | null;
@@ -151,6 +163,7 @@ export type EnrichmentResult =
 export type Command =
   | { type: "SEND_MESSAGE"; text: string }
   | { type: "SEND_IMAGES"; category: string }
+  | { type: "SEND_BUNDLE"; bundleId: string }
   | { type: "TRACK_EVENT"; event: string; metadata?: Record<string, unknown> }
   | { type: "NOTIFY_TEAM"; channel: "agent" | "dev" | "sales"; message: string }
   | { type: "ESCALATE"; reason: string };
