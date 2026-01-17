@@ -5,6 +5,12 @@ import type {
 } from "../handler-interface.ts";
 import { safeAnswerQuestion } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Answers customer questions using an LLM, grounded in the current conversation,
+ * product catalog, and customer context.
+ *
+ * Triggered when a customer asks a question during any conversation phase.
+ */
 export class AnswerQuestionHandler
   implements
     EnrichmentHandler<

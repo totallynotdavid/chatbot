@@ -5,6 +5,13 @@ import type {
 } from "../handler-interface.ts";
 import { safeIsQuestion } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Detects whether a user message is a question using an LLM.
+ *
+ * Routes messages to Q&A or standard conversation flow based on classification.
+ *
+ * Triggered when the state machine must distinguish questions from statements.
+ */
 export class DetectQuestionHandler
   implements
     EnrichmentHandler<

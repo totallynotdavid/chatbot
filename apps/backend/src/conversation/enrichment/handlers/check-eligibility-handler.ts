@@ -10,6 +10,14 @@ import { createLogger } from "../../../lib/logger.ts";
 
 const logger = createLogger("enrichment");
 
+/**
+ * Checks customer credit eligibility via provider health services.
+ *
+ * Classifies the customer as FNB or GASO based on NSE presence, derives
+ * affordable product categories from credit limits, and handles provider failures.
+ *
+ * Triggered during onboarding when the state machine requests DNI verification.
+ */
 export class CheckEligibilityHandler
   implements
     EnrichmentHandler<

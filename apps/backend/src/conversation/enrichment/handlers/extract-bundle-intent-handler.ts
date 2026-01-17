@@ -5,6 +5,14 @@ import type {
 } from "../handler-interface.ts";
 import { safeExtractBundleIntent } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Extracts bundle selection intent from a customer message.
+ *
+ * Uses an LLM to match the response to offered bundles and returns the
+ * selected bundle with a confidence score.
+ *
+ * Triggered when a customer responds to bundle offerings with selection intent.
+ */
 export class ExtractBundleIntentHandler
   implements
     EnrichmentHandler<

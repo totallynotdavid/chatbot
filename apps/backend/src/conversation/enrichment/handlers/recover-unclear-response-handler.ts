@@ -5,6 +5,14 @@ import type {
 } from "../handler-interface.ts";
 import { safeRecoverUnclearResponse } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Recovers from unclear or ambiguous customer responses.
+ *
+ * Generates a clarification message when the response does not match
+ * expected options or is ambiguous in context.
+ *
+ * Triggered when a customer provides an unclear response to a specific question.
+ */
 export class RecoverUnclearResponseHandler
   implements
     EnrichmentHandler<

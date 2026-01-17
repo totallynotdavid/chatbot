@@ -5,6 +5,12 @@ import type {
 } from "../handler-interface.ts";
 import { safeHandleBacklogResponse } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Generates a personalized apology for delayed responses based on delay duration
+ * and message context.
+ *
+ * Triggered when the bot responds after a significant backlog delay.
+ */
 export class GenerateBacklogApologyHandler
   implements
     EnrichmentHandler<

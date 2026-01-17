@@ -5,6 +5,13 @@ import type {
 } from "../handler-interface.ts";
 import { safeIsProductRequest } from "../../../intelligence/wrapper.ts";
 
+/**
+ * Detects product browsing intent in customer messages.
+ *
+ * Used to transition from greeting or other phases into the product offering flow.
+ *
+ * Triggered when the state machine must detect product browsing intent.
+ */
 export class IsProductRequestHandler
   implements
     EnrichmentHandler<
