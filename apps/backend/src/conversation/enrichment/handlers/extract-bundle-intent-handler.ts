@@ -1,37 +1,41 @@
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
-import type { EnrichmentHandler, EnrichmentContext } from "../handler-interface.ts";
+import type {
+  EnrichmentHandler,
+  EnrichmentContext,
+} from "../handler-interface.ts";
 import { safeExtractBundleIntent } from "../../../intelligence/wrapper.ts";
 
 export class ExtractBundleIntentHandler
-    implements
+  implements
     EnrichmentHandler<
-        Extract<EnrichmentRequest, { type: "extract_bundle_intent" }>,
-        Extract<EnrichmentResult, { type: "bundle_intent_extracted" }>
-    > {
-    readonly type = "extract_bundle_intent" as const;
+      Extract<EnrichmentRequest, { type: "extract_bundle_intent" }>,
+      Extract<EnrichmentResult, { type: "bundle_intent_extracted" }>
+    >
+{
+  readonly type = "extract_bundle_intent" as const;
 
-    async execute(
-        request: Extract<EnrichmentRequest, { type: "extract_bundle_intent" }>,
-        context: EnrichmentContext,
-    ): Promise<Extract<EnrichmentResult, { type: "bundle_intent_extracted" }>> {
-        const segment = "fnb";
-        const maxPrice =
-            request.affordableBundles.length > 0
-                ? Math.max(...request.affordableBundles.map((b) => b.price))
-                : 0;
+  async execute(
+    request: Extract<EnrichmentRequest, { type: "extract_bundle_intent" }>,
+    context: EnrichmentContext,
+  ): Promise<Extract<EnrichmentResult, { type: "bundle_intent_extracted" }>> {
+    const segment = "fnb";
+    const maxPrice =
+      request.affordableBundles.length > 0
+        ? Math.max(...request.affordableBundles.map((b) => b.price))
+        : 0;
 
-        const result = await safeExtractBundleIntent(
-            context.provider,
-            request.message,
-            context.phoneNumber,
-            segment as "fnb" | "gaso",
-            maxPrice,
-        );
+    const result = await safeExtractBundleIntent(
+      context.provider,
+      request.message,
+      context.phoneNumber,
+      segment as "fnb" | "gaso",
+      maxPrice,
+    );
 
-        return {
-            type: "bundle_intent_extracted",
-            bundle: result.bundle,
-            confidence: result.confidence,
-        };
-    }
+    return {
+      type: "bundle_intent_extracted",
+      bundle: result.bundle,
+      confidence: result.confidence,
+    };
+  }
 }
