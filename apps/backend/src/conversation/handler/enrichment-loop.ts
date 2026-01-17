@@ -6,7 +6,7 @@ import type {
 } from "@totem/core";
 import type { IntelligenceProvider } from "@totem/intelligence";
 import { transition } from "@totem/core";
-import { executeEnrichment } from "../enrichment.ts";
+import { enrichmentRegistry } from "../enrichment/index.ts";
 import { updateConversation } from "../store.ts";
 import { createLogger } from "../../lib/logger.ts";
 
@@ -73,11 +73,12 @@ export async function runEnrichmentLoop(
       updateConversation(phoneNumber, currentPhase, metadata);
     }
 
-    enrichment = await executeEnrichment(
-      result.enrichment,
+    // Use handler registry to execute enrichment
+    const handler = enrichmentRegistry.get(result.enrichment.type);
+    enrichment = await handler.execute(result.enrichment, {
       phoneNumber,
       provider,
-    );
+    });
 
     // Track DNI attempts in metadata after eligibility check
     if (
