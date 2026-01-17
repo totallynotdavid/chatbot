@@ -117,7 +117,7 @@ export async function extractCategory(
   state?: string,
 ): Promise<{ category: string | null; requestedProduct?: string }> {
   try {
-    const metadata = getCategoryMetadata(taxonomy); // Use full taxonomy for metadata
+    const metadata = getCategoryMetadata(taxonomy);
 
     const completion = await client.chat.completions.create({
       model: MODEL,
