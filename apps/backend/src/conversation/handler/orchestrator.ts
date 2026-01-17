@@ -12,30 +12,18 @@ import { createLogger } from "../../lib/logger.ts";
 import { notifyTeam } from "../../adapters/notifier/client.ts";
 import type { QuotedMessageContext } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
+import { createOpenAIProvider } from "../../intelligence/index.ts";
 
 const logger = createLogger("conversation");
 
 export type IncomingMessage = {
   phoneNumber: string;
   content: string;
-  timestamp: number; // WhatsApp message timestamp
+  timestamp: number;
   messageId: string;
   quotedContext?: QuotedMessageContext;
 };
 
-/**
- * Handle an incoming message from WhatsApp.
- *
- * Orchestrates the complete message processing lifecycle:
- * 1. Acquire per-user lock for sequential processing
- * 2. Get/create conversation and check session timeout
- * 3. Mark message as read and show typing indicator
- * 4. Run enrichment loop to get final transition result
- * 5. Apply response delay for natural pacing
- * 6. Execute commands from state machine
- *
- * @param message - Incoming message details
- */
 export async function handleMessage(message: IncomingMessage): Promise<void> {
   const { phoneNumber, content, timestamp, messageId, quotedContext } = message;
 
@@ -60,11 +48,14 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
     await WhatsAppService.markAsReadAndShowTyping(messageId);
 
     try {
+      const provider = createOpenAIProvider();
+
       const result = await runEnrichmentLoop(
         conversation.phase,
         content,
         conversation.metadata,
         phoneNumber,
+        provider,
         quotedContext,
       );
 
