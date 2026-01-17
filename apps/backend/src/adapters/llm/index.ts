@@ -2,7 +2,6 @@ export { client, MODEL } from "./client.ts";
 export {
   isQuestion,
   shouldEscalate,
-  extractCategory,
   isProductRequest,
   extractBundleIntent,
   answerQuestion,

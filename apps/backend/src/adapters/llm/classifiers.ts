@@ -1,6 +1,5 @@
 import {
   buildIsQuestionPrompt,
-  buildExtractCategoryPrompt,
   buildIsProductRequestPrompt,
   buildExtractBundleIntentPrompt,
   buildShouldEscalatePrompt,
@@ -8,7 +7,6 @@ import {
   buildSuggestAlternativePrompt,
   buildHandleBacklogPrompt,
   buildRecoverUnclearPrompt,
-  getCategoryMetadata,
 } from "@totem/core";
 import type { Bundle } from "@totem/types";
 import { client, MODEL, parseLLMResponse } from "./client.ts";
@@ -193,46 +191,6 @@ export async function extractBundleIntent(
       },
     );
     return { bundle: null, confidence: 0 };
-  }
-}
-
-export async function extractCategory(
-  message: string,
-  availableCategories: string[],
-  taxonomy: string[],
-  phoneNumber: string,
-  state?: string,
-): Promise<{ category: string | null; requestedProduct?: string }> {
-  try {
-    const metadata = getCategoryMetadata(taxonomy);
-
-    const completion = await client.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: "system",
-          content: buildExtractCategoryPrompt(metadata, availableCategories),
-        },
-        { role: "user", content: message },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
-    const choice = completion.choices[0];
-    const content = choice?.message.content;
-    const res = parseLLMResponse<{
-      category?: string;
-      requestedProduct?: string;
-    }>(content, "extractCategory", {});
-    return {
-      category: res.category ?? null,
-      requestedProduct: res.requestedProduct,
-    };
-  } catch (e) {
-    logLLMError(phoneNumber, "extractCategory", classifyLLMError(e), state, {
-      availableCategories,
-    });
-    return { category: null };
   }
 }
 

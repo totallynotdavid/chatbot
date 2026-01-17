@@ -33,13 +33,6 @@ export async function executeEnrichment(
         phoneNumber,
       );
 
-    case "extract_category":
-      return await executeExtractCategory(
-        request.message,
-        request.availableCategories,
-        phoneNumber,
-      );
-
     case "answer_question":
       return await executeAnswerQuestion(
         request.message,
@@ -269,75 +262,6 @@ async function executeExtractBundleIntent(
       type: "bundle_intent_extracted",
       bundle: null,
       confidence: 0,
-    };
-  }
-}
-
-async function executeExtractCategory(
-  message: string,
-  availableCategories: string[],
-  phoneNumber: string,
-): Promise<EnrichmentResult> {
-  try {
-    const taxonomy = BundleService.getAllCategories();
-
-    const result = await LLM.extractCategory(
-      message,
-      availableCategories,
-      taxonomy,
-      phoneNumber,
-      "offering_products",
-    );
-
-    if (!result.category) {
-      return {
-        type: "category_extracted",
-        category: null,
-        status: "unknown",
-      };
-    }
-
-    let status: "available" | "unavailable" | "unaffordable" | "unknown" =
-      "unknown";
-
-    if (availableCategories.includes(result.category)) {
-      status = "available";
-
-      if (result.requestedProduct) {
-        const hasSpecificProduct = BundleService.hasProduct(
-          result.category,
-          result.requestedProduct,
-        );
-        if (!hasSpecificProduct) {
-          status = "unavailable";
-        }
-      }
-    } else if (taxonomy.includes(result.category)) {
-      status = "unaffordable";
-    } else {
-      status = "unavailable";
-    }
-
-    return {
-      type: "category_extracted",
-      category: result.category,
-      status,
-      requestedProduct: result.requestedProduct,
-    };
-  } catch (error) {
-    logger.error(
-      {
-        error,
-        phoneNumber,
-        enrichmentType: "extract_category",
-        message,
-        availableCategories,
-      },
-      "Extract category failed",
-    );
-    return {
-      type: "category_extracted",
-      category: null,
     };
   }
 }

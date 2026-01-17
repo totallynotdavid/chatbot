@@ -99,11 +99,6 @@ export type EnrichmentRequest =
       affordableBundles: Bundle[];
     }
   | {
-      type: "extract_category";
-      message: string;
-      availableCategories: string[];
-    }
-  | {
       type: "answer_question";
       message: string;
       context: {
@@ -149,12 +144,6 @@ export type EnrichmentResult =
       type: "bundle_intent_extracted";
       bundle: Bundle | null;
       confidence: number;
-    }
-  | {
-      type: "category_extracted";
-      category: string | null;
-      status?: "available" | "unavailable" | "unaffordable" | "unknown";
-      requestedProduct?: string;
     }
   | { type: "question_answered"; answer: string }
   | {
