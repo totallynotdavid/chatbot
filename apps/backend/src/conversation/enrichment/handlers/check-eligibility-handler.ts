@@ -72,8 +72,18 @@ export class CheckEligibilityHandler
         }
 
         const groupDisplayNames = Array.from(groups)
-          .map((groupKey) => CATEGORY_GROUPS[groupKey]?.display.toLowerCase())
-          .filter(Boolean);
+          .map((groupKey) => CATEGORY_GROUPS[groupKey]?.display)
+          .filter(Boolean)
+          .sort((a, b) => {
+            const order: Record<string, number> = {
+              "línea blanca y hogar": 0,
+              tecnología: 1,
+              combos: 2,
+            };
+            const aKey = a.toLowerCase();
+            const bKey = b.toLowerCase();
+            return (order[aKey] ?? 99) - (order[bKey] ?? 99);
+          });
 
         logger.info(
           {

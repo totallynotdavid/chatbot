@@ -10,17 +10,22 @@ import { CATEGORY_GROUPS, type CategoryGroup } from "@totem/types";
  * @param input - User message to match against groups
  * @returns Matched CategoryGroup or null if no match
  */
+
+function removeAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export function matchGroup(input: string): CategoryGroup | null {
-  const normalized = input.toLowerCase().trim();
+  const normalized = removeAccents(input.toLowerCase().trim());
 
   for (const key of Object.keys(CATEGORY_GROUPS) as CategoryGroup[]) {
     const config = CATEGORY_GROUPS[key];
 
-    if (normalized === key) {
+    if (normalized === removeAccents(key)) {
       return key;
     }
 
-    if (normalized.includes(config.display.toLowerCase())) {
+    if (normalized.includes(removeAccents(config.display.toLowerCase()))) {
       return key;
     }
 

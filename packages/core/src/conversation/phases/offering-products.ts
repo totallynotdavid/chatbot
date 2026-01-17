@@ -57,8 +57,6 @@ export function transitionOfferingProducts(
         ? ` (S/ ${quotedProduct.price.toFixed(2)})`
         : "";
 
-      const confirmationText = `Perfecto 😊\n\nHas elegido: ${quotedProduct.name}${priceText}\n\n¿Confirmas tu elección?`;
-
       return {
         type: "update",
         nextPhase: {
@@ -75,7 +73,11 @@ export function transitionOfferingProducts(
         commands: [
           {
             type: "SEND_MESSAGE",
-            text: confirmationText,
+            text: `Perfecto 😊 Has elegido: ${quotedProduct.name}${priceText}`,
+          },
+          {
+            type: "SEND_MESSAGE",
+            text: "¿Confirmas tu elección?",
           },
         ],
       };
@@ -170,9 +172,9 @@ export function transitionOfferingProducts(
           phase.interestedProduct &&
           phase.interestedProduct.productId === selected.productId;
 
-        const confirmationText = isReselection
-          ? `Perfecto ${phase.name} 😊\n\nRetomemos: ${selected.name}${priceText}\n\n¿Confirmas tu elección?`
-          : `Perfecto ${phase.name} 😊\n\nHas elegido: ${selected.name}${priceText}\n\n¿Confirmas tu elección?`;
+        const confirmationMsg1 = isReselection
+          ? `Perfecto ${phase.name} 😊 Retomemos: ${selected.name}${priceText}`
+          : `Perfecto ${phase.name} 😊 Has elegido: ${selected.name}${priceText}`;
 
         return {
           type: "update",
@@ -190,7 +192,11 @@ export function transitionOfferingProducts(
           commands: [
             {
               type: "SEND_MESSAGE",
-              text: confirmationText,
+              text: confirmationMsg1,
+            },
+            {
+              type: "SEND_MESSAGE",
+              text: "¿Confirmas tu elección?",
             },
             {
               type: "TRACK_EVENT",

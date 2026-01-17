@@ -48,7 +48,7 @@ export const CATEGORIES = {
       "smart tv",
     ],
     brands: ["lg", "samsung", "sony", "hisense", "jvc"],
-    group: "hogar" as const,
+    group: "tecnología" as const,
   },
   refrigeradoras: {
     key: "refrigeradoras",
@@ -120,19 +120,18 @@ export const CATEGORY_GROUPS = {
   tecnología: {
     key: "tecnología",
     display: "Tecnología",
-    description: "celulares, laptops, parlantes",
-    categories: ["celulares", "laptops", "audio"] as const,
+    description: "celulares, laptops, parlantes, televisores",
+    categories: ["celulares", "laptops", "audio", "tv"] as const,
   },
   hogar: {
     key: "hogar",
     display: "Línea blanca y hogar",
-    description: "lavadoras, refrigeradoras, cocinas, termas, televisores",
+    description: "lavadoras, refrigeradoras, cocinas, termas, pequeños",
     categories: [
       "lavadoras",
       "refrigeradoras",
       "cocinas",
       "termas",
-      "tv",
       "pequeños",
     ] as const,
   },
