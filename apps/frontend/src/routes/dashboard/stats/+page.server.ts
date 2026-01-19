@@ -1,42 +1,37 @@
+import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { redirect } from "@sveltejs/kit";
 
-export const load: PageServerLoad = async ({ cookies, locals, fetch }) => {
-  // Role check: only admin, developer, supervisor
+export const load: PageServerLoad = async ({ fetch, locals }) => {
   if (!locals.user) {
-    redirect(307, "/login");
-  }
-
-  const allowedRoles = ["admin", "developer", "supervisor"];
-  if (!allowedRoles.includes(locals.user.role)) {
-    redirect(303, "/dashboard");
-  }
-
-  const sessionToken = cookies.get("session");
-  if (!sessionToken) {
-    return { stats: null, events: [] };
+    throw error(401, "Unauthorized");
   }
 
   try {
-    const [statsRes, eventsRes] = await Promise.all([
-      fetch("/api/analytics/funnel", {
-        headers: { cookie: `session=${sessionToken}` },
-      }),
-      fetch("/api/analytics/events?limit=100", {
-        headers: { cookie: `session=${sessionToken}` },
-      }),
-    ]);
+    const res = await fetch("http://localhost:3000/api/intelligence/stats");
 
-    const [statsData, eventsData] = await Promise.all([
-      statsRes.ok ? statsRes.json() : Promise.resolve({ stats: null }),
-      eventsRes.ok ? eventsRes.json() : Promise.resolve({ events: [] }),
-    ]);
+    if (!res.ok) {
+      console.error("API Fetch Failed:", res.status, await res.text());
+      throw new Error("Failed to fetch stats");
+    }
+
+    const data = await res.json();
 
     return {
-      stats: statsData.stats,
-      events: eventsData.events,
+      stats: data.stats,
+      recentCalls: data.recentCalls,
+      user: locals.user,
     };
-  } catch {
-    return { stats: null, events: [] };
+  } catch (err) {
+    console.error("Error loading intelligence stats:", err);
+    return {
+      stats: [],
+      recentCalls: [],
+      user: locals.user,
+      error: "Could not load stats",
+    };
   }
 };
+
+/*
+app.get("/stats")
+*/
