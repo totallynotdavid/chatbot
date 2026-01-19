@@ -122,10 +122,10 @@
 
 		{#if auth.canAccessReports}
 			<DashboardGridItem
-				href="/dashboard/logs"
+				href="/dashboard/activity"
 				number="05"
 				category="Sistema"
-				title="Registros"
+				title="Actividad"
 			/>
 			<DashboardGridItem
 				href="/dashboard/reports"

@@ -7,7 +7,7 @@
     "/dashboard/catalog": "Catálogo",
     "/dashboard/providers": "Proveedores",
     "/dashboard/simulator": "Simulador",
-    "/dashboard/logs": "Registros del sistema",
+    "/dashboard/activity": "Actividad del sistema",
     "/dashboard/reports": "Reportes",
     "/dashboard/orders": "Órdenes",
     "/dashboard/admin": "Administración",
