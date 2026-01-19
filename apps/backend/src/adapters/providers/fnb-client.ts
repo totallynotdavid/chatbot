@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import process from "node:process";
+import { config } from "../../config.ts";
 
 type FNBSession = {
   token: string;
@@ -34,7 +34,7 @@ async function authenticate(): Promise<FNBSession> {
     return sessionCache;
   }
 
-  const authUrl = `${process.env.CALIDDA_BASE_URL}/FNB_Services/api/Seguridad/autenticar`;
+  const authUrl = `${config.calidda.baseUrl}/FNB_Services/api/Seguridad/autenticar`;
 
   const response = await fetch(authUrl, {
     method: "POST",
@@ -46,8 +46,8 @@ async function authenticate(): Promise<FNBSession> {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     body: JSON.stringify({
-      usuario: process.env.CALIDDA_USERNAME,
-      password: process.env.CALIDDA_PASSWORD,
+      usuario: config.calidda.credentials.username,
+      password: config.calidda.credentials.password,
       captcha: "exitoso",
       Latitud: "",
       Longitud: "",
@@ -88,7 +88,7 @@ async function queryCreditLine(dni: string): Promise<FNBCreditResponse> {
     canal: "FNB",
   });
 
-  const url = `${process.env.CALIDDA_BASE_URL}/FNB_Services/api/financiamiento/lineaCredito?${params}`;
+  const url = `${config.calidda.baseUrl}/FNB_Services/api/financiamiento/lineaCredito?${params}`;
 
   const res = await fetch(url, {
     headers: {

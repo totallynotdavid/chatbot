@@ -1,4 +1,4 @@
-import process from "node:process";
+import { config } from "../../config.ts";
 
 type PowerBIResponse = {
   results?: Array<{
@@ -81,10 +81,10 @@ async function queryField(
         },
         QueryId: "",
         ApplicationContext: {
-          DatasetId: process.env.POWERBI_DATASET_ID,
+          DatasetId: config.powerbi.datasetId,
           Sources: [
             {
-              ReportId: process.env.POWERBI_REPORT_ID,
+              ReportId: config.powerbi.reportId,
               VisualId: visualId,
             },
           ],
@@ -92,7 +92,7 @@ async function queryField(
       },
     ],
     cancelQueries: [],
-    modelId: parseInt(process.env.POWERBI_MODEL_ID || "0", 10),
+    modelId: parseInt(config.powerbi.modelId || "0", 10),
   };
 
   const res = await fetch(
@@ -101,7 +101,7 @@ async function queryField(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-PowerBI-ResourceKey": process.env.POWERBI_RESOURCE_KEY!,
+        "X-PowerBI-ResourceKey": config.powerbi.resourceKey,
       },
       body: JSON.stringify(payload),
     },
