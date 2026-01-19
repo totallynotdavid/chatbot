@@ -4,15 +4,8 @@ import type {
   EnrichmentContext,
 } from "../handler-interface.ts";
 import { checkEligibilityWithFallback } from "../../../domains/eligibility/orchestrator.ts";
-import { BundleService } from "../../../domains/catalog/index.ts";
-import { getCategoryDisplayNames } from "../../../adapters/catalog/display.ts";
-import {
-  CATEGORIES,
-  CATEGORY_GROUPS,
-  type CategoryGroup,
-  type CategoryKey,
-} from "@totem/types";
 import { createLogger } from "../../../lib/logger.ts";
+import { mapEligibilityToEnrichment } from "../../../domains/eligibility/mapper.ts";
 
 const logger = createLogger("enrichment");
 
@@ -43,83 +36,25 @@ export class CheckEligibilityHandler
         context.phoneNumber,
       );
 
-      if (result.needsHuman) {
-        return {
-          type: "eligibility_result",
-          status: "needs_human",
-          handoffReason: result.handoffReason,
-        };
-      }
-
-      if (result.eligible) {
-        const segment = result.nse !== undefined ? "gaso" : "fnb";
-        const credit = result.credit || 0;
-
-        const affordableCategories = BundleService.getAffordableCategories(
-          segment as "fnb" | "gaso",
-          credit,
+      if (result.needsHuman && result.handoffReason === "both_providers_down") {
+        logger.warn(
+          { dni: request.dni, reason: result.handoffReason },
+          "Returning system_outage status",
         );
-
-        const categoryDisplayNames =
-          getCategoryDisplayNames(affordableCategories);
-
-        const groups = new Set<CategoryGroup>();
-        for (const categoryKey of affordableCategories) {
-          const category = CATEGORIES[categoryKey as CategoryKey];
-          if (category?.group) {
-            groups.add(category.group);
-          }
-        }
-
-        const groupDisplayNames = Array.from(groups)
-          .map((groupKey) => CATEGORY_GROUPS[groupKey]?.display)
-          .filter(Boolean)
-          .sort((a, b) => {
-            const order: Record<string, number> = {
-              "línea blanca y hogar": 0,
-              tecnología: 1,
-              combos: 2,
-            };
-            const aKey = a.toLowerCase();
-            const bKey = b.toLowerCase();
-            return (order[aKey] ?? 99) - (order[bKey] ?? 99);
-          });
-
+      } else if (result.eligible) {
         logger.info(
           {
             dni: request.dni,
             phoneNumber: context.phoneNumber,
-            segment,
-            credit,
+            segment: result.nse !== undefined ? "gaso" : "fnb",
+            credit: result.credit,
             name: result.name,
           },
           "Customer eligible",
         );
-
-        const affordableBundles = BundleService.getAvailable({
-          segment: segment as "fnb" | "gaso",
-          maxPrice: credit,
-        });
-
-        return {
-          type: "eligibility_result",
-          status: "eligible",
-          segment: segment as "fnb" | "gaso",
-          credit,
-          name: result.name,
-          nse: result.nse,
-          requiresAge: segment === "gaso",
-          affordableCategories,
-          categoryDisplayNames,
-          groupDisplayNames,
-          affordableBundles,
-        };
       }
 
-      return {
-        type: "eligibility_result",
-        status: "not_eligible",
-      };
+      return mapEligibilityToEnrichment(result);
     } catch (error) {
       logger.error(
         {
