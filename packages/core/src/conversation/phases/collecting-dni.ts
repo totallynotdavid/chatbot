@@ -54,6 +54,49 @@ export function transitionCollectingDni(
     };
   }
 
+  const hasOnlyDigits = /^\d+$/.test(message.trim());
+  if (hasOnlyDigits) {
+    const digitCount = message.trim().length;
+    if (digitCount === 7) {
+      return {
+        type: "update",
+        nextPhase: { phase: "collecting_dni" },
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text: "Me parece que falta un dígito en tu DNI. ¿Podrías verificarlo? 😅",
+          },
+        ],
+      };
+    }
+    if (digitCount === 9 || digitCount > 9) {
+      return {
+        type: "update",
+        nextPhase: { phase: "collecting_dni" },
+        commands: [
+          {
+            type: "SEND_MESSAGE",
+            text: "El DNI debe tener exactamente 8 dígitos. Me parece que hay dígitos de más. 😅",
+          },
+        ],
+      };
+    }
+  }
+
+  // Mix of letters and numbers (invalid)
+  if (/^[a-zA-Z]+\d+|^\d+[a-zA-Z]+/.test(message.trim())) {
+    return {
+      type: "update",
+      nextPhase: { phase: "collecting_dni" },
+      commands: [
+        {
+          type: "SEND_MESSAGE",
+          text: "El DNI solo debe contener números (8 dígitos). Inténtalo de nuevo por favor. 🙏",
+        },
+      ],
+    };
+  }
+
   // User says they'll send later
   const willSendLater =
     /(te\s+(mando|env[i\u00ed]o|escribo)|en\s+un\s+rato|m[a\u00e1]s\s+tarde|luego|despu[e\u00e9]s|ahora\s+no|ahorita\s+no)/.test(

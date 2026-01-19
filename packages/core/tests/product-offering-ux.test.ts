@@ -505,22 +505,16 @@ describe("Confirming selection (UX tests)", () => {
       }
     });
 
-    test("should re-ask when user response is unclear", () => {
+    test("should request enrichment for unclear responses", () => {
       const result = transition({
         phase: basePhase,
         message: "mmm",
         metadata: createMetadata(),
       });
 
-      expect(result.type).toBe("update");
-      if (result.type === "update") {
-        expect(result.nextPhase.phase).toBe("confirming_selection");
-        // Should remind them of options
-        const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
-        expect(msg).toBeDefined();
-        if (msg?.type === "SEND_MESSAGE") {
-          expect(msg.text).toMatch(/confirm|s[ií]|otros/i);
-        }
+      expect(result.type).toBe("need_enrichment");
+      if (result.type === "need_enrichment") {
+        expect(result.enrichment.type).toBe("recover_unclear_response");
       }
     });
 
