@@ -6,6 +6,10 @@ import {
   processHeldMessages,
   countHeldMessages,
 } from "../conversation/index.ts";
+import {
+  retryStuckEligibilityChecks,
+  countWaitingForRecovery,
+} from "../domains/conversations/recovery.ts";
 import type { User } from "@totem/types";
 import { createLogger } from "../lib/logger.ts";
 
@@ -309,6 +313,27 @@ admin.post("/process-held-messages", async (c) => {
 admin.get("/held-messages-status", (c) => {
   const count = countHeldMessages();
   return c.json({ pendingCount: count });
+});
+
+// Get system outage status
+admin.get("/outage-status", (c) => {
+  const waitingCount = countWaitingForRecovery();
+  return c.json({ waitingCount });
+});
+
+// Retry eligibility for waiting users
+admin.post("/retry-eligibility", async (c) => {
+  const user = c.get("user");
+
+  const result = await retryStuckEligibilityChecks();
+
+  logAction(user.id, "retry_eligibility", "system", null, result);
+
+  return c.json({
+    success: true,
+    message: `Recuperados ${result.recoveredCount}, fallando ${result.stillFailingCount}, errores ${result.errors}`,
+    stats: result,
+  });
 });
 
 export default admin;
