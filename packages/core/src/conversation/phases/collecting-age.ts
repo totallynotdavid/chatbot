@@ -36,6 +36,19 @@ export function transitionCollectingAge(
 
   const age = extractAge(message);
 
+  if (age === null && !/\d/.test(message.trim())) {
+    return {
+      type: "update",
+      nextPhase: phase,
+      commands: [
+        {
+          type: "SEND_MESSAGE",
+          text: "Por favor indícame tu edad en números. Por ejemplo: 35",
+        },
+      ],
+    };
+  }
+
   if (age === null) {
     return {
       type: "need_enrichment",

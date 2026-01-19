@@ -91,7 +91,7 @@ describe("Conversation transitions (confirming client phase)", () => {
     }
   });
 
-  test('should handle "no tengo" (negative phrase) correctly', () => {
+  test('should handle "no tengo gas" as clear rejection', () => {
     const result = transition({
       phase: { phase: "confirming_client" },
       message: "no tengo gas",
@@ -107,7 +107,7 @@ describe("Conversation transitions (confirming client phase)", () => {
     }
   });
 
-  test("should handle affirmations in conversational form", () => {
+  test("should handle 'soy cliente' as clear affirmation", () => {
     const result = transition({
       phase: { phase: "confirming_client" },
       message: "Soy cliente de calidda",
@@ -120,22 +120,19 @@ describe("Conversation transitions (confirming client phase)", () => {
     }
   });
 
-  test("should ask for clarification on ambiguous responses", () => {
+  test("should request enrichment for ambiguous responses", () => {
     const result = transition({
       phase: { phase: "confirming_client" },
       message: "Hola, me interesa",
       metadata: baseMetadata,
     });
 
-    expect(result.type).toBe("update");
-    if (result.type === "update") {
-      expect(result.nextPhase.phase).toBe("confirming_client");
-      const messageCommand = result.commands.find(
-        (c) => c.type === "SEND_MESSAGE",
-      );
-      expect(messageCommand?.type).toBe("SEND_MESSAGE");
-      if (messageCommand?.type === "SEND_MESSAGE") {
-        expect(messageCommand.text).toContain("Sí o No");
+    expect(result.type).toBe("need_enrichment");
+    if (result.type === "need_enrichment") {
+      expect(result.enrichment.type).toBe("recover_unclear_response");
+      if (result.enrichment.type === "recover_unclear_response") {
+        expect(result.enrichment.context.expectedOptions).toContain("Sí");
+        expect(result.enrichment.context.expectedOptions).toContain("No");
       }
     }
   });
@@ -233,6 +230,77 @@ describe("Conversation transitions (confirming client phase)", () => {
     expect(result.type).toBe("update");
     if (result.type === "update") {
       expect(result.nextPhase.phase).toBe("collecting_age");
+    }
+  });
+});
+
+describe("Conversation transitions (service-related responses)", () => {
+  const baseMetadata = createMetadata();
+
+  test("should handle service possession rejections", () => {
+    const rejections = [
+      "no tengo gas",
+      "no tengo servicio",
+      "no soy cliente",
+      "no soy cliente de calidda",
+      "no cuento con gas",
+      "no tenemos gas",
+      "no somos clientes",
+    ];
+
+    for (const msg of rejections) {
+      const result = transition({
+        phase: { phase: "confirming_client" },
+        message: msg,
+        metadata: baseMetadata,
+      });
+
+      expect(result.type).toBe("update");
+      if (result.type === "update") {
+        expect(result.nextPhase.phase).toBe("closing");
+        if (result.nextPhase.phase === "closing") {
+          expect(result.nextPhase.purchaseConfirmed).toBe(false);
+        }
+      }
+    }
+  });
+
+  test("should handle service possession affirmations", () => {
+    const affirmations = [
+      "soy cliente",
+      "soy cliente de calidda",
+      "tengo gas",
+      "sí tengo gas",
+      "cuento con gas",
+      "tenemos gas",
+      "somos clientes",
+    ];
+
+    for (const msg of affirmations) {
+      const result = transition({
+        phase: { phase: "confirming_client" },
+        message: msg,
+        metadata: baseMetadata,
+      });
+
+      expect(result.type).toBe("update");
+      if (result.type === "update") {
+        expect(result.nextPhase.phase).toBe("collecting_dni");
+      }
+    }
+  });
+
+  test("should still require enrichment for truly ambiguous responses", () => {
+    const ambiguous = ["me interesa", "no estoy seguro", "tal vez", "depende"];
+
+    for (const msg of ambiguous) {
+      const result = transition({
+        phase: { phase: "confirming_client" },
+        message: msg,
+        metadata: baseMetadata,
+      });
+
+      expect(result.type).toBe("need_enrichment");
     }
   });
 });

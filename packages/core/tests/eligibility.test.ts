@@ -57,7 +57,9 @@ describe("GASO Eligibility Logic", () => {
     test("should reject age < 40", () => {
       const result = checkGasoEligibility(39, 2, 5000);
       expect(result.eligible).toBe(false);
-      expect(result.reason).toBe("age_too_low_for_stratum");
+      if (!result.eligible) {
+        expect(result.reason).toBe("age_too_low_for_stratum");
+      }
     });
 
     test("should accept age >= 40", () => {
@@ -94,7 +96,9 @@ describe("GASO Eligibility Logic", () => {
     test("should reject age < 30", () => {
       const result = checkGasoEligibility(29, 3, 5000);
       expect(result.eligible).toBe(false);
-      expect(result.reason).toBe("age_too_low_for_stratum");
+      if (!result.eligible) {
+        expect(result.reason).toBe("age_too_low_for_stratum");
+      }
     });
 
     test("should accept age >= 30", () => {
@@ -186,11 +190,15 @@ describe("GASO Eligibility Logic", () => {
     test("should reject invalid NSE values", () => {
       const result1 = checkGasoEligibility(30, 0, 5000);
       expect(result1.eligible).toBe(false);
-      expect(result1.reason).toBe("invalid_nse");
+      if (!result1.eligible) {
+        expect(result1.reason).toBe("invalid_nse");
+      }
 
       const result2 = checkGasoEligibility(30, 6, 5000);
       expect(result2.eligible).toBe(false);
-      expect(result2.reason).toBe("invalid_nse");
+      if (!result2.eligible) {
+        expect(result2.reason).toBe("invalid_nse");
+      }
     });
 
     test("should handle very high credit amounts", () => {
@@ -217,7 +225,9 @@ describe("GASO Eligibility Logic", () => {
       // 25-year-old from low-income area
       const result = checkGasoEligibility(25, 1, 4000);
       expect(result.eligible).toBe(false);
-      expect(result.reason).toBe("age_too_low_for_stratum");
+      if (!result.eligible) {
+        expect(result.reason).toBe("age_too_low_for_stratum");
+      }
     });
 
     test("Middle-aged NSE 3 client should get capped credit", () => {
