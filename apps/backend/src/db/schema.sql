@@ -181,15 +181,33 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
--- LLM error logging for observability
-CREATE TABLE IF NOT EXISTS llm_error_log (
+-- LLM call tracking for audits and debugging
+CREATE TABLE IF NOT EXISTS llm_calls (
     id TEXT PRIMARY KEY,
     phone_number TEXT NOT NULL,
     operation TEXT NOT NULL,
-    error_type TEXT NOT NULL,
-    error_message TEXT NOT NULL,
-    state TEXT,
-    metadata TEXT,
+    model TEXT NOT NULL,
+    
+    -- Audit data
+    prompt TEXT NOT NULL,
+    user_message TEXT NOT NULL,
+    response TEXT,
+    
+    -- Status
+    status TEXT NOT NULL CHECK(status IN ('success', 'error')),
+    error_type TEXT,
+    error_message TEXT,
+    
+    -- Performance
+    latency_ms INTEGER,
+    tokens_prompt INTEGER,
+    tokens_completion INTEGER,
+    tokens_total INTEGER,
+    
+    -- Context
+    conversation_phase TEXT,
+    context_metadata TEXT,
+    
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -213,6 +231,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(assigned_
 CREATE INDEX IF NOT EXISTS idx_users_available ON users(role, is_available, is_active);
 CREATE INDEX IF NOT EXISTS idx_held_messages_phone ON held_messages(phone_number, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_message_inbox_pending ON message_inbox(status, phone_number, created_at);
-CREATE INDEX IF NOT EXISTS idx_llm_errors_phone ON llm_error_log(phone_number, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_llm_errors_type ON llm_error_log(error_type, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_llm_errors_operation ON llm_error_log(operation, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_phone ON llm_calls(phone_number, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_operation ON llm_calls(operation, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_status ON llm_calls(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(created_at DESC);
