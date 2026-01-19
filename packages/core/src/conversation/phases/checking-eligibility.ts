@@ -30,12 +30,36 @@ export function transitionCheckingEligibility(
   }
 
   if (enrichment.type === "eligibility_result") {
-    // Case 1: needs human intervention (both providers down)
+    // Case 1: System outage
+    if (enrichment.status === "system_outage") {
+      return {
+        type: "update",
+        nextPhase: {
+          phase: "waiting_for_recovery",
+          dni: phase.dni,
+          timestamp: Date.now(),
+        },
+        commands: [
+          {
+            type: "NOTIFY_TEAM",
+            channel: "dev",
+            message: `URGENTE: Caída total de proveedores de elegibilidad. Cliente ${phase.dni} en espera. Revisar dashboard.`,
+          },
+          {
+            type: "NOTIFY_TEAM",
+            channel: "agent",
+            message: `Sistema de verificación temporalmente no disponible. El cliente con ${phase.dni} fue puesto en espera.`,
+          },
+        ],
+      };
+    }
+
+    // Case 2: Needs human (standard escalation, e.g. edge cases)
     if (enrichment.status === "needs_human") {
       const { message } = selectVariant(
         [
-          ["Perfecto, déjame verificar tu información. Dame un momento."],
-          ["Genial, dame un momentito mientras reviso tu línea de crédito."],
+          ["Perfecto, déjame verificar tu información. Dame un momento. 🙏"],
+          ["Genial, dame un momentito mientras reviso tu línea de crédito. 😊"],
           ["Déjame consultar tu información. Un momento, por favor."],
         ],
         "CHECKING_HOLD",
@@ -53,7 +77,7 @@ export function transitionCheckingEligibility(
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
-            message: `🔴 Cliente esperando. Verificación de elegibilidad: DNI ${phase.dni}. ${enrichment.handoffReason === "both_providers_down" ? "Ambos proveedores caídos." : "Error en verificación."}`,
+            message: `Cliente en espera. Verificación de elegibilidad: DNI ${phase.dni}. Requiere atención manual.`,
           },
           {
             type: "ESCALATE",
