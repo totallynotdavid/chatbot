@@ -5,5 +5,7 @@ export type {
   ProductData,
 } from "./types";
 export type { IntelligenceProvider } from "./provider";
-export { createOpenAIProvider } from "./openai/index";
+export { getProvider, resetProvider } from "./openai/index";
+export { resetClients } from "./openai/client";
 export { createMockProvider } from "./mock/index";
+export { MODEL_CONFIG } from "./config";

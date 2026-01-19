@@ -3,7 +3,7 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { safeAnswerQuestion } from "../../../intelligence/wrapper.ts";
+import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Answers customer questions using an LLM, grounded in the current conversation,
@@ -24,8 +24,7 @@ export class AnswerQuestionHandler
     request: Extract<EnrichmentRequest, { type: "answer_question" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "question_answered" }>> {
-    const answer = await safeAnswerQuestion(
-      context.provider,
+    const answer = await LLM.answerQuestion(
       request.message,
       request.context,
       context.phoneNumber,

@@ -1,18 +1,23 @@
-import OpenAI from "openai";
 import type { Bundle } from "@totem/types";
 import type { IntentResult } from "../types";
 import { buildExtractBundleIntentPrompt } from "@totem/core";
+import { MODEL_CONFIG } from "../config";
+import { getTextClient } from "./client";
 import { parseLLMResponse } from "./shared";
 
-const MODEL = "gpt-5-nano-2025-08-07";
-
 export async function extractBundleIntent(
-  client: OpenAI,
   message: string,
   affordableBundles: Bundle[],
 ): Promise<IntentResult> {
+  const client = getTextClient();
+  const baseConfig = MODEL_CONFIG.extraction;
+  const opConfig = baseConfig.bundleIntent;
+
   const completion = await client.chat.completions.create({
-    model: MODEL,
+    model: baseConfig.model,
+    ...(opConfig.temperature !== undefined && {
+      temperature: opConfig.temperature,
+    }),
     messages: [
       {
         role: "system",

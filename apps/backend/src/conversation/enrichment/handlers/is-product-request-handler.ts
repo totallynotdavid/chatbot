@@ -3,14 +3,12 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { safeIsProductRequest } from "../../../intelligence/wrapper.ts";
+import { LLM } from "../../../intelligence/service.ts";
 
 /**
- * Detects product browsing intent in customer messages.
+ * Detects if message is requesting products/categories.
  *
- * Used to transition from greeting or other phases into the product offering flow.
- *
- * Triggered when the state machine must detect product browsing intent.
+ * Used to identify when to show products vs general conversation.
  */
 export class IsProductRequestHandler
   implements
@@ -25,8 +23,7 @@ export class IsProductRequestHandler
     request: Extract<EnrichmentRequest, { type: "is_product_request" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "product_request_detected" }>> {
-    const isProductRequest = await safeIsProductRequest(
-      context.provider,
+    const isProductRequest = await LLM.isProductRequest(
       request.message,
       context.phoneNumber,
     );

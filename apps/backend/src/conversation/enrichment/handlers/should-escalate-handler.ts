@@ -3,15 +3,14 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { safeShouldEscalate } from "../../../intelligence/wrapper.ts";
+import { LLM } from "../../../intelligence/service.ts";
 
 /**
- * Determines if a customer message requires human intervention.
+ * Detects if a message requires human escalation.
  *
- * Detects escalation triggers like complaints, exact pricing questions,
- * or explicit requests to speak with a human agent.
+ * Identifies complaints, sensitive topics, or situations beyond bot capability.
  *
- * Triggered when: State machine needs to decide whether to escalate conversation.
+ * Used throughout conversation to identify when to transfer to human agent.
  */
 export class ShouldEscalateHandler
   implements
@@ -26,8 +25,7 @@ export class ShouldEscalateHandler
     request: Extract<EnrichmentRequest, { type: "should_escalate" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "escalation_needed" }>> {
-    const shouldEscalate = await safeShouldEscalate(
-      context.provider,
+    const shouldEscalate = await LLM.shouldEscalate(
       request.message,
       context.phoneNumber,
     );

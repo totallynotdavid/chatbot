@@ -1,19 +1,24 @@
-import OpenAI from "openai";
-import type { ProductData } from "../types";
-import { parseLLMResponse, extractString } from "./shared";
-import { MAIN_FLYER_PROMPT, SPECS_FLYER_PROMPT } from "./prompts/vision";
-
-const MODEL = "gemini-2.5-flash-lite";
+import type { ProductData } from "../../types";
+import { MODEL_CONFIG } from "../../config";
+import { getVisionClient } from "../client";
+import { parseLLMResponse, extractString } from "../shared";
+import { MAIN_FLYER_PROMPT, SPECS_FLYER_PROMPT } from "../prompts/vision";
 
 async function extractFromMainFlyer(
-  visionClient: OpenAI,
   imageBuffer: Buffer,
 ): Promise<Partial<ProductData>> {
+  const client = getVisionClient();
+  const baseConfig = MODEL_CONFIG.vision;
+  const opConfig = baseConfig.extractProductData;
+
   const base64Image = imageBuffer.toString("base64");
   const mimeType = "image/jpeg";
 
-  const completion = await visionClient.chat.completions.create({
-    model: MODEL,
+  const completion = await client.chat.completions.create({
+    model: baseConfig.model,
+    ...(opConfig.temperature !== undefined && {
+      temperature: opConfig.temperature,
+    }),
     messages: [
       { role: "system", content: MAIN_FLYER_PROMPT },
       {
@@ -33,7 +38,6 @@ async function extractFromMainFlyer(
       },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.1,
   });
 
   const content = completion.choices[0]?.message?.content;
@@ -54,14 +58,20 @@ async function extractFromMainFlyer(
 }
 
 async function extractFromSpecsFlyer(
-  visionClient: OpenAI,
   imageBuffer: Buffer,
 ): Promise<Partial<ProductData>> {
+  const client = getVisionClient();
+  const baseConfig = MODEL_CONFIG.vision;
+  const opConfig = baseConfig.extractProductData;
+
   const base64Image = imageBuffer.toString("base64");
   const mimeType = "image/jpeg";
 
-  const completion = await visionClient.chat.completions.create({
-    model: MODEL,
+  const completion = await client.chat.completions.create({
+    model: baseConfig.model,
+    ...(opConfig.temperature !== undefined && {
+      temperature: opConfig.temperature,
+    }),
     messages: [
       { role: "system", content: SPECS_FLYER_PROMPT },
       {
@@ -81,7 +91,6 @@ async function extractFromSpecsFlyer(
       },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.1,
   });
 
   const content = completion.choices[0]?.message?.content;
@@ -96,11 +105,10 @@ async function extractFromSpecsFlyer(
 }
 
 export async function extractProductData(
-  visionClient: OpenAI,
   mainImageBuffer: Buffer,
   specsImageBuffer?: Buffer,
 ): Promise<ProductData> {
-  const mainData = await extractFromMainFlyer(visionClient, mainImageBuffer);
+  const mainData = await extractFromMainFlyer(mainImageBuffer);
 
   if (specsImageBuffer) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -108,7 +116,7 @@ export async function extractProductData(
 
   let specsData: Partial<ProductData> = {};
   if (specsImageBuffer) {
-    specsData = await extractFromSpecsFlyer(visionClient, specsImageBuffer);
+    specsData = await extractFromSpecsFlyer(specsImageBuffer);
   }
 
   return {

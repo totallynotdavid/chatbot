@@ -12,7 +12,7 @@ import { createLogger } from "../../lib/logger.ts";
 import { notifyTeam } from "../../adapters/notifier/client.ts";
 import type { QuotedMessageContext } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
-import { createOpenAIProvider } from "../../intelligence/index.ts";
+import { getProvider } from "@totem/intelligence";
 
 const logger = createLogger("conversation");
 
@@ -48,7 +48,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
     await WhatsAppService.markAsReadAndShowTyping(messageId);
 
     try {
-      const provider = createOpenAIProvider();
+      const provider = getProvider();
 
       const result = await runEnrichmentLoop(
         conversation.phase,

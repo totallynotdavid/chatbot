@@ -1,2 +1,1 @@
-export { createOpenAIProvider, createMockProvider } from "@totem/intelligence";
-export * from "./wrapper";
+export { getProvider, createMockProvider } from "@totem/intelligence";

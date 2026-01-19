@@ -3,7 +3,7 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { safeExtractBundleIntent } from "../../../intelligence/wrapper.ts";
+import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Extracts bundle selection intent from a customer message.
@@ -32,8 +32,7 @@ export class ExtractBundleIntentHandler
         ? Math.max(...request.affordableBundles.map((b) => b.price))
         : 0;
 
-    const result = await safeExtractBundleIntent(
-      context.provider,
+    const result = await LLM.extractBundleIntent(
       request.message,
       context.phoneNumber,
       segment as "fnb" | "gaso",
