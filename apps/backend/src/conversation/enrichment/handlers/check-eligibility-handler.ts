@@ -9,9 +9,6 @@ import { createLogger } from "../../../lib/logger.ts";
 
 const logger = createLogger("eligibility-enrichment");
 
-/**
- * Enrichment handler that uses the new event-driven architecture
- */
 export class CheckEligibilityEnrichmentHandler
   implements
     EnrichmentHandler<
