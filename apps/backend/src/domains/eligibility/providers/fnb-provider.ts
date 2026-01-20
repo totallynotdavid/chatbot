@@ -8,7 +8,8 @@ import {
 import { isProviderForcedDown } from "../../settings/system.ts";
 import { getSimulationPersona } from "../shared.ts";
 import { PersonasService } from "../../personas/index.ts";
-import type { EligibilityProvider, ProviderError } from "./provider.ts";
+import type { EligibilityProvider } from "./provider.ts";
+import { ProviderError } from "./provider.ts";
 import type { ProviderCheckResult } from "@totem/types";
 import { createLogger } from "../../../lib/logger.ts";
 
@@ -34,7 +35,7 @@ export class FNBProvider implements EligibilityProvider {
     if (isProviderForcedDown("fnb")) {
       logger.debug({ dni }, "Provider forced down");
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "FNB",
           "forced_down",
           "Provider forced down",
@@ -46,7 +47,7 @@ export class FNBProvider implements EligibilityProvider {
     if (!isAvailable("fnb")) {
       logger.debug({ dni }, "Provider unavailable (circuit breaker)");
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "FNB",
           "unavailable",
           "Circuit breaker open",
@@ -83,7 +84,7 @@ export class FNBProvider implements EligibilityProvider {
       }
 
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "FNB",
           "api_error",
           error instanceof Error ? error.message : String(error),

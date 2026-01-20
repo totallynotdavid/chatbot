@@ -1,5 +1,4 @@
-import type { Result } from "../../../shared/result/index.ts";
-import { isOk, isErr } from "../../../shared/result/index.ts";
+import { isOk } from "../../../shared/result/index.ts";
 import { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
 import { executeCommands } from "../../../conversation/handler/command-executor.ts";
 import { transitionCheckingEligibility } from "@totem/core";
@@ -7,7 +6,6 @@ import { createLogger } from "../../../lib/logger.ts";
 import type {
   ConversationPhase,
   ConversationMetadata,
-  CheckingEligibilityPhase,
 } from "@totem/core";
 
 const logger = createLogger("recovery-processor");
@@ -50,7 +48,7 @@ export async function processConversation(
     }
 
     // Reconstruct checking_eligibility phase with proper type
-    const tempPhase: CheckingEligibilityPhase = {
+    const tempPhase: ConversationPhase & { phase: "checking_eligibility" } = {
       phase: "checking_eligibility",
       dni: phase.dni,
     };

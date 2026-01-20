@@ -1,4 +1,4 @@
-import type { Result } from "../../shared/result/index.ts";
+import type { Result } from "../../../shared/result/index.ts";
 import type { ProviderCheckResult } from "@totem/types";
 
 /**
@@ -8,10 +8,6 @@ import type { ProviderCheckResult } from "@totem/types";
 export interface EligibilityProvider {
   readonly name: string;
 
-  /**
-   * Check eligibility for a DNI.
-   * Returns Result<ProviderCheckResult>
-   */
   checkEligibility(
     dni: string,
     phoneNumber?: string,

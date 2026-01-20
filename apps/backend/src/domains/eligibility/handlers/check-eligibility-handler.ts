@@ -1,12 +1,11 @@
 import type { Result } from "../../../shared/result/index.ts";
-import { isOk, isErr } from "../../../shared/result/index.ts";
+import { isErr } from "../../../shared/result/index.ts";
 import { eventBus } from "../../../shared/events/index.ts";
 import { FNBProvider } from "../providers/fnb-provider.ts";
 import { PowerBIProvider } from "../providers/powerbi-provider.ts";
 import { evaluateResults } from "../strategy/eligibility-strategy.ts";
 import { SystemOutageDetected } from "../events/system-outage-detected.ts";
 import { ProviderDegraded } from "../events/provider-degraded.ts";
-import type { SystemOutageError } from "../strategy/types.ts";
 import type { EnrichmentResult } from "@totem/core";
 import { mapEligibilityToEnrichment } from "../mapper.ts";
 import { createLogger } from "../../../lib/logger.ts";
@@ -22,7 +21,7 @@ export class CheckEligibilityHandler {
   async execute(
     dni: string,
     phoneNumber?: string,
-  ): Promise<Result<EnrichmentResult, SystemOutageError>> {
+  ): Promise<Result<EnrichmentResult>> {
     // 1. Check both providers in parallel
     const [fnbResult, powerbiResult] = await Promise.all([
       this.fnbProvider.checkEligibility(dni, phoneNumber),
@@ -69,7 +68,7 @@ export class CheckEligibilityHandler {
 
     // 4. Success with potential warnings
     if (evaluation.value.warnings?.length) {
-      const warning = evaluation.value.warnings[0];
+      const warning = evaluation.value.warnings[0]!;
       await eventBus.emit(
         ProviderDegraded({
           failedProvider: warning.failedProvider,
@@ -109,9 +108,6 @@ export class CheckEligibilityHandler {
       needsHuman: false,
     });
 
-    return { ok: true, value: enrichmentResult } as Result<
-      EnrichmentResult,
-      SystemOutageError
-    >;
+    return { ok: true, value: enrichmentResult } as Result<EnrichmentResult>;
   }
 }

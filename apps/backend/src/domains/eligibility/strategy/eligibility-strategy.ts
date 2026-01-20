@@ -4,13 +4,9 @@ import type { ProviderCheckResult } from "@totem/types";
 import type {
     ProviderResults,
     EligibilityEvaluation,
-    SystemOutageError,
 } from "./types.ts";
+import { SystemOutageError } from "./types.ts";
 
-/**
- * Pure function: evaluates provider results and determines eligibility.
- * NO SIDE EFFECTS — events are emitted by the handler.
- */
 export function evaluateResults(
     results: ProviderResults,
 ): Result<EligibilityEvaluation, SystemOutageError> {
@@ -20,9 +16,9 @@ export function evaluateResults(
     // Case 1: Both providers down → System outage
     if (fnbFailed && powerbiFailed) {
         return Err(
-            new (await import("./types.ts")).SystemOutageError(
-                results.fnb.error,
-                results.powerbi.error,
+            new SystemOutageError(
+                (results.fnb as any).error,
+                (results.powerbi as any).error,
             ),
         );
     }
@@ -34,7 +30,7 @@ export function evaluateResults(
                 {
                     failedProvider: "PowerBI",
                     workingProvider: "FNB",
-                    errors: [results.powerbi.error.message],
+                    errors: [(results.powerbi as any).error.message],
                 },
             ]
             : undefined;
@@ -53,7 +49,7 @@ export function evaluateResults(
                 {
                     failedProvider: "FNB",
                     workingProvider: "PowerBI",
-                    errors: [results.fnb.error.message],
+                    errors: [(results.fnb as any).error.message],
                 },
             ]
             : undefined;

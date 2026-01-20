@@ -8,7 +8,8 @@ import {
 import { isProviderForcedDown } from "../../settings/system.ts";
 import { getSimulationPersona } from "../shared.ts";
 import { PersonasService } from "../../personas/index.ts";
-import type { EligibilityProvider, ProviderError } from "./provider.ts";
+import type { EligibilityProvider } from "./provider.ts";
+import { ProviderError } from "./provider.ts";
 import type { ProviderCheckResult } from "@totem/types";
 import { createLogger } from "../../../lib/logger.ts";
 
@@ -46,7 +47,7 @@ export class PowerBIProvider implements EligibilityProvider {
     if (isProviderForcedDown("gaso")) {
       logger.debug({ dni }, "Provider forced down");
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "PowerBI",
           "forced_down",
           "Provider forced down",
@@ -58,7 +59,7 @@ export class PowerBIProvider implements EligibilityProvider {
     if (!isAvailable("powerbi")) {
       logger.debug({ dni }, "Provider unavailable (circuit breaker)");
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "PowerBI",
           "unavailable",
           "Circuit breaker open",
@@ -74,7 +75,7 @@ export class PowerBIProvider implements EligibilityProvider {
       // All fields empty => provider unavailable
       if (!estado && !nombre && !saldoStr && !nseStr) {
         return Err(
-          new (await import("./provider.ts")).ProviderError(
+          new ProviderError(
             "PowerBI",
             "unavailable",
             "No data returned",
@@ -115,7 +116,7 @@ export class PowerBIProvider implements EligibilityProvider {
       }
 
       return Err(
-        new (await import("./provider.ts")).ProviderError(
+        new ProviderError(
           "PowerBI",
           "api_error",
           error instanceof Error ? error.message : String(error),
