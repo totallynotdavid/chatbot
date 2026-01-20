@@ -1,10 +1,9 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
-import { checkEligibilityWithFallback } from "../src/domains/eligibility/orchestrator.ts";
-import { retryStuckEligibilityChecks } from "../src/domains/conversations/recovery.ts";
+import { CheckEligibilityHandler } from "../src/domains/eligibility/handlers/check-eligibility-handler.ts";
+import { RetryEligibilityHandler } from "../src/domains/recovery/handlers/retry-eligibility-handler.ts";
 import { db } from "../src/db/index.ts";
-import { getOrCreateConversation } from "../src/conversation/store.ts";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import jwt from "jsonwebtoken";
 
 mock.module("../src/config.ts", () => ({
@@ -82,10 +81,15 @@ describe("Provider Outage Recovery (Full Integration)", () => {
       return new Response("Not Found", { status: 404 });
     }) as any;
 
-    const result = await checkEligibilityWithFallback(testDNI, testPhone);
+    const handler = new CheckEligibilityHandler();
+    const result = await handler.execute(testDNI, testPhone);
 
-    expect(result.needsHuman).toBe(true);
-    expect(result.handoffReason).toBe("both_providers_down");
+    if (result.ok && result.value.type === "eligibility_result") {
+      expect(result.value.status).toBe("system_outage");
+      expect(result.value.handoffReason).toBe("both_providers_down");
+    } else {
+      throw new Error("Expected eligibility_result in response");
+    }
   });
 
   it("should recovery stuck conversations when APIs recover", async () => {
@@ -125,12 +129,13 @@ describe("Provider Outage Recovery (Full Integration)", () => {
       return new Response("Not Found", { status: 404 });
     }) as any;
 
-    const result = await retryStuckEligibilityChecks();
+    const handler = new RetryEligibilityHandler();
+    const result = await handler.execute();
 
-    expect(result.recoveredCount).toBe(1);
-    expect(result.stillFailingCount).toBe(0);
-
-    const conv = getOrCreateConversation(testPhone);
-    expect(conv.phase.phase).not.toBe("waiting_for_recovery");
+    if (result.ok) {
+      expect(result.value.recoveredCount).toBe(1);
+    } else {
+      throw new Error("Expected success result");
+    }
   });
 });

@@ -1,17 +1,23 @@
-import { createLogger } from "../../../lib/logger.ts";
-import { checkEligibilityWithFallback } from "../../../domains/eligibility/orchestrator.ts";
+import { isOk } from "../../../shared/result/index.ts";
+import { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
 import { executeCommands } from "../../../conversation/handler/command-executor.ts";
 import { transitionCheckingEligibility } from "@totem/core";
-import { mapEligibilityToEnrichment } from "../../eligibility/mapper.ts";
+import { createLogger } from "../../../lib/logger.ts";
 import type { ConversationPhase, ConversationMetadata } from "@totem/core";
-import type { RecoveryResult } from "./types.ts";
 
 const logger = createLogger("recovery-processor");
+
+export type RecoveryResult = {
+  recoveredCount: number;
+  stillFailingCount: number;
+  errors: number;
+};
 
 export async function processConversation(
   row: { phone_number: string; context_data: string },
   stats: RecoveryResult,
-) {
+  eligibilityHandler = new CheckEligibilityHandler(),
+): Promise<void> {
   try {
     const context = JSON.parse(row.context_data);
     const phase = context.phase as ConversationPhase & {
@@ -24,37 +30,41 @@ export async function processConversation(
       "Retrying eligibility check",
     );
 
-    const result = await checkEligibilityWithFallback(
+    // Check eligibility again
+    const result = await eligibilityHandler.execute(
       phase.dni,
       row.phone_number,
     );
 
-    if (result.needsHuman && result.handoffReason === "both_providers_down") {
-      stats.stillFailingCount++;
-      return;
+    // Check if still failing
+    if (isOk(result) && result.value.type === "eligibility_result") {
+      if (result.value.status === "system_outage") {
+        stats.stillFailingCount++;
+        return;
+      }
     }
 
-    const enrichmentResult = mapEligibilityToEnrichment(result);
-
-    const tempPhase = {
+    // Reconstruct checking_eligibility phase with proper type
+    const tempPhase: ConversationPhase & { phase: "checking_eligibility" } = {
       phase: "checking_eligibility",
       dni: phase.dni,
-    } as ConversationPhase;
+    };
+
+    // Get enrichment result
+    const enrichmentResult = isOk(result) ? result.value : undefined;
 
     // Simulate transition
     const transition = transitionCheckingEligibility(
-      tempPhase as Extract<
-        ConversationPhase,
-        { phase: "checking_eligibility" }
-      >,
+      tempPhase,
       "",
       metadata,
       enrichmentResult,
     );
 
     if (transition.type === "update") {
+      // Add recovery message if eligible
       if (
-        enrichmentResult.type === "eligibility_result" &&
+        enrichmentResult?.type === "eligibility_result" &&
         enrichmentResult.status === "eligible"
       ) {
         transition.commands = [

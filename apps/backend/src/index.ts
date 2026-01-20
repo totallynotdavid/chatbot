@@ -42,20 +42,22 @@ import { getAllStatus } from "./adapters/providers/health.ts";
 import { ReportService } from "./domains/reports/index.ts";
 import { checkNotifierHealth } from "./adapters/notifier/client.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
-import { checkEligibilityWithFallback } from "./domains/eligibility/orchestrator.ts";
+import { CheckEligibilityHandler } from "./domains/eligibility/handlers/check-eligibility-handler.ts";
+import { initializeApplication } from "./bootstrap/index.ts";
+import { isOk } from "./shared/result/index.ts";
 
 const app = new Hono();
 
-// Initialize database schema and seed data on startup
 initializeDatabase(db);
 seedDatabase(db);
 
-// Start message aggregator worker
+// event bus, subscribers
+initializeApplication();
+
 startAggregatorWorker();
 
-// Start periodic timeout check (every minute)
 setInterval(async () => {
-  await checkAndReassignTimeouts();
+  checkAndReassignTimeouts();
 }, 60 * 1000);
 
 // Global middleware
@@ -283,18 +285,29 @@ app.get("/api/providers/:dni", requireAuth, async (c) => {
   }
 
   try {
-    const result = await checkEligibilityWithFallback(dni);
+    const handler = new CheckEligibilityHandler();
+    const result = await handler.execute(dni);
     const healthStatus = getAllStatus();
+
+    let displayResult: any = result;
+    if (isOk(result)) {
+      displayResult = result.value;
+    } else {
+      displayResult = {
+        error: result.error.message,
+        details: result.error,
+      };
+    }
 
     return c.json({
       dni,
-      result,
+      result: displayResult,
       providersChecked: [
         ...(healthStatus.fnb.available ? ["fnb"] : []),
         ...(healthStatus.gaso.available ? ["gaso"] : []),
       ],
     });
-  } catch (_error) {
+  } catch (error) {
     return c.json({ error: "Error al consultar proveedor" }, 500);
   }
 });
