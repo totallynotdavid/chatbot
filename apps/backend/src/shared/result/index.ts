@@ -5,4 +5,4 @@ export {
   fromAsync,
   sequence,
   fromAsyncResult,
-} from "./result-utils.ts";
+} from "./utils.ts";
