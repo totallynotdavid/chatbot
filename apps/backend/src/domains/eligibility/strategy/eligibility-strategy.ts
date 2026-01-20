@@ -17,7 +17,7 @@ export function evaluateResults(
   const fnbFailed = isTechnicalFailure(results.fnb);
   const powerbiFailed = isTechnicalFailure(results.powerbi);
 
-  // Case 1: Both providers down → System outage
+  // Case 1: Both providers are down
   if (fnbFailed && powerbiFailed) {
     const fnbError = isProviderError(results.fnb)
       ? results.fnb.error
