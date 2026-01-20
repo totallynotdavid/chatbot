@@ -32,10 +32,12 @@ function formatTeamNotification(
   
   // Extract product information
   let producto = "No disponible";
-  if ("selectedProduct" in phase && phase.selectedProduct) {
-    producto = `${phase.selectedProduct.name} (S/ ${phase.selectedProduct.price.toFixed(2)})`;
-  } else if ("interestedProduct" in phase && phase.interestedProduct) {
-    producto = `${phase.interestedProduct.name} (S/ ${phase.interestedProduct.price.toFixed(2)})`;
+  if ("selectedProduct" in phase && phase.selectedProduct && phase.selectedProduct.name) {
+    const price = phase.selectedProduct.price || 0;
+    producto = `${phase.selectedProduct.name} (S/ ${price.toFixed(2)})`;
+  } else if ("interestedProduct" in phase && phase.interestedProduct && phase.interestedProduct.name) {
+    const price = phase.interestedProduct.price || 0;
+    producto = `${phase.interestedProduct.name} (S/ ${price.toFixed(2)})`;
   }
 
   // Build the formatted message
