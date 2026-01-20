@@ -11,33 +11,36 @@ const logger = createLogger("retry-eligibility");
  * Handler for retrying eligibility checks for stuck conversations
  */
 export class RetryEligibilityHandler {
-    async execute(): Promise<Result<RecoveryResult, Error>> {
-        const waitingResult = getWaitingConversations();
+  async execute(): Promise<Result<RecoveryResult, Error>> {
+    const waitingResult = getWaitingConversations();
 
-        if (!isOk(waitingResult)) {
-            logger.error({ error: waitingResult.error }, "Failed to fetch waiting conversations");
-            return waitingResult;
-        }
-
-        const stuckConversations = waitingResult.value;
-
-        logger.info(
-            { count: stuckConversations.length },
-            "Starting recovery of stuck conversations",
-        );
-
-        const stats: RecoveryResult = {
-            recoveredCount: 0,
-            stillFailingCount: 0,
-            errors: 0,
-        };
-
-        for (const row of stuckConversations) {
-            await processConversation(row, stats);
-        }
-
-        logger.info(stats, "Recovery complete");
-
-        return Ok(stats);
+    if (!isOk(waitingResult)) {
+      logger.error(
+        { error: waitingResult.error },
+        "Failed to fetch waiting conversations",
+      );
+      return waitingResult;
     }
+
+    const stuckConversations = waitingResult.value;
+
+    logger.info(
+      { count: stuckConversations.length },
+      "Starting recovery of stuck conversations",
+    );
+
+    const stats: RecoveryResult = {
+      recoveredCount: 0,
+      stillFailingCount: 0,
+      errors: 0,
+    };
+
+    for (const row of stuckConversations) {
+      await processConversation(row, stats);
+    }
+
+    logger.info(stats, "Recovery complete");
+
+    return Ok(stats);
+  }
 }

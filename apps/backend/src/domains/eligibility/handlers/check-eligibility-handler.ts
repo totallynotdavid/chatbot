@@ -14,102 +14,104 @@ import { createLogger } from "../../../lib/logger.ts";
 const logger = createLogger("check-eligibility");
 
 export class CheckEligibilityHandler {
-    constructor(
-        private fnbProvider = new FNBProvider(),
-        private powerbiProvider = new PowerBIProvider(),
-    ) { }
+  constructor(
+    private fnbProvider = new FNBProvider(),
+    private powerbiProvider = new PowerBIProvider(),
+  ) {}
 
-    async execute(
-        dni: string,
-        phoneNumber?: string,
-    ): Promise<Result<EnrichmentResult, SystemOutageError>> {
-        // 1. Check both providers in parallel
-        const [fnbResult, powerbiResult] = await Promise.all([
-            this.fnbProvider.checkEligibility(dni, phoneNumber),
-            this.powerbiProvider.checkEligibility(dni, phoneNumber),
-        ]);
+  async execute(
+    dni: string,
+    phoneNumber?: string,
+  ): Promise<Result<EnrichmentResult, SystemOutageError>> {
+    // 1. Check both providers in parallel
+    const [fnbResult, powerbiResult] = await Promise.all([
+      this.fnbProvider.checkEligibility(dni, phoneNumber),
+      this.powerbiProvider.checkEligibility(dni, phoneNumber),
+    ]);
 
-        // 2. Evaluate results (pure function)
-        const evaluation = evaluateResults({
-            fnb: fnbResult,
-            powerbi: powerbiResult,
-        });
+    // 2. Evaluate results
+    const evaluation = evaluateResults({
+      fnb: fnbResult,
+      powerbi: powerbiResult,
+    });
 
-        // 3. Handle evaluation result
-        if (isErr(evaluation)) {
-            // System outage → emit event
-            await eventBus.emit(
-                SystemOutageDetected({
-                    dni,
-                    errors: [
-                        evaluation.error.fnbError.message,
-                        evaluation.error.powerbiError.message,
-                    ],
-                    timestamp: Date.now(),
-                }),
-            );
+    // 3. Handle evaluation result
+    if (isErr(evaluation)) {
+      // If system outage, emit event
+      await eventBus.emit(
+        SystemOutageDetected({
+          dni,
+          errors: [
+            evaluation.error.fnbError.message,
+            evaluation.error.powerbiError.message,
+          ],
+          timestamp: Date.now(),
+        }),
+      );
 
-            logger.error(
-                { dni, errors: [evaluation.error.fnbError, evaluation.error.powerbiError] },
-                "System outage detected",
-            );
+      logger.error(
+        {
+          dni,
+          errors: [evaluation.error.fnbError, evaluation.error.powerbiError],
+        },
+        "System outage detected",
+      );
 
-            // Return special enrichment result for system outage
-            return {
-                ok: true,
-                value: {
-                    type: "eligibility_result",
-                    status: "system_outage",
-                    handoffReason: "both_providers_down",
-                },
-            };
-        }
-
-        // 4. Success with potential warnings
-        if (evaluation.value.warnings?.length) {
-            const warning = evaluation.value.warnings[0];
-            await eventBus.emit(
-                ProviderDegraded({
-                    failedProvider: warning.failedProvider,
-                    workingProvider: warning.workingProvider,
-                    dni,
-                    errors: warning.errors,
-                }),
-            );
-
-            logger.warn(
-                {
-                    dni,
-                    failedProvider: warning.failedProvider,
-                    workingProvider: warning.workingProvider,
-                },
-                "Provider degraded",
-            );
-        }
-
-        // 5. Log success
-        if (evaluation.value.result.eligible) {
-            logger.info(
-                {
-                    dni,
-                    phoneNumber,
-                    source: evaluation.value.source,
-                    credit: evaluation.value.result.credit,
-                    name: evaluation.value.result.name,
-                },
-                "Customer eligible",
-            );
-        }
-
-        // 6. Map to enrichment result
-        const enrichmentResult = mapEligibilityToEnrichment({
-            ...evaluation.value.result,
-            needsHuman: false,
-        });
-
-        return { ok: true, value: enrichmentResult } as Result<
-            EnrichmentResult,
-            SystemOutageError
-        >;
+      return {
+        ok: true,
+        value: {
+          type: "eligibility_result",
+          status: "system_outage",
+          handoffReason: "both_providers_down",
+        },
+      };
     }
+
+    // 4. Success with potential warnings
+    if (evaluation.value.warnings?.length) {
+      const warning = evaluation.value.warnings[0];
+      await eventBus.emit(
+        ProviderDegraded({
+          failedProvider: warning.failedProvider,
+          workingProvider: warning.workingProvider,
+          dni,
+          errors: warning.errors,
+        }),
+      );
+
+      logger.warn(
+        {
+          dni,
+          failedProvider: warning.failedProvider,
+          workingProvider: warning.workingProvider,
+        },
+        "Provider degraded",
+      );
+    }
+
+    // 5. Log success
+    if (evaluation.value.result.eligible) {
+      logger.info(
+        {
+          dni,
+          phoneNumber,
+          source: evaluation.value.source,
+          credit: evaluation.value.result.credit,
+          name: evaluation.value.result.name,
+        },
+        "Customer eligible",
+      );
+    }
+
+    // 6. Map to enrichment result
+    const enrichmentResult = mapEligibilityToEnrichment({
+      ...evaluation.value.result,
+      needsHuman: false,
+    });
+
+    return { ok: true, value: enrichmentResult } as Result<
+      EnrichmentResult,
+      SystemOutageError
+    >;
+  }
 }

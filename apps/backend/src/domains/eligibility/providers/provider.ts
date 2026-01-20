@@ -6,28 +6,28 @@ import type { ProviderCheckResult } from "@totem/types";
  * All providers must return Result to make errors explicit.
  */
 export interface EligibilityProvider {
-    readonly name: string;
+  readonly name: string;
 
-    /**
-     * Check eligibility for a DNI.
-     * Returns Result<ProviderCheckResult> — never throws.
-     */
-    checkEligibility(
-        dni: string,
-        phoneNumber?: string,
-    ): Promise<Result<ProviderCheckResult, ProviderError>>;
+  /**
+   * Check eligibility for a DNI.
+   * Returns Result<ProviderCheckResult>
+   */
+  checkEligibility(
+    dni: string,
+    phoneNumber?: string,
+  ): Promise<Result<ProviderCheckResult, ProviderError>>;
 }
 
 /**
  * Provider-specific errors
  */
 export class ProviderError extends Error {
-    constructor(
-        public readonly provider: string,
-        public readonly reason: "api_error" | "unavailable" | "forced_down",
-        message: string,
-    ) {
-        super(`[${provider}] ${message}`);
-        this.name = "ProviderError";
-    }
+  constructor(
+    public readonly provider: string,
+    public readonly reason: "api_error" | "unavailable" | "forced_down",
+    message: string,
+  ) {
+    super(`[${provider}] ${message}`);
+    this.name = "ProviderError";
+  }
 }

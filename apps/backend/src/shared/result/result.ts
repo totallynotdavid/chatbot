@@ -4,8 +4,8 @@
  * - Err(error): Operation failed with error
  */
 export type Result<T, E = Error> =
-    | { ok: true; value: T }
-    | { ok: false; error: E };
+  | { ok: true; value: T }
+  | { ok: false; error: E };
 
 /**
  * Create a successful Result
@@ -20,40 +20,44 @@ export const Err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 /**
  * Type guard: check if Result is Ok
  */
-export function isOk<T, E>(result: Result<T, E>): result is { ok: true; value: T } {
-    return result.ok === true;
+export function isOk<T, E>(
+  result: Result<T, E>,
+): result is { ok: true; value: T } {
+  return result.ok === true;
 }
 
 /**
  * Type guard: check if Result is Err
  */
-export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E } {
-    return result.ok === false;
+export function isErr<T, E>(
+  result: Result<T, E>,
+): result is { ok: false; error: E } {
+  return result.ok === false;
 }
 
 /**
  * Unwrap Result with default value
  */
 export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T {
-    return result.ok ? result.value : defaultValue;
+  return result.ok ? result.value : defaultValue;
 }
 
 /**
  * Map over success value
  */
 export function map<T, U, E>(
-    result: Result<T, E>,
-    fn: (value: T) => U,
+  result: Result<T, E>,
+  fn: (value: T) => U,
 ): Result<U, E> {
-    return result.ok ? Ok(fn(result.value)) : result;
+  return result.ok ? Ok(fn(result.value)) : result;
 }
 
 /**
  * FlatMap (monadic bind)
  */
 export function flatMap<T, U, E>(
-    result: Result<T, E>,
-    fn: (value: T) => Result<U, E>,
+  result: Result<T, E>,
+  fn: (value: T) => Result<U, E>,
 ): Result<U, E> {
-    return result.ok ? fn(result.value) : result;
+  return result.ok ? fn(result.value) : result;
 }

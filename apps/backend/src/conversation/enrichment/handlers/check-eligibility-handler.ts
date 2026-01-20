@@ -1,4 +1,7 @@
-import type { EnrichmentHandler, EnrichmentContext } from "../handler-interface.ts";
+import type {
+  EnrichmentHandler,
+  EnrichmentContext,
+} from "../handler-interface.ts";
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
 import { CheckEligibilityHandler } from "../../../domains/eligibility/handlers/check-eligibility-handler.ts";
 import { isOk } from "../../../shared/result/index.ts";
@@ -11,10 +14,11 @@ const logger = createLogger("eligibility-enrichment");
  */
 export class CheckEligibilityEnrichmentHandler
   implements
-  EnrichmentHandler<
-    Extract<EnrichmentRequest, { type: "check_eligibility" }>,
-    Extract<EnrichmentResult, { type: "eligibility_result" }>
-  > {
+    EnrichmentHandler<
+      Extract<EnrichmentRequest, { type: "check_eligibility" }>,
+      Extract<EnrichmentResult, { type: "eligibility_result" }>
+    >
+{
   readonly type = "check_eligibility" as const;
 
   async execute(
@@ -33,9 +37,10 @@ export class CheckEligibilityEnrichmentHandler
         >;
       }
 
-      // System outage - handler already emitted events and returned proper result
-      // This shouldn't happen as handler returns Ok with system_outage status
-      logger.error({ dni: request.dni }, "Unexpected error result from handler");
+      logger.error(
+        { dni: request.dni },
+        "Unexpected error result from handler",
+      );
 
       return {
         type: "eligibility_result",

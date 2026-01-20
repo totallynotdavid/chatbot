@@ -3,8 +3,8 @@ import { Ok, Err } from "../../../shared/result/index.ts";
 import { db } from "../../../db/index.ts";
 
 export type WaitingConversation = {
-    phone_number: string;
-    context_data: string;
+  phone_number: string;
+  context_data: string;
 };
 
 /**
@@ -12,35 +12,35 @@ export type WaitingConversation = {
  * Uses the generated column for performance.
  */
 export function getWaitingConversations(): Result<
-    WaitingConversation[],
-    Error
+  WaitingConversation[],
+  Error
 > {
-    try {
-        const rows = db
-            .prepare(
-                `SELECT phone_number, context_data 
+  try {
+    const rows = db
+      .prepare(
+        `SELECT phone_number, context_data 
          FROM conversations 
          WHERE current_state = 'waiting_for_recovery'`,
-            )
-            .all() as WaitingConversation[];
+      )
+      .all() as WaitingConversation[];
 
-        return Ok(rows);
-    } catch (error) {
-        return Err(error instanceof Error ? error : new Error(String(error)));
-    }
+    return Ok(rows);
+  } catch (error) {
+    return Err(error instanceof Error ? error : new Error(String(error)));
+  }
 }
 
 /**
  * Count conversations waiting for recovery
  */
 export function countWaitingForRecovery(): number {
-    const result = db
-        .prepare(
-            `SELECT COUNT(*) as count 
+  const result = db
+    .prepare(
+      `SELECT COUNT(*) as count 
        FROM conversations 
        WHERE current_state = 'waiting_for_recovery'`,
-        )
-        .get() as { count: number };
+    )
+    .get() as { count: number };
 
-    return result.count;
+  return result.count;
 }

@@ -9,47 +9,47 @@ const logger = createLogger("dev-alerts");
  * Subscribes to eligibility events and sends dev notifications
  */
 export class DevAlertSubscriber {
-    /**
-     * Handle system outage (URGENT)
-     */
-    async onSystemOutage(event: SystemOutageDetectedEvent): Promise<void> {
-        const message = [
-            "🚨 URGENTE: Caída total de proveedores de elegibilidad",
-            `DNI afectado: ${event.payload.dni}`,
-            `Errores:`,
-            ...event.payload.errors.map((e) => `  - ${e}`),
-            `Revisar dashboard inmediatamente.`,
-        ].join("\n");
+  async onSystemOutage(event: SystemOutageDetectedEvent): Promise<void> {
+    const message = [
+      "🚨 URGENTE: Caída total de proveedores de elegibilidad",
+      `DNI afectado: ${event.payload.dni}`,
+      `Errores:`,
+      ...event.payload.errors.map((e) => `  - ${e}`),
+      `Revisar dashboard inmediatamente.`,
+    ].join("\n");
 
-        try {
-            await notifyTeam("dev", message);
-            logger.info({ dni: event.payload.dni }, "System outage alert sent to dev");
-        } catch (error) {
-            logger.error({ error }, "Failed to send system outage alert");
-        }
+    try {
+      await notifyTeam("dev", message);
+      logger.info(
+        { dni: event.payload.dni },
+        "System outage alert sent to dev",
+      );
+    } catch (error) {
+      logger.error({ error }, "Failed to send system outage alert");
     }
+  }
 
-    /**
-     * Handle degraded service (WARNING)
-     */
-    async onProviderDegraded(event: ProviderDegradedEvent): Promise<void> {
-        const { failedProvider, workingProvider, dni, errors } = event.payload;
+  /**
+   * Handle degraded service (WARNING)
+   */
+  async onProviderDegraded(event: ProviderDegradedEvent): Promise<void> {
+    const { failedProvider, workingProvider, dni, errors } = event.payload;
 
-        const message = [
-            `⚠️ Servicio degradado`,
-            `${failedProvider} caído, usando ${workingProvider}`,
-            `DNI: ${dni}`,
-            `Error: ${errors.join(", ")}`,
-        ].join("\n");
+    const message = [
+      `⚠️ Servicio degradado`,
+      `${failedProvider} caído, usando ${workingProvider}`,
+      `DNI: ${dni}`,
+      `Error: ${errors.join(", ")}`,
+    ].join("\n");
 
-        try {
-            await notifyTeam("dev", message);
-            logger.warn(
-                { failedProvider, workingProvider },
-                "Degraded service alert sent",
-            );
-        } catch (error) {
-            logger.error({ error }, "Failed to send degraded service alert");
-        }
+    try {
+      await notifyTeam("dev", message);
+      logger.warn(
+        { failedProvider, workingProvider },
+        "Degraded service alert sent",
+      );
+    } catch (error) {
+      logger.error({ error }, "Failed to send degraded service alert");
     }
+  }
 }
