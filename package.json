@@ -19,6 +19,8 @@
         "tunnel:reset": "bun run scripts/tunnel.ts stop",
         "build:frontend": "cd apps/frontend && bun run build",
         "build": "bun run build:frontend",
+        "prod:soft": "bun x pm2 start ecosystem.config.js",
+        "prod:soft:stop": "bun x pm2 stop ecosystem.config.js",
         "seed": "cd apps/backend && bun run seed",
         "deploy": "bash deployment/deploy.sh",
         "format": "biome format --write",
