@@ -48,7 +48,7 @@ export function transitionHandlingObjection(
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
-            message: `Cliente tiene dudas durante manejo de objeción`,
+            message: `Pregunta durante manejo de objeción`,
           },
           { type: "ESCALATE", reason: "customer_question_during_objection" },
         ],
@@ -68,7 +68,7 @@ export function transitionHandlingObjection(
         {
           type: "NOTIFY_TEAM",
           channel: "agent",
-          message: `Cliente rechazó bundle múltiples veces. Requiere atención.`,
+          message: `Cliente rechazó múltiples ofertas`,
         },
         { type: "ESCALATE", reason: "multiple_objections" },
       ],

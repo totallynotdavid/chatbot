@@ -102,7 +102,7 @@ export async function runEnrichmentLoop(
       {
         type: "NOTIFY_TEAM",
         channel: "dev",
-        message: `Max enrichment loops for ${phoneNumber}`,
+        message: `ERROR: Límite de bucles de enriquecimiento excedido`,
       },
       { type: "ESCALATE", reason: "enrichment_loop_exceeded" },
     ],

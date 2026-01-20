@@ -78,12 +78,14 @@ async function sendAssignmentNotification(
 ): Promise<void> {
   const frontendUrl = getFrontendUrl();
   const message =
-    `🎯 Nueva asignación de cliente\n\n` +
-    `Cliente: ${clientName || "Sin nombre"}\n` +
-    `Teléfono: ${clientPhone}\n\n` +
-    `El cliente está listo para contratar.\n` +
-    `Accede aquí: ${frontendUrl}/dashboard/conversations/${clientPhone}\n\n` +
-    `Tienes 5 minutos para aceptar esta asignación.`;
+    `🚨 NUEVA ASIGNACIÓN\n\n` +
+    `Nombre: ${clientName || "No disponible"}\n` +
+    `DNI: No disponible\n` +
+    `Teléfono: ${clientPhone}\n` +
+    `Producto: No disponible\n\n` +
+    `Cliente listo para venta. Ver detalles:\n` +
+    `${frontendUrl}/dashboard/conversations/${clientPhone}\n\n` +
+    `Aceptar en 5 minutos.`;
 
   const notifierUrl = getNotifierUrl();
 

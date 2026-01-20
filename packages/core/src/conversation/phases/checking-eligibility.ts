@@ -43,12 +43,12 @@ export function transitionCheckingEligibility(
           {
             type: "NOTIFY_TEAM",
             channel: "dev",
-            message: `URGENTE: Caída total de proveedores de elegibilidad. Cliente ${phase.dni} en espera. Revisar dashboard.`,
+            message: `CRÍTICO: Todos los proveedores de elegibilidad caídos`,
           },
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
-            message: `Sistema de verificación temporalmente no disponible. El cliente con ${phase.dni} fue puesto en espera.`,
+            message: `Sistema de verificación no disponible temporalmente`,
           },
         ],
       };
@@ -77,7 +77,7 @@ export function transitionCheckingEligibility(
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
-            message: `Cliente en espera. Verificación de elegibilidad: DNI ${phase.dni}. Requiere atención manual.`,
+            message: `Verificación de elegibilidad requiere revisión manual`,
           },
           {
             type: "ESCALATE",

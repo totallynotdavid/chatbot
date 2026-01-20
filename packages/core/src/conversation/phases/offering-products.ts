@@ -208,11 +208,6 @@ export function transitionOfferingProducts(
                 price: selected.price,
               },
             },
-            {
-              type: "NOTIFY_TEAM",
-              channel: "agent",
-              message: `Cliente seleccionó: ${selected.name}${priceText} - esperando confirmación`,
-            },
           ],
         };
       }
@@ -486,7 +481,7 @@ function handleEnrichmentResult(
           {
             type: "NOTIFY_TEAM",
             channel: "agent",
-            message: `Cliente tiene pregunta que requiere atención humana`,
+            message: `Pregunta del cliente requiere atención humana`,
           },
           { type: "ESCALATE", reason: "customer_question_requires_human" },
         ],

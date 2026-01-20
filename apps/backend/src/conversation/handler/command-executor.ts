@@ -12,15 +12,44 @@ import { BundleService } from "../../domains/catalog/index.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
+import { getFrontendUrl } from "@totem/utils";
 
 const logger = createLogger("commands");
 
 /**
- * Execute commands returned by the state machine.
- *
- * Implements the command pattern: state machine returns pure data commands,
- * this module executes them with side effects.
+ * Format a team notification message with consistent structure including available customer information.
  */
+function formatTeamNotification(
+  originalMessage: string,
+  phoneNumber: string,
+  phase: ConversationPhase,
+  metadata: ConversationMetadata,
+): string {
+  // Extract available information
+  const name = metadata.name || ("name" in phase ? phase.name : null) || "No disponible";
+  const dni = metadata.dni || ("dni" in phase ? phase.dni : null) || "No disponible";
+  const telefono = phoneNumber;
+  
+  // Extract product information
+  let producto = "No disponible";
+  if ("selectedProduct" in phase && phase.selectedProduct) {
+    producto = `${phase.selectedProduct.name} (S/ ${phase.selectedProduct.price.toFixed(2)})`;
+  } else if ("interestedProduct" in phase && phase.interestedProduct) {
+    producto = `${phase.interestedProduct.name} (S/ ${phase.interestedProduct.price.toFixed(2)})`;
+  }
+
+  // Build the formatted message
+  const header = `Nombre: ${name}\nDNI: ${dni}\nTelefono: ${telefono}\nProducto: ${producto}`;
+  
+  // Add URL for purchase confirmations
+  let urlSection = "";
+  if (originalMessage.includes("confirmó compra") || originalMessage.includes("VENTA")) {
+    const frontendUrl = getFrontendUrl();
+    urlSection = `\n\nVer conversación: ${frontendUrl}/dashboard/conversations/${phoneNumber}`;
+  }
+  
+  return `${header}${urlSection}\n\n${originalMessage}`;
+}
 export async function executeCommands(
   result: TransitionResult,
   phoneNumber: string,
@@ -35,7 +64,7 @@ export async function executeCommands(
     );
     await notifyTeam(
       "dev",
-      `CRITICAL: need_enrichment leaked to executeCommands for ${phoneNumber}`,
+      `CRÍTICO: Error en ejecución de comandos\n\nNombre: ${metadata.name || "No disponible"}\nDNI: ${metadata.dni || "No disponible"}\nTelefono: ${phoneNumber}\nProducto: No disponible`,
     );
     return;
   }
@@ -106,7 +135,13 @@ async function executeCommand(
       break;
 
     case "NOTIFY_TEAM":
-      await notifyTeam(command.channel, command.message);
+      const enrichedMessage = formatTeamNotification(
+        command.message,
+        phoneNumber,
+        phase,
+        metadata,
+      );
+      await notifyTeam(command.channel, enrichedMessage);
       break;
 
     case "ESCALATE":

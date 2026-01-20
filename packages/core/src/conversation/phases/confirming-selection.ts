@@ -58,7 +58,7 @@ export function transitionConfirmingSelection(
         {
           type: "NOTIFY_TEAM",
           channel: "agent",
-          message: `Cliente confirmó compra: ${phase.selectedProduct.name} (S/ ${phase.selectedProduct.price.toFixed(2)})`,
+          message: `VENTA CONFIRMADA`,
         },
       ],
     };

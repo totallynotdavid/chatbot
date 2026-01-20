@@ -78,7 +78,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
 
       await notifyTeam(
         "dev",
-        `CRITICAL: Message processing failed for ${phoneNumber}\nPhase: ${conversation.phase.phase}\nError: ${error instanceof Error ? error.message : String(error)}`,
+        `CRÍTICO: Error procesando mensaje\n\nNombre: No disponible\nDNI: No disponible\nTelefono: ${phoneNumber}\nProducto: No disponible`,
       ).catch(() => {});
     }
   });
