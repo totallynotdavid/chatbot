@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import users from "./users.ts";
-import system from "./system.ts";
-import operations from "./operations.ts";
+import users from "./admin/users.ts";
+import system from "./admin/system.ts";
+import operations from "./admin/operations.ts";
 
 const admin = new Hono();
 

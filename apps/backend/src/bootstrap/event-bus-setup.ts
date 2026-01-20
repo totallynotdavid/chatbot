@@ -1,6 +1,6 @@
-import { eventBus } from "../../shared/events/index.ts";
-import { DevAlertSubscriber } from "../notifications/subscribers/dev-alert-subscriber.ts";
-import { AgentAlertSubscriber } from "../notifications/subscribers/agent-alert-subscriber.ts";
+import { eventBus } from "../shared/events/index.ts";
+import { DevAlertSubscriber } from "../domains/notifications/subscribers/dev-alert-subscriber.ts";
+import { AgentAlertSubscriber } from "../domains/notifications/subscribers/agent-alert-subscriber.ts";
 
 /**
  * Wire up all event subscribers to the event bus

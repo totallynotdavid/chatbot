@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { db } from "../../../db/index.ts";
-import { logAction, getAuditTrail } from "../../../platform/audit/logger.ts";
+import { db } from "../../db/index.ts";
+import { logAction, getAuditTrail } from "../../platform/audit/logger.ts";
 
 const system = new Hono();
 

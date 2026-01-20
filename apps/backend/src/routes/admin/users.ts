@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { db } from "../../../db/index.ts";
+import { db } from "../../db/index.ts";
 import bcrypt from "bcryptjs";
-import { logAction } from "../../../platform/audit/logger.ts";
+import { logAction } from "../../platform/audit/logger.ts";
 import type { User } from "@totem/types";
 
 const users = new Hono();
