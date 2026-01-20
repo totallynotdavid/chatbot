@@ -7,10 +7,6 @@ export type WaitingConversation = {
   context_data: string;
 };
 
-/**
- * Get all conversations stuck in waiting_for_recovery phase.
- * Uses the generated column for performance.
- */
 export function getWaitingConversations(): Result<
   WaitingConversation[],
   Error
@@ -30,9 +26,6 @@ export function getWaitingConversations(): Result<
   }
 }
 
-/**
- * Count conversations waiting for recovery
- */
 export function countWaitingForRecovery(): number {
   const result = db
     .prepare(
