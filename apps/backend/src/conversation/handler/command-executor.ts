@@ -26,30 +26,43 @@ function formatTeamNotification(
   metadata: ConversationMetadata,
 ): string {
   // Extract available information
-  const name = metadata.name || ("name" in phase ? phase.name : null) || "No disponible";
-  const dni = metadata.dni || ("dni" in phase ? phase.dni : null) || "No disponible";
+  const name =
+    metadata.name || ("name" in phase ? phase.name : null) || "No disponible";
+  const dni =
+    metadata.dni || ("dni" in phase ? phase.dni : null) || "No disponible";
   const telefono = phoneNumber;
-  
+
   // Extract product information
   let producto = "No disponible";
-  if ("selectedProduct" in phase && phase.selectedProduct && phase.selectedProduct.name) {
+  if (
+    "selectedProduct" in phase &&
+    phase.selectedProduct &&
+    phase.selectedProduct.name
+  ) {
     const price = phase.selectedProduct.price || 0;
     producto = `${phase.selectedProduct.name} (S/ ${price.toFixed(2)})`;
-  } else if ("interestedProduct" in phase && phase.interestedProduct && phase.interestedProduct.name) {
+  } else if (
+    "interestedProduct" in phase &&
+    phase.interestedProduct &&
+    phase.interestedProduct.name
+  ) {
     const price = phase.interestedProduct.price || 0;
     producto = `${phase.interestedProduct.name} (S/ ${price.toFixed(2)})`;
   }
 
   // Build the formatted message
   const header = `Nombre: ${name}\nDNI: ${dni}\nTelefono: ${telefono}\nProducto: ${producto}`;
-  
+
   // Add URL for purchase confirmations
   let urlSection = "";
-  if (originalMessage.includes("confirmó compra") || originalMessage.includes("VENTA")) {
+  if (
+    originalMessage.includes("confirmó compra") ||
+    originalMessage.includes("VENTA")
+  ) {
     const frontendUrl = getFrontendUrl();
     urlSection = `\n\nVer conversación: ${frontendUrl}/dashboard/conversations/${phoneNumber}`;
   }
-  
+
   return `${header}${urlSection}\n\n${originalMessage}`;
 }
 export async function executeCommands(
