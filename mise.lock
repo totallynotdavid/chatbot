@@ -1,0 +1,11 @@
+[[tools.biome]]
+version = "2.3.11"
+backend = "npm:@biomejs/biome"
+
+[[tools.bun]]
+version = "1.3.6"
+backend = "core:bun"
+
+[[tools.cloudflared]]
+version = "2026.1.1"
+backend = "aqua:cloudflare/cloudflared"
