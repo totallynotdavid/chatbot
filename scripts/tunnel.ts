@@ -11,9 +11,13 @@ const CLOUDFLARED = isWindows ? "cloudflared.exe" : "cloudflared";
 
 function isCloudflaredRunning(): boolean {
   if (isWindows) {
-    const result = spawnSync("tasklist", ["/FI", `IMAGENAME eq ${CLOUDFLARED}`, "/NH"], {
-      encoding: "utf8",
-    });
+    const result = spawnSync(
+      "tasklist",
+      ["/FI", `IMAGENAME eq ${CLOUDFLARED}`, "/NH"],
+      {
+        encoding: "utf8",
+      },
+    );
     return result.status === 0 && result.stdout.includes(CLOUDFLARED);
   }
 
@@ -25,7 +29,7 @@ function validateCloudflared(): void {
   const result = spawnSync(CLOUDFLARED, ["--version"], { encoding: "utf8" });
   if (result.error || result.status !== 0) {
     throw new Error(
-      "cloudflared not found in PATH. Install: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
+      "cloudflared not found in PATH. Install: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/",
     );
   }
 }
@@ -53,7 +57,9 @@ function startTunnel(): void {
 
   const timeout = setTimeout(() => {
     if (!urlCaptured) {
-      console.error(`Failed to capture tunnel URL within ${URL_CAPTURE_TIMEOUT}ms`);
+      console.error(
+        `Failed to capture tunnel URL within ${URL_CAPTURE_TIMEOUT}ms`,
+      );
       tunnel.kill();
       process.exit(1);
     }
@@ -136,7 +142,9 @@ function showHelp(): void {
   console.log("  stop     Stop the cloudflared tunnel");
   console.log("");
   console.log("Environment:");
-  console.log("  TUNNEL_TARGET_URL    Target URL (default: http://localhost:5173)");
+  console.log(
+    "  TUNNEL_TARGET_URL    Target URL (default: http://localhost:5173)",
+  );
 }
 
 function main(): void {
