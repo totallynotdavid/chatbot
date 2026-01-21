@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
 
   server: {
-    allowedHosts: [".trycloudflare.com"],
+    allowedHosts: [".trycloudflare.com", ".ngrok-free.app"],
   },
 });
