@@ -16,23 +16,18 @@ import { getFrontendUrl } from "@totem/utils";
 
 const logger = createLogger("commands");
 
-/**
- * Format a team notification message with consistent structure including available customer information.
- */
 function formatTeamNotification(
   originalMessage: string,
   phoneNumber: string,
   phase: ConversationPhase,
   metadata: ConversationMetadata,
 ): string {
-  // Extract available information
   const name =
     metadata.name || ("name" in phase ? phase.name : null) || "No disponible";
   const dni =
     metadata.dni || ("dni" in phase ? phase.dni : null) || "No disponible";
   const telefono = phoneNumber;
 
-  // Extract product information
   let producto = "No disponible";
   if (
     "selectedProduct" in phase &&
@@ -51,7 +46,7 @@ function formatTeamNotification(
   }
 
   // Build the formatted message
-  const header = `Nombre: ${name}\nDNI: ${dni}\nTelefono: ${telefono}\nProducto: ${producto}`;
+  const header = `Nombre: ${name}\nDNI: ${dni}\nTeléfono: ${telefono}\nProducto: ${producto}`;
 
   // Add URL for purchase confirmations
   let urlSection = "";
@@ -79,7 +74,7 @@ export async function executeCommands(
     );
     await notifyTeam(
       "dev",
-      `CRÍTICO: Error en ejecución de comandos\n\nNombre: ${metadata.name || "No disponible"}\nDNI: ${metadata.dni || "No disponible"}\nTelefono: ${phoneNumber}\nProducto: No disponible`,
+      `Error en ejecución de comandos\n\nNombre: ${metadata.name || "No disponible"}\nDNI: ${metadata.dni || "No disponible"}\nTeléfono: ${phoneNumber}\nProducto: No disponible`,
     );
     return;
   }
