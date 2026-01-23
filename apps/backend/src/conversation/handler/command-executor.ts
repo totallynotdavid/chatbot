@@ -60,6 +60,7 @@ function formatTeamNotification(
 
   return `${header}${urlSection}\n\n${originalMessage}`;
 }
+
 export async function executeCommands(
   result: TransitionResult,
   phoneNumber: string,
