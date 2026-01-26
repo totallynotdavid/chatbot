@@ -9,14 +9,13 @@ import { notifyTeam } from "../../adapters/notifier/client.ts";
 import { sendBundleImages } from "../images.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
+import { formatConversationDetails } from "../../domains/conversations/notifications.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { getFrontendUrl } from "@totem/utils";
 
 const logger = createLogger("commands");
-
-import { formatConversationDetails } from "../../domains/conversations/notifications.ts";
 
 function formatTeamNotification(
   originalMessage: string,
