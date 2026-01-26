@@ -1,8 +1,6 @@
 import { db } from "../../db/index.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { getFrontendUrl } from "@totem/utils";
-import { notifyTeam } from "../../adapters/notifier/client.ts";
-import { formatConversationDetails } from "./notifications.ts";
+import { NotificationService } from "../notifications/service.ts";
 
 const logger = createLogger("assignment");
 
@@ -63,36 +61,17 @@ export async function assignNextAgent(
   ).run(assignedAgent.id, Date.now(), phoneNumber);
 
   if (assignedAgent.phone_number) {
-    await sendAssignmentNotification(
+    await NotificationService.notifyAgentAssignment(
       assignedAgent.phone_number,
-      clientName,
-      phoneNumber,
+      {
+        phoneNumber,
+        clientName,
+        urlSuffix: `/conversations/${phoneNumber}`,
+      },
     );
   }
 
   return assignedAgent.id;
-}
-
-async function sendAssignmentNotification(
-  agentPhone: string,
-  clientName: string | null,
-  clientPhone: string,
-): Promise<void> {
-  const frontendUrl = getFrontendUrl();
-  const header = formatConversationDetails(
-    { name: clientName || undefined },
-    null,
-    clientPhone,
-  );
-
-  const message =
-    `🚨 NUEVA ASIGNACIÓN\n\n` +
-    `${header}\n\n` +
-    `Cliente listo para venta. Ver detalles:\n` +
-    `${frontendUrl}/dashboard/conversations/${clientPhone}\n\n` +
-    `Aceptar en 5 minutos.`;
-
-  await notifyTeam("direct", message, { phoneNumber: agentPhone });
 }
 
 export function checkAndReassignTimeouts(): void {

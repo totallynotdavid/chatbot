@@ -5,38 +5,15 @@ import type {
   Command,
 } from "@totem/core";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
-import { notifyTeam } from "../../adapters/notifier/client.ts";
+import { NotificationService } from "../../domains/notifications/service.ts";
 import { sendBundleImages } from "../images.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
-import { formatConversationDetails } from "../../domains/conversations/notifications.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { getFrontendUrl } from "@totem/utils";
 
 const logger = createLogger("commands");
-
-function formatTeamNotification(
-  originalMessage: string,
-  phoneNumber: string,
-  phase: ConversationPhase,
-  metadata: ConversationMetadata,
-): string {
-  const header = formatConversationDetails(metadata, phase, phoneNumber);
-
-  // Add URL for purchase confirmations
-  let urlSection = "";
-  if (
-    originalMessage.includes("confirmó compra") ||
-    originalMessage.includes("VENTA")
-  ) {
-    const frontendUrl = getFrontendUrl();
-    urlSection = `\n\nVer conversación: ${frontendUrl}/dashboard/conversations/${phoneNumber}`;
-  }
-
-  return `${header}${urlSection}\n\n${originalMessage}`;
-}
 
 export async function executeCommands(
   result: TransitionResult,
@@ -50,9 +27,14 @@ export async function executeCommands(
       { phoneNumber, resultType: result.type },
       "Unexpected need_enrichment in executeCommands",
     );
-    await notifyTeam(
+    await NotificationService.notifyGeneric(
       "dev",
-      `Error en ejecución de comandos\n\nNombre: ${metadata.name || "No disponible"}\nDNI: ${metadata.dni || "No disponible"}\nTeléfono: ${phoneNumber}\nProducto: No disponible`,
+      {
+        phoneNumber,
+        clientName: metadata.name,
+        dni: metadata.dni,
+      },
+      "Error en ejecución de comandos",
     );
     return;
   }
@@ -123,13 +105,16 @@ async function executeCommand(
       break;
 
     case "NOTIFY_TEAM":
-      const enrichedMessage = formatTeamNotification(
+      await NotificationService.notifyGeneric(
+        command.channel,
+        {
+          phoneNumber,
+          clientName: metadata.name,
+          dni: metadata.dni,
+          urlSuffix: `/conversations/${phoneNumber}`,
+        },
         command.message,
-        phoneNumber,
-        phase,
-        metadata,
       );
-      await notifyTeam(command.channel, enrichedMessage);
       break;
 
     case "ESCALATE":

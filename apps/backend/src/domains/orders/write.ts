@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import type { Order } from "@totem/types";
-import { notifyTeam } from "../../adapters/notifier/client.ts";
+import { NotificationService } from "../notifications/service.ts";
 import { generateOrderNumber } from "./utils.ts";
 import { getOrderById } from "./read.ts";
 import type { CreateOrderInput } from "./types.ts";
@@ -41,14 +41,15 @@ export function createOrder(input: CreateOrderInput): Order {
     throw new Error(`Failed to create order ${id}`);
   }
 
-  notifyTeam(
-    "sales",
-    `🔔 Nueva orden para aprobación:\n` +
-      `- Orden: ${orderNumber}\n` +
-      `- Cliente: ${input.clientName}\n` +
-      `- Monto: S/ ${input.totalAmount.toFixed(2)}\n` +
-      `- Teléfono: ${input.conversationPhone}\n\n` +
-      `Revisar en: [Dashboard]/orders/${id}`,
+  NotificationService.notifyNewOrder(
+    {
+      phoneNumber: input.conversationPhone,
+      clientName: input.clientName,
+      dni: input.clientDni,
+      urlSuffix: `/orders/${id}`,
+    },
+    orderNumber,
+    input.totalAmount,
   ).catch((err) =>
     logger.error({ err, orderId: id, orderNumber }, "Failed to notify team"),
   );

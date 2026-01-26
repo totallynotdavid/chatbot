@@ -1,7 +1,6 @@
 import { db } from "../../db/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
-import { notifyTeam } from "../../adapters/notifier/client.ts";
-import { getFrontendUrl } from "@totem/utils";
+import { NotificationService } from "../notifications/service.ts";
 import { resolve, join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 
@@ -56,15 +55,14 @@ export async function uploadContract(
     audioFile: audioFile.name,
   });
 
-  const frontendUrl = getFrontendUrl();
-  const message =
-    `📄 Contrato subido\n\n` +
-    `Cliente: ${clientName || phoneNumber}\n` +
-    `Agente: ${userDisplayName}\n` +
-    `Teléfono: ${phoneNumber}\n\n` +
-    `Revisar en: ${frontendUrl}/dashboard/conversations/${phoneNumber}`;
-
-  await notifyTeam("sales", message);
+  await NotificationService.notifyContractUploaded(
+    {
+      clientName,
+      phoneNumber,
+      urlSuffix: `/conversations/${phoneNumber}`,
+    },
+    userDisplayName,
+  );
 
   return { success: true };
 }

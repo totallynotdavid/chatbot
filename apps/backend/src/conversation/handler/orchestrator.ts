@@ -9,7 +9,7 @@ import { executeCommands } from "./command-executor.ts";
 import { calculateResponseDelay } from "./response-timing.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { notifyTeam } from "../../adapters/notifier/client.ts";
+import { NotificationService } from "../../domains/notifications/service.ts";
 import type { QuotedMessageContext } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { getProvider } from "@totem/intelligence";
@@ -76,9 +76,11 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         "Message processing failed",
       );
 
-      await notifyTeam(
-        "dev",
-        `Error procesando mensaje\n\nNombre: No disponible\nDNI: No disponible\nTeléfono: ${phoneNumber}\nProducto: No disponible`,
+      await NotificationService.notifyError(
+        {
+          phoneNumber,
+        },
+        "Error processing message",
       ).catch(() => {});
     }
   });
