@@ -1,5 +1,4 @@
-import type { SystemOutageDetectedEvent } from "../../eligibility/events/index.ts";
-import type { ProviderDegradedEvent } from "../../eligibility/events/index.ts";
+import type { DomainEvent } from "@totem/types";
 import { NotificationService } from "../service.ts";
 import { createLogger } from "../../../lib/logger.ts";
 
@@ -9,7 +8,9 @@ const logger = createLogger("dev-alerts");
  * Subscribes to eligibility events and sends dev notifications
  */
 export class DevAlertSubscriber {
-  async onSystemOutage(event: SystemOutageDetectedEvent): Promise<void> {
+  async onSystemOutage(
+    event: DomainEvent & { type: "system_outage_detected" },
+  ): Promise<void> {
     await NotificationService.notifySystemOutage(
       "dev",
       {
@@ -24,7 +25,9 @@ export class DevAlertSubscriber {
   /**
    * Handle degraded service (WARNING)
    */
-  async onProviderDegraded(event: ProviderDegradedEvent): Promise<void> {
+  async onProviderDegraded(
+    event: DomainEvent & { type: "provider_degraded" },
+  ): Promise<void> {
     const { failedProvider, workingProvider, dni, errors } = event.payload;
 
     await NotificationService.notifyDegradation(

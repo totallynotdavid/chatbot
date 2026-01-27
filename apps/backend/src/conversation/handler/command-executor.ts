@@ -5,7 +5,7 @@ import type {
   Command,
 } from "@totem/core";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
-import { NotificationService } from "../../domains/notifications/service.ts";
+import { eventBus, createEvent } from "../../shared/events/index.ts";
 import { sendBundleImages } from "../images.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
@@ -27,14 +27,15 @@ export async function executeCommands(
       { phoneNumber, resultType: result.type },
       "Unexpected need_enrichment in executeCommands",
     );
-    await NotificationService.notifyGeneric(
-      "dev",
-      {
+    eventBus.emit(
+      createEvent("system_error_occurred", {
         phoneNumber,
-        clientName: metadata.name,
-        dni: metadata.dni,
-      },
-      "Error en ejecución de comandos",
+        error: "Error en ejecución de comandos (enrichment loop bypass)",
+        context: {
+          clientName: metadata.name || "Unknown",
+          dni: metadata.dni || "Unknown",
+        },
+      }),
     );
     return;
   }
@@ -104,48 +105,28 @@ async function executeCommand(
       });
       break;
 
-    case "NOTIFY_TEAM":
-      await NotificationService.notifyGeneric(
-        command.channel,
-        {
-          phoneNumber,
-          clientName: metadata.name,
-          dni: metadata.dni,
-          urlSuffix: `/conversations/${phoneNumber}`,
-        },
-        command.message,
-      );
-      break;
-
     case "SIGNAL_ATTENTION":
       if (command.reason === "system_outage") {
-        await NotificationService.notifySystemOutage(
-          "dev",
-          { phoneNumber, dni: metadata.dni },
-          ["System reported outage via core signal"],
-        );
-        // Also notify agent if needed
-        await NotificationService.notifySystemOutage(
-          "agent",
-          { phoneNumber, dni: metadata.dni },
-          ["Sistema de verificación no disponible"],
+        eventBus.emit(
+          createEvent("system_outage_detected", {
+            dni: metadata.dni || "Unknown",
+            errors: ["System reported outage via core signal"],
+            timestamp: Date.now(),
+          }),
         );
       } else if (command.reason === "needs_human_intervention") {
-        await NotificationService.notifyGeneric(
-          "agent",
-          {
+        eventBus.emit(
+          createEvent("attention_required", {
             phoneNumber,
-            clientName: metadata.name,
-            dni: metadata.dni,
-            urlSuffix: `/conversations/${phoneNumber}`,
-          },
-          "Verificación de elegibilidad requiere revisión manual",
+            reason: "Verificación de elegibilidad requiere revisión manual",
+            clientName: metadata.name || "Unknown",
+            dni: metadata.dni || "Unknown",
+          }),
         );
       }
       break;
 
     case "ESCALATE":
-      // Phase update already handled in executeCommands
       logger.warn(
         { phoneNumber, reason: command.reason },
         "Conversation escalated",

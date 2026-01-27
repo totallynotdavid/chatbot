@@ -9,10 +9,11 @@ import { executeCommands } from "./command-executor.ts";
 import { calculateResponseDelay } from "./response-timing.ts";
 import { sleep } from "./sleep.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { NotificationService } from "../../domains/notifications/service.ts";
+
 import type { QuotedMessageContext } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { getProvider } from "@totem/intelligence";
+import { eventBus, createEvent } from "../../shared/events/index.ts";
 
 const logger = createLogger("conversation");
 
@@ -59,6 +60,12 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         quotedContext,
       );
 
+      if (result.events && result.events.length > 0) {
+        for (const event of result.events) {
+          await eventBus.emit(event);
+        }
+      }
+
       const delay = calculateResponseDelay(timestamp, Date.now());
       if (delay > 0) {
         await sleep(delay);
@@ -76,12 +83,16 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         "Message processing failed",
       );
 
-      await NotificationService.notifyError(
-        {
+      eventBus.emit(
+        createEvent("system_error_occurred", {
           phoneNumber,
-        },
-        "Error processing message",
-      ).catch(() => {});
+          error: "Error processing message",
+          context: {
+            error: error instanceof Error ? error.message : String(error),
+            phase: conversation.phase.phase,
+          },
+        }),
+      );
     }
   });
 }

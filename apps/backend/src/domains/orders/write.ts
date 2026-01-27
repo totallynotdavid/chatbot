@@ -1,12 +1,10 @@
 import { db } from "../../db/index.ts";
 import type { Order } from "@totem/types";
-import { NotificationService } from "../notifications/service.ts";
+import { eventBus } from "../../shared/events/index.ts";
+import { createTraceId } from "@totem/utils";
 import { generateOrderNumber } from "./utils.ts";
 import { getOrderById } from "./read.ts";
 import type { CreateOrderInput } from "./types.ts";
-import { createLogger } from "../../lib/logger.ts";
-
-const logger = createLogger("orders");
 
 export function createOrder(input: CreateOrderInput): Order {
   const id = crypto.randomUUID();
@@ -41,18 +39,18 @@ export function createOrder(input: CreateOrderInput): Order {
     throw new Error(`Failed to create order ${id}`);
   }
 
-  NotificationService.notifyNewOrder(
-    {
-      phoneNumber: input.conversationPhone,
+  eventBus.emit({
+    type: "order_created",
+    traceId: createTraceId(),
+    timestamp: Date.now(),
+    payload: {
+      orderId: id,
+      orderNumber,
+      amount: input.totalAmount,
       clientName: input.clientName,
-      dni: input.clientDni,
-      urlSuffix: `/orders/${id}`,
+      phoneNumber: input.conversationPhone,
     },
-    orderNumber,
-    input.totalAmount,
-  ).catch((err) =>
-    logger.error({ err, orderId: id, orderNumber }, "Failed to notify team"),
-  );
+  });
 
   return order;
 }

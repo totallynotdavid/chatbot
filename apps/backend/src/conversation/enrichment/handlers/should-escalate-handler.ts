@@ -3,7 +3,6 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Detects if a message requires human escalation.
@@ -25,9 +24,8 @@ export class ShouldEscalateHandler
     request: Extract<EnrichmentRequest, { type: "should_escalate" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "escalation_needed" }>> {
-    const shouldEscalate = await LLM.shouldEscalate(
+    const shouldEscalate = await context.provider.shouldEscalate(
       request.message,
-      context.phoneNumber,
     );
 
     return {

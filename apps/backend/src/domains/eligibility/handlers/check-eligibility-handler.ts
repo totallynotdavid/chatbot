@@ -4,8 +4,7 @@ import { asyncEmitter } from "../../../bootstrap/event-bus-setup.ts";
 import { FNBProvider } from "../providers/fnb-provider.ts";
 import { PowerBIProvider } from "../providers/powerbi-provider.ts";
 import { evaluateResults } from "../strategy/eligibility-strategy.ts";
-import { SystemOutageDetected } from "../events/system-outage-detected.ts";
-import { ProviderDegraded } from "../events/provider-degraded.ts";
+import { createEvent } from "../../../shared/events/index.ts";
 import type { EnrichmentResult } from "@totem/core";
 import { mapEligibilityToEnrichment } from "../mapper.ts";
 import { createLogger } from "../../../lib/logger.ts";
@@ -38,7 +37,7 @@ export class CheckEligibilityHandler {
     if (isErr(evaluation)) {
       // If system outage, emit event
       await asyncEmitter.emitCritical(
-        SystemOutageDetected({
+        createEvent("system_outage_detected", {
           dni,
           errors: [
             evaluation.error.fnbError.message,
@@ -70,7 +69,7 @@ export class CheckEligibilityHandler {
     if (evaluation.value.warnings?.length) {
       const warning = evaluation.value.warnings[0]!;
       asyncEmitter.emitAsync(
-        ProviderDegraded({
+        createEvent("provider_degraded", {
           failedProvider: warning.failedProvider,
           workingProvider: warning.workingProvider,
           dni,

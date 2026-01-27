@@ -184,3 +184,5 @@ export type {
   QuotedMessageContext,
   IncomingMessage,
 } from "./whatsapp.ts";
+
+export * from "./events.ts";

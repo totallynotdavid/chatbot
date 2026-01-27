@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { NotificationService } from "../notifications/service.ts";
+import { eventBus, createEvent } from "../../shared/events/index.ts";
 
 const logger = createLogger("assignment");
 
@@ -61,13 +61,13 @@ export async function assignNextAgent(
   ).run(assignedAgent.id, Date.now(), phoneNumber);
 
   if (assignedAgent.phone_number) {
-    await NotificationService.notifyAgentAssignment(
-      assignedAgent.phone_number,
-      {
+    eventBus.emit(
+      createEvent("agent_assigned", {
         phoneNumber,
         clientName,
-        urlSuffix: `/conversations/${phoneNumber}`,
-      },
+        agentId: assignedAgent.id,
+        agentPhone: assignedAgent.phone_number,
+      }),
     );
   }
 

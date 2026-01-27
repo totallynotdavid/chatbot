@@ -4,6 +4,7 @@ import type {
   EnrichmentResult,
   ConversationMetadata,
 } from "../types.ts";
+import { createTraceId } from "@totem/utils";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import { isAffirmative } from "../../validation/affirmation.ts";
 import { matchCategory } from "../../matching/category-matcher.ts";
@@ -55,10 +56,21 @@ export function transitionConfirmingSelection(
           },
         },
         ...confirmMsgs.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
+      ],
+      events: [
         {
-          type: "NOTIFY_TEAM",
-          channel: "agent",
-          message: `VENTA CONFIRMADA`,
+          type: "purchase_confirmed",
+          traceId: createTraceId(),
+          timestamp: Date.now(),
+          payload: {
+            amount: phase.selectedProduct.price,
+            clientName: phase.name,
+            phoneNumber:
+              _metadata?.phoneNumber?.replace(/\D/g, "") || "unknown",
+            dni: _metadata?.dni || "unknown",
+            productId: phase.selectedProduct.productId,
+            productName: phase.selectedProduct.name,
+          },
         },
       ],
     };

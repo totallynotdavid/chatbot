@@ -3,7 +3,6 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Generates a personalized apology for delayed responses based on delay duration
@@ -24,10 +23,9 @@ export class GenerateBacklogApologyHandler
     request: Extract<EnrichmentRequest, { type: "generate_backlog_apology" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "backlog_apology" }>> {
-    const apology = await LLM.handleBacklogResponse(
+    const apology = await context.provider.handleBacklogResponse(
       request.message,
       request.ageMinutes,
-      context.phoneNumber,
     );
 
     return {

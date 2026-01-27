@@ -1,4 +1,4 @@
-import type { SystemOutageDetectedEvent } from "../../eligibility/events/index.ts";
+import type { DomainEvent } from "@totem/types";
 import { NotificationService } from "../service.ts";
 import { createLogger } from "../../../lib/logger.ts";
 
@@ -8,7 +8,9 @@ const logger = createLogger("agent-alerts");
  * Subscribes to eligibility events and sends agent notifications
  */
 export class AgentAlertSubscriber {
-  async onSystemOutage(event: SystemOutageDetectedEvent): Promise<void> {
+  async onSystemOutage(
+    event: DomainEvent & { type: "system_outage_detected" },
+  ): Promise<void> {
     await NotificationService.notifySystemOutage(
       "agent",
       {

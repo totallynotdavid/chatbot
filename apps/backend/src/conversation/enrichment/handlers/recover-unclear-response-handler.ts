@@ -3,7 +3,6 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Recovers from unclear or ambiguous customer responses.
@@ -26,10 +25,9 @@ export class RecoverUnclearResponseHandler
     request: Extract<EnrichmentRequest, { type: "recover_unclear_response" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "recovery_response" }>> {
-    const recoveryText = await LLM.recoverUnclearResponse(
+    const recoveryText = await context.provider.recoverUnclearResponse(
       request.message,
       request.context,
-      context.phoneNumber,
     );
 
     return {

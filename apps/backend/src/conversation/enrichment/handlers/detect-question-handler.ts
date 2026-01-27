@@ -3,7 +3,6 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Detects whether a user message is a question using an LLM.
@@ -25,10 +24,7 @@ export class DetectQuestionHandler
     request: Extract<EnrichmentRequest, { type: "detect_question" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "question_detected" }>> {
-    const isQuestion = await LLM.isQuestion(
-      request.message,
-      context.phoneNumber,
-    );
+    const isQuestion = await context.provider.isQuestion(request.message);
 
     return {
       type: "question_detected",

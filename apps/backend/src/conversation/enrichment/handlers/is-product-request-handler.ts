@@ -3,7 +3,6 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import { LLM } from "../../../intelligence/service.ts";
 
 /**
  * Detects if message is requesting products/categories.
@@ -23,9 +22,8 @@ export class IsProductRequestHandler
     request: Extract<EnrichmentRequest, { type: "is_product_request" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "product_request_detected" }>> {
-    const isProductRequest = await LLM.isProductRequest(
+    const isProductRequest = await context.provider.isProductRequest(
       request.message,
-      context.phoneNumber,
     );
 
     return {

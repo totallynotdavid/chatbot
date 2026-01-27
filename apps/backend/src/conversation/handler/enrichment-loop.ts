@@ -6,6 +6,7 @@ import type {
 } from "@totem/core";
 import type { IntelligenceProvider } from "@totem/intelligence";
 import { transition } from "@totem/core";
+import { createTraceId } from "@totem/utils";
 import { enrichmentRegistry } from "../enrichment/index.ts";
 import { applyEnrichmentToMetadata } from "../enrichment/metadata-manager.ts";
 import { updateConversation } from "../store.ts";
@@ -98,13 +99,17 @@ export async function runEnrichmentLoop(
       phase: "escalated",
       reason: "enrichment_loop_exceeded",
     },
-    commands: [
+    events: [
       {
-        type: "NOTIFY_TEAM",
-        channel: "dev",
-        message: `Límite de bucles de enriquecimiento excedido en conversación con ${phoneNumber}`,
+        type: "enrichment_limit_exceeded",
+        traceId: createTraceId(),
+        timestamp: Date.now(),
+        payload: {
+          phoneNumber,
+          lastPhase: currentPhase.phase,
+        },
       },
-      { type: "ESCALATE", reason: "enrichment_loop_exceeded" },
     ],
+    commands: [{ type: "ESCALATE", reason: "enrichment_loop_exceeded" }],
   };
 }

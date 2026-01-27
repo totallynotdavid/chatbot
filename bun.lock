@@ -81,6 +81,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@totem/types": "workspace:*",
+        "@totem/utils": "workspace:*",
       },
     },
     "packages/intelligence": {

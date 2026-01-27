@@ -4,3 +4,4 @@ export {
   getPublicUrl,
   getNotifierUrl,
 } from "./url.ts";
+export { createTraceId } from "./trace-id.ts";

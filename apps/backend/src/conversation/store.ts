@@ -35,6 +35,7 @@ export function getOrCreateConversation(
     const initialMetadata: ConversationMetadata = {
       createdAt: now,
       lastActivityAt: now,
+      phoneNumber,
     };
 
     db.prepare(
@@ -172,7 +173,10 @@ function parseConversation(conv: Conversation): ConversationData {
   return {
     phoneNumber: conv.phone_number,
     phase: contextData.phase as ConversationPhase,
-    metadata: contextData.metadata as ConversationMetadata,
+    metadata: {
+      ...contextData.metadata,
+      phoneNumber: conv.phone_number,
+    } as ConversationMetadata,
     isSimulation: conv.is_simulation === 1,
   };
 }

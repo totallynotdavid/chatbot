@@ -1,0 +1,70 @@
+import { db } from "../../db/index.ts";
+import { createLogger } from "../../lib/logger.ts";
+import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
+import type { NotificationDecision } from "./evaluator.ts";
+import type { DomainEvent } from "@totem/types";
+
+const logger = createLogger("notification-dispatcher");
+
+export async function dispatchNotifications(
+  decisions: NotificationDecision[],
+  event: DomainEvent,
+): Promise<void> {
+  const now = Date.now();
+
+  for (const decision of decisions) {
+    const traceId = event.traceId;
+    const ruleId = decision.ruleId;
+
+    // 1. Log decision to DB
+    try {
+      db.prepare(
+        `INSERT INTO notification_traces 
+         (id, trace_id, event_type, rule_id, status, reason, content_snapshot, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        crypto.randomUUID(),
+        traceId,
+        event.type,
+        ruleId,
+        decision.status,
+        decision.status === "skipped" || decision.status === "failed"
+          ? decision.reason
+          : null,
+        decision.status === "sent" ? decision.content : null,
+        now,
+      );
+    } catch (error) {
+      logger.error({ error, traceId }, "Failed to log notification trace");
+    }
+
+    // 2. Execute side effect (if sent)
+    if (decision.status === "sent") {
+      try {
+        if (decision.channel === "whatsapp") {
+          await WhatsAppService.sendMessage(decision.target, decision.content);
+        } else {
+          logger.warn(
+            { channel: decision.channel },
+            "Channel not implemented yet",
+          );
+        }
+      } catch (error: any) {
+        logger.error(
+          { error, traceId, ruleId },
+          "Failed to dispatch notification",
+        );
+
+        try {
+          db.prepare(
+            `UPDATE notification_traces 
+                 SET status = 'failed', reason = ? 
+                 WHERE trace_id = ? AND rule_id = ?`,
+          ).run(error.message, traceId, ruleId);
+        } catch (updateError) {
+          // Ignore
+        }
+      }
+    }
+  }
+}
