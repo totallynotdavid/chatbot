@@ -121,4 +121,32 @@ export const notificationRules: NotificationRule[] = [
       );
     },
   },
+  {
+    id: "system_outage_alert",
+    triggerEvent: "system_outage_detected",
+    channel: "whatsapp",
+    target: "dev",
+    condition: (event) => event.type === "system_outage_detected",
+    template: (event) => {
+      if (event.type !== "system_outage_detected") return "";
+      return templates.generic(
+        { phoneNumber: "N/A" },
+        `🚨 System outage: DNI ${event.payload.dni}\nErrors: ${event.payload.errors.join(", ")}`,
+      );
+    },
+  },
+  {
+    id: "provider_degraded_alert",
+    triggerEvent: "provider_degraded",
+    channel: "whatsapp",
+    target: "dev",
+    condition: (event) => event.type === "provider_degraded",
+    template: (event) => {
+      if (event.type !== "provider_degraded") return "";
+      return templates.generic(
+        { phoneNumber: "N/A" },
+        `Provider Degraded: ${event.payload.failedProvider} failed.\nUsing ${event.payload.workingProvider}\nDNI: ${event.payload.dni}`,
+      );
+    },
+  },
 ];

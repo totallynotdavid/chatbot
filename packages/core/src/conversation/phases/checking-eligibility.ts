@@ -4,6 +4,7 @@ import type {
   EnrichmentResult,
   ConversationMetadata,
 } from "../types.ts";
+import { createTraceId } from "@totem/utils";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import { checkFNBEligibility } from "../../eligibility/fnb-logic.ts";
 import * as T from "../../templates/standard.ts";
@@ -39,16 +40,7 @@ export function transitionCheckingEligibility(
           dni: phase.dni,
           timestamp: Date.now(),
         },
-        commands: [
-          {
-            type: "SIGNAL_ATTENTION",
-            reason: "system_outage",
-            metadata: {
-              context: "eligibility_check",
-              error: "all_providers_down",
-            },
-          },
-        ],
+        commands: [],
       };
     }
 
@@ -73,15 +65,21 @@ export function transitionCheckingEligibility(
         commands: [
           ...message.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
           {
-            type: "SIGNAL_ATTENTION",
-            reason: "needs_human_intervention",
-            metadata: {
-              reason: "eligibility_check_failed",
-            },
-          },
-          {
             type: "ESCALATE",
             reason: enrichment.handoffReason || "eligibility_check_failed",
+          },
+        ],
+        events: [
+          {
+            type: "attention_required",
+            traceId: createTraceId(),
+            timestamp: Date.now(),
+            payload: {
+              phoneNumber: metadata.phoneNumber || "Unknown",
+              reason: "eligibility_check_failed",
+              clientName: metadata.name || "Unknown",
+              dni: phase.dni,
+            },
           },
         ],
       };

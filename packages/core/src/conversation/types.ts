@@ -171,11 +171,6 @@ export type Command =
     }
   | { type: "SEND_BUNDLE"; bundleId: string }
   | { type: "TRACK_EVENT"; event: string; metadata?: Record<string, unknown> }
-  | {
-      type: "SIGNAL_ATTENTION";
-      reason: "system_outage" | "needs_human_intervention";
-      metadata?: Record<string, unknown>;
-    }
   | { type: "ESCALATE"; reason: string };
 
 export type TransitionResult =

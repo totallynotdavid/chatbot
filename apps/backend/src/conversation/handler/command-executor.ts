@@ -105,27 +105,6 @@ async function executeCommand(
       });
       break;
 
-    case "SIGNAL_ATTENTION":
-      if (command.reason === "system_outage") {
-        eventBus.emit(
-          createEvent("system_outage_detected", {
-            dni: metadata.dni || "Unknown",
-            errors: ["System reported outage via core signal"],
-            timestamp: Date.now(),
-          }),
-        );
-      } else if (command.reason === "needs_human_intervention") {
-        eventBus.emit(
-          createEvent("attention_required", {
-            phoneNumber,
-            reason: "Verificación de elegibilidad requiere revisión manual",
-            clientName: metadata.name || "Unknown",
-            dni: metadata.dni || "Unknown",
-          }),
-        );
-      }
-      break;
-
     case "ESCALATE":
       logger.warn(
         { phoneNumber, reason: command.reason },
