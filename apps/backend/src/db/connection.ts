@@ -12,3 +12,6 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH, { create: true });
 db.run("PRAGMA journal_mode = WAL;");
+db.run("PRAGMA synchronous = NORMAL;");
+db.run("PRAGMA cache_size = 10000;");
+db.run("PRAGMA temp_store = MEMORY;");
