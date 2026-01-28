@@ -34,7 +34,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
       "Processing message",
     );
 
-    let conversation = getOrCreateConversation(phoneNumber);
+    const conversation = getOrCreateConversation(phoneNumber);
 
     if (isSessionTimedOut(conversation.metadata)) {
       logger.info(
@@ -42,9 +42,9 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         "Session timeout reset",
       );
       resetSession(phoneNumber, conversation.metadata.lastCategory);
-      conversation = getOrCreateConversation(phoneNumber);
-      conversation.metadata.isReturningUser = true;
     }
+
+    const traceId = crypto.randomUUID();
 
     await WhatsAppService.markAsReadAndShowTyping(messageId);
 
@@ -62,8 +62,25 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
 
       if (result.events && result.events.length > 0) {
         for (const event of result.events) {
-          await eventBus.emit(event);
+          await eventBus.emit({ ...event, traceId });
         }
+      }
+
+      if (result.type === "update" && result.nextPhase.phase === "escalated") {
+        eventBus.emit(
+          createEvent(
+            "escalation_triggered",
+            {
+              phoneNumber,
+              reason: result.nextPhase.reason,
+              context: {
+                phase: conversation.phase.phase,
+                message: content,
+              },
+            },
+            { traceId },
+          ),
+        );
       }
 
       const delay = calculateResponseDelay(timestamp, Date.now());
@@ -76,22 +93,33 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         phoneNumber,
         conversation.metadata,
         conversation.isSimulation,
+        traceId,
       );
     } catch (error) {
       logger.error(
-        { error, phoneNumber, messageId, phase: conversation.phase.phase },
+        {
+          error,
+          phoneNumber,
+          messageId,
+          phase: conversation.phase.phase,
+          traceId,
+        },
         "Message processing failed",
       );
 
       eventBus.emit(
-        createEvent("system_error_occurred", {
-          phoneNumber,
-          error: "Error processing message",
-          context: {
-            error: error instanceof Error ? error.message : String(error),
-            phase: conversation.phase.phase,
+        createEvent(
+          "system_error_occurred",
+          {
+            phoneNumber,
+            error: "Error processing message",
+            context: {
+              error: error instanceof Error ? error.message : String(error),
+              phase: conversation.phase.phase,
+            },
           },
-        }),
+          { traceId },
+        ),
       );
     }
   });

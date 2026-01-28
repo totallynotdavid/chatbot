@@ -2,6 +2,7 @@ import { isOk } from "../../../shared/result/index.ts";
 import { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
 import { executeCommands } from "../../../conversation/handler/command-executor.ts";
 import { transitionCheckingEligibility } from "@totem/core";
+import { createTraceId } from "@totem/utils";
 import { createLogger } from "../../../lib/logger.ts";
 import type { ConversationPhase, ConversationMetadata } from "@totem/core";
 
@@ -76,7 +77,13 @@ export async function processConversation(
         ];
       }
 
-      await executeCommands(transition, row.phone_number, metadata, false);
+      await executeCommands(
+        transition,
+        row.phone_number,
+        metadata,
+        false,
+        createTraceId(),
+      );
       stats.recoveredCount++;
     } else {
       logger.warn(

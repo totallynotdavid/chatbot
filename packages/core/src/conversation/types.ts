@@ -170,8 +170,7 @@ export type Command =
       query?: string;
     }
   | { type: "SEND_BUNDLE"; bundleId: string }
-  | { type: "TRACK_EVENT"; event: string; metadata?: Record<string, unknown> }
-  | { type: "ESCALATE"; reason: string };
+  | { type: "TRACK_EVENT"; event: string; metadata?: Record<string, unknown> };
 
 export type TransitionResult =
   | {

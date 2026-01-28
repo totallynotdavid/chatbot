@@ -46,9 +46,7 @@ export function transitionHandlingObjection(
           phase: "escalated",
           reason: "customer_question_during_objection",
         },
-        commands: [
-          { type: "ESCALATE", reason: "customer_question_during_objection" },
-        ],
+        commands: [],
         events: [
           {
             type: "escalation_triggered",
@@ -74,7 +72,7 @@ export function transitionHandlingObjection(
         phase: "escalated",
         reason: "multiple_objections",
       },
-      commands: [{ type: "ESCALATE", reason: "multiple_objections" }],
+      commands: [],
       events: [
         {
           type: "escalation_triggered",

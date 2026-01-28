@@ -20,22 +20,27 @@ export async function executeCommands(
   phoneNumber: string,
   metadata: ConversationMetadata,
   isSimulation: boolean,
+  traceId: string,
 ): Promise<void> {
   if (result.type === "need_enrichment") {
     // Should not reach here, enrichment loop should handle it
     logger.error(
-      { phoneNumber, resultType: result.type },
+      { phoneNumber, resultType: result.type, traceId },
       "Unexpected need_enrichment in executeCommands",
     );
     eventBus.emit(
-      createEvent("system_error_occurred", {
-        phoneNumber,
-        error: "Error en ejecución de comandos (enrichment loop bypass)",
-        context: {
-          clientName: metadata.name || "Unknown",
-          dni: metadata.dni || "Unknown",
+      createEvent(
+        "system_error_occurred",
+        {
+          phoneNumber,
+          error: "Error en ejecución de comandos (enrichment loop bypass)",
+          context: {
+            clientName: metadata.name || "Unknown",
+            dni: metadata.dni || "Unknown",
+          },
         },
-      }),
+        { traceId },
+      ),
     );
     return;
   }
@@ -103,13 +108,6 @@ async function executeCommand(
         segment: metadata.segment,
         ...command.metadata,
       });
-      break;
-
-    case "ESCALATE":
-      logger.warn(
-        { phoneNumber, reason: command.reason },
-        "Conversation escalated",
-      );
       break;
   }
 }

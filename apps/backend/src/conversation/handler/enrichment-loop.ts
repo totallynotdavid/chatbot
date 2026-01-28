@@ -109,7 +109,20 @@ export async function runEnrichmentLoop(
           lastPhase: currentPhase.phase,
         },
       },
+      {
+        type: "escalation_triggered",
+        traceId: createTraceId(),
+        timestamp: Date.now(),
+        payload: {
+          phoneNumber,
+          reason: "enrichment_loop_exceeded",
+          context: {
+            iterations,
+            lastPhase: currentPhase.phase,
+          },
+        },
+      },
     ],
-    commands: [{ type: "ESCALATE", reason: "enrichment_loop_exceeded" }],
+    commands: [],
   };
 }

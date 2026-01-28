@@ -546,9 +546,7 @@ function handleEnrichmentResult(
           phase: "escalated",
           reason: "customer_question_requires_human",
         },
-        commands: [
-          { type: "ESCALATE", reason: "customer_question_requires_human" },
-        ],
+        commands: [],
         events: [
           {
             type: "escalation_triggered",

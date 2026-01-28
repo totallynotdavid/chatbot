@@ -64,10 +64,6 @@ export function transitionCheckingEligibility(
         },
         commands: [
           ...message.map((text) => ({ type: "SEND_MESSAGE" as const, text })),
-          {
-            type: "ESCALATE",
-            reason: enrichment.handoffReason || "eligibility_check_failed",
-          },
         ],
         events: [
           {

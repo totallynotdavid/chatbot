@@ -4,7 +4,7 @@ import { templates } from "./templates.ts";
 export type NotificationRule = {
   id: string;
   triggerEvent: DomainEvent["type"];
-  channel: "whatsapp" | "slack" | "email";
+  channel: "whatsapp";
   target: string | ((event: DomainEvent) => string | undefined);
   condition: (event: DomainEvent) => boolean;
   template: (event: DomainEvent) => string;
@@ -157,7 +157,7 @@ export const notificationRules: NotificationRule[] = [
     triggerEvent: "provider_degraded",
     channel: "whatsapp",
     target: "dev",
-    condition: (event) => event.type === "provider_degraded",
+    condition: () => true,
     template: (event) => {
       if (event.type !== "provider_degraded") return "";
       return templates.degradation(
