@@ -1,30 +1,34 @@
 <script lang="ts">
-import MessageBubble from "./message-bubble.svelte";
-import type { ConversationMessage } from "@totem/types";
+  import MessageBubble from "./message-bubble.svelte";
+  import type { ConversationMessage } from "@totem/types";
 
-type Props = {
-  messages: ConversationMessage[];
-};
+  type Props = {
+    messages: ConversationMessage[];
+    currentUserSide?: "inbound" | "outbound";
+  };
 
-let { messages }: Props = $props();
+  let { messages, currentUserSide = "outbound" }: Props = $props();
 </script>
 
 <div class="flex-1 overflow-y-auto p-8 space-y-4">
-	{#if messages.length === 0}
-		<div class="flex justify-center py-12">
-			<span class="text-xs text-ink-300 uppercase tracking-widest border-b border-ink-200 pb-1">
-				Inicio de conversación
-			</span>
-		</div>
-	{/if}
+  {#if messages.length === 0}
+    <div class="flex justify-center py-12">
+      <span
+        class="text-xs text-ink-300 uppercase tracking-widest border-b border-ink-200 pb-1"
+      >
+        Inicio de conversación
+      </span>
+    </div>
+  {/if}
 
-	{#each messages as msg (msg.id)}
-		<MessageBubble
-			direction={msg.direction}
-			type={msg.type}
-			content={msg.content}
-			status={msg.status}
-			createdAt={msg.created_at}
-		/>
-	{/each}
+  {#each messages as msg (msg.id)}
+    <MessageBubble
+      direction={msg.direction}
+      type={msg.type}
+      content={msg.content}
+      status={msg.status}
+      createdAt={msg.created_at}
+      {currentUserSide}
+    />
+  {/each}
 </div>
