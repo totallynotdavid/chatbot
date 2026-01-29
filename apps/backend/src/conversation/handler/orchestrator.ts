@@ -1,19 +1,19 @@
+import { getProvider } from "@totem/intelligence";
+import type { QuotedMessageContext } from "@totem/types";
+import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
+import { ProductService } from "../../domains/catalog/products.ts";
+import { createLogger } from "../../lib/logger.ts";
+import { createEvent, eventBus } from "../../shared/events/index.ts";
 import { withLock } from "../locks.ts";
 import {
   getOrCreateConversation,
   isSessionTimedOut,
   resetSession,
 } from "../store.ts";
-import { runEnrichmentLoop } from "./enrichment-loop.ts";
 import { executeCommands } from "./command-executor.ts";
+import { runEnrichmentLoop } from "./enrichment-loop.ts";
 import { calculateResponseDelay } from "./response-timing.ts";
 import { sleep } from "./sleep.ts";
-import { createLogger } from "../../lib/logger.ts";
-
-import type { QuotedMessageContext } from "@totem/types";
-import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
-import { getProvider } from "@totem/intelligence";
-import { eventBus, createEvent } from "../../shared/events/index.ts";
 
 const logger = createLogger("conversation");
 
@@ -51,6 +51,11 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
     try {
       const provider = getProvider();
 
+      const catalogContext = {
+        activeBrands: ProductService.getActiveBrands(),
+        activeCategories: ProductService.getCategories(),
+      };
+
       const result = await runEnrichmentLoop(
         conversation.phase,
         content,
@@ -58,6 +63,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         phoneNumber,
         provider,
         quotedContext,
+        catalogContext,
       );
 
       if (result.events && result.events.length > 0) {

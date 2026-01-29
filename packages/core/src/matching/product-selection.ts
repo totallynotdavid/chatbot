@@ -171,11 +171,11 @@ export function extractProductIntent(
   // 3. Validate if the remaining text looks like a product specifier
   // Common brands/models we expect (not exhaustive, just heuristic)
   const isLikelyProduct =
-    /(iphone|samsung|galaxy|xiaomi|redmi|motorola|moto|honor|huawei|zte|oppo|vivo|realme|infinix|tecno|nokia|lg|sony|pixel|pro|max|ultra|plus|lite|note)/.test(
+    /(iphone|samsung|galaxy|xiaomi|redmi|motorola|moto|honor|huawei|zte|oppo|vivo|realme|infinix|tecno|nokia|lg|sony|pixel|pro|max|ultra|plus|lite|note)\b/.test(
       cleanQuery,
     ) ||
     // Or it has alphanumeric structure like "a14", "s23", "15 pro"
-    /[a-z]+[0-9]+|[0-9]+[a-z]+/.test(cleanQuery);
+    /\b([a-z]+[0-9]+|[0-9]+[a-z]+)\b/.test(cleanQuery);
 
   if (hasIntent && isLikelyProduct) {
     return { type: "specific", query: cleanQuery };

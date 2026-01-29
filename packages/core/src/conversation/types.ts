@@ -1,4 +1,9 @@
-import type { Segment, Bundle, CategoryGroup } from "@totem/types";
+import type {
+  Segment,
+  Bundle,
+  CategoryGroup,
+  CatalogSnapshot,
+} from "@totem/types";
 import type { DomainEvent } from "@totem/types";
 
 export type ConversationPhase =
@@ -197,4 +202,5 @@ export type TransitionInput = {
     type: string;
     timestamp: number;
   };
+  context?: CatalogSnapshot;
 };

@@ -1,17 +1,17 @@
 import type {
-  ConversationPhase,
-  ConversationMetadata,
-  TransitionResult,
   Command,
+  ConversationMetadata,
+  ConversationPhase,
+  TransitionResult,
 } from "@totem/core";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
-import { eventBus, createEvent } from "../../shared/events/index.ts";
-import { sendBundleImages } from "../images.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
+import { createLogger } from "../../lib/logger.ts";
+import { createEvent, eventBus } from "../../shared/events/index.ts";
+import { sendBundleImages } from "../images.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
-import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("commands");
 
@@ -174,6 +174,11 @@ async function executeImages(
     } as ConversationPhase;
     const conversation = getOrCreateConversation(phoneNumber);
     updateConversation(phoneNumber, updatedPhase, conversation.metadata);
+  } else {
+    logger.debug(
+      { phoneNumber, category: command.category, query: command.query },
+      "Command executed but no products sent directly (handled by flow logic)",
+    );
   }
 }
 

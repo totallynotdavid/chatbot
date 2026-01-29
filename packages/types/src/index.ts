@@ -18,6 +18,7 @@ export type {
   CategoryConfig,
   CategoryKey,
   CategoryGroup,
+  CatalogSnapshot,
 } from "./catalog.ts";
 export { CATEGORIES, CATEGORY_GROUPS } from "./catalog.ts";
 
