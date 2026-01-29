@@ -1,16 +1,17 @@
 import type {
-  ConversationPhase,
   ConversationMetadata,
-  TransitionResult,
+  ConversationPhase,
   EnrichmentResult,
+  TransitionResult,
 } from "@totem/core";
-import type { IntelligenceProvider } from "@totem/intelligence";
 import { transition } from "@totem/core";
+import type { IntelligenceProvider } from "@totem/intelligence";
+import type { CatalogSnapshot } from "@totem/types";
 import { createTraceId } from "@totem/utils";
+import { createLogger } from "../../lib/logger.ts";
 import { enrichmentRegistry } from "../enrichment/index.ts";
 import { applyEnrichmentToMetadata } from "../enrichment/metadata-manager.ts";
 import { updateConversation } from "../store.ts";
-import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("enrichment");
 const MAX_ENRICHMENT_LOOPS = 10; // Safety limit
@@ -34,6 +35,7 @@ export async function runEnrichmentLoop(
     type: string;
     timestamp: number;
   },
+  context?: CatalogSnapshot,
 ): Promise<TransitionResult> {
   let currentPhase = phase;
   let enrichment: EnrichmentResult | undefined;
@@ -48,6 +50,7 @@ export async function runEnrichmentLoop(
       metadata,
       enrichment,
       quotedContext,
+      context,
     });
 
     if (result.type !== "need_enrichment") {

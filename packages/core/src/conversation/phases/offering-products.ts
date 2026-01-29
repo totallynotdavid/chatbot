@@ -1,21 +1,26 @@
-import type {
-  ConversationPhase,
-  TransitionResult,
-  EnrichmentResult,
-  Command,
-  ConversationMetadata,
-} from "../types.ts";
+import {
+  CATEGORIES,
+  CATEGORY_GROUPS,
+  type CatalogSnapshot,
+  type CategoryKey,
+} from "@totem/types";
 import { createTraceId } from "@totem/utils";
-import { selectVariant } from "../../messaging/variation-selector.ts";
 import { matchCategory } from "../../matching/category-matcher.ts";
 import { matchGroup } from "../../matching/group-matcher.ts";
 import {
-  matchAllProducts,
   extractProductIntent,
+  matchAllProducts,
 } from "../../matching/product-selection.ts";
-import { isAffirmative } from "../../validation/affirmation.ts";
-import { CATEGORY_GROUPS, CATEGORIES, type CategoryKey } from "@totem/types";
+import { selectVariant } from "../../messaging/variation-selector.ts";
 import * as S from "../../templates/sales.ts";
+import { isAffirmative } from "../../validation/affirmation.ts";
+import type {
+  Command,
+  ConversationMetadata,
+  ConversationPhase,
+  EnrichmentResult,
+  TransitionResult,
+} from "../types.ts";
 
 type OfferingProductsPhase = Extract<
   ConversationPhase,
@@ -33,6 +38,7 @@ export function transitionOfferingProducts(
     type: string;
     timestamp: number;
   },
+  context?: CatalogSnapshot,
 ): TransitionResult {
   const lower = message.toLowerCase();
 
@@ -242,25 +248,34 @@ export function transitionOfferingProducts(
   if (specificIntent) {
     const categoryToUse = phase.lastShownCategory;
 
-    return {
-      type: "update",
-      nextPhase: {
-        ...phase,
-        lastSearchQuery: specificIntent.query,
-      },
-      commands: [
-        {
-          type: "SEND_MESSAGE",
-          text: `Buscando ${specificIntent.query}...`,
-        },
-        {
-          type: "SEND_IMAGES",
-          category: categoryToUse,
-          query: specificIntent.query,
-          offset: 0,
-        },
-      ],
-    };
+    if (context && context.activeBrands) {
+      const intentQuery = specificIntent.query.toLowerCase();
+      const hasActiveBrand = context.activeBrands.some((brand) =>
+        intentQuery.includes(brand.toLowerCase()),
+      );
+
+      if (hasActiveBrand) {
+        return {
+          type: "update",
+          nextPhase: {
+            ...phase,
+            lastSearchQuery: specificIntent.query,
+          },
+          commands: [
+            {
+              type: "SEND_MESSAGE",
+              text: `Buscando ${specificIntent.query}...`,
+            },
+            {
+              type: "SEND_IMAGES",
+              category: categoryToUse,
+              query: specificIntent.query,
+              offset: 0,
+            },
+          ],
+        };
+      }
+    }
   }
 
   if (isProductSelection(lower)) {

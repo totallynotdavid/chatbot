@@ -98,4 +98,25 @@ export const ProductService = {
     );
     return rows.map((r) => r.category);
   },
+
+  /**
+   * Get all active brands from products involved in active, in-stock bundles.
+   */
+  getActiveBrands: (): string[] => {
+    const rows = getAll<{ brand: string }>(
+      `SELECT DISTINCT p.brand
+       FROM catalog_bundles b
+       JOIN catalog_periods p_desc ON b.period_id = p_desc.id,
+            json_tree(b.composition_json) as ref
+       JOIN products p ON p.id = ref.value
+       WHERE p_desc.status = 'active'
+         AND b.is_active = 1
+         AND b.stock_status != 'out_of_stock'
+         AND ref.key = 'id'
+         AND p.brand IS NOT NULL
+         AND p.brand != ''
+       ORDER BY p.brand`,
+    );
+    return rows.map((r) => r.brand);
+  },
 };

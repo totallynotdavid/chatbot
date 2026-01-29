@@ -211,3 +211,9 @@ export type Bundle = {
   created_at: string;
   updated_at: string;
 };
+
+/** Snapshot of active catalog state for context projection */
+export type CatalogSnapshot = {
+  activeBrands: string[];
+  activeCategories: string[];
+};

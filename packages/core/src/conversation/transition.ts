@@ -44,6 +44,7 @@ export function transition(input: TransitionInput): TransitionResult {
         metadata,
         enrichment,
         quotedContext,
+        input.context,
       );
 
     case "handling_objection":
