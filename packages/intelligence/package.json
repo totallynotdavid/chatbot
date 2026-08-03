@@ -8,6 +8,6 @@
     "dependencies": {
         "@totem/core": "workspace:*",
         "@totem/types": "workspace:*",
-        "openai": "^6.16.0"
+        "openai": "^7.3.0"
     }
 }
