@@ -532,8 +532,14 @@ describe("Conversation transitions (checking eligibility phase)", () => {
     expect(result.type).toBe("update");
     if (result.type === "update") {
       expect(result.nextPhase.phase).toBe("escalated");
-      expect(result.commands).toContainEqual(
-        expect.objectContaining({ type: "ESCALATE" }),
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: "attention_required",
+          payload: expect.objectContaining({
+            reason: "eligibility_check_failed",
+            dni: "72345678",
+          }),
+        }),
       );
     }
   });
