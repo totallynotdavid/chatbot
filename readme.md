@@ -91,9 +91,6 @@ Start here when you're new to the code:
 - Architecture and principles:
   [`.github/copilot-instructions.md`](https://github.com/totallynotdavid/chatbot/blob/master/.github/copilot-instructions.md),
   [`.github/bot-architecture.md`](https://github.com/totallynotdavid/chatbot/blob/master/.github/bot-architecture.md)
-- Deployment:
-  [`deployment/deploy.sh`](https://github.com/totallynotdavid/chatbot/blob/master/deployment/deploy.sh),
-  [`ecosystem.config.js`](https://github.com/totallynotdavid/chatbot/blob/master/ecosystem.config.js)
 
 ## Validation
 
