@@ -24,7 +24,6 @@
   let messagesContainer = $state<HTMLDivElement>();
   let polling: ReturnType<typeof setInterval> | null = null;
 
-  // Replay mode state
   let replayMode = $state(false);
   let replayMetadata = $state<any>(null);
   let editingMessageIndex = $state<number | null>(null);
@@ -67,7 +66,6 @@
   async function createNewConversation() {
     loading = true;
     try {
-      // Auto-generate phone number based on existing count
       const phoneNumber = `519${String(testConversations.length + 1).padStart(8, "0")}`;
 
       await fetchApi("/api/simulator/conversations", {
@@ -173,7 +171,6 @@
 
   async function loadReplayConversation(sourcePhone: string) {
     try {
-      // Fetch replay data
       const replayData = await fetchApi<ReplayData>(
         `/api/conversations/${sourcePhone}/replay`,
       );
@@ -181,14 +178,13 @@
       replayMode = true;
       replayMetadata = replayData.metadata;
 
-      // Load into simulator backend
       await fetchApi("/api/simulator/load", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sourcePhone }),
       });
 
-      // Set to fixed test phone and reload
+      // Replay sessions use the reserved simulator phone.
       selectedPhone = "51900000001";
       await loadTestConversations();
       await loadConversation(selectedPhone);
@@ -227,7 +223,6 @@
       return;
     }
 
-    // Count messages after edit point
     const futureMessagesCount = messages.length - index - 1;
 
     if (futureMessagesCount > 0) {
@@ -244,18 +239,15 @@
     cancelEditing();
 
     try {
-      // Reset conversation
       await fetchApi(`/api/simulator/reset/${selectedPhone}`, {
         method: "POST",
       });
 
-      // Replay messages up to and including edit point
       for (let i = 0; i <= index; i++) {
         const msg = messages[i];
         if (msg.direction === "inbound") {
           const content = i === index ? newContent : msg.content;
 
-          // Send and wait for response
           await fetchApi("/api/simulator/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -265,12 +257,11 @@
             }),
           });
 
-          // Wait between messages to ensure proper processing
+          // Give the simulator time to process each message.
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
 
-      // Reload conversation to see new state
       await loadConversation(selectedPhone);
     } catch (error) {
       console.error("Failed to apply edit:", error);
@@ -300,15 +291,12 @@
   });
 
   onMount(() => {
-    // Load personas first
     loadPersonas();
 
-    // Check if we should load a replay conversation (from server data)
     if (data.loadPhone) {
       loadReplayConversation(data.loadPhone);
     } else {
       loadTestConversations().then(() => {
-        // Select first conversation if available
         if (testConversations.length > 0 && !selectedPhone) {
           selectedPhone = testConversations[0]?.phone_number ?? null;
         }
@@ -329,7 +317,6 @@
 <PageTitle title="Simulador" />
 
 <div class="flex h-[calc(100vh-65px)] overflow-hidden bg-white">
-  <!-- Conversation list -->
   <div
     class="w-full md:w-80 xl:w-96 border-r border-ink-900/10 bg-white flex flex-col shrink-0"
   >
@@ -412,10 +399,8 @@
     </div>
   </div>
 
-  <!-- Conversation detail -->
   <div class="hidden md:flex flex-col flex-1 bg-cream-100 relative min-w-0">
     {#if selectedPhone && conversation}
-      <!-- Header -->
       <div
         class="px-8 py-6 border-b border-ink-900/10 bg-white/95 backdrop-blur sticky top-0 z-10"
       >
@@ -441,7 +426,6 @@
               {/if}
             </div>
 
-            <!-- Context data bar -->
             <div
               class="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider text-ink-500"
             >
@@ -529,7 +513,6 @@
         </div>
       </div>
 
-      <!-- Messages -->
       <div
         bind:this={messagesContainer}
         class="flex-1 overflow-y-auto p-8 space-y-4"
@@ -663,7 +646,6 @@
         {/each}
       </div>
 
-      <!-- Input -->
       <div class="border-t border-cream-200 p-4 bg-cream-50">
         <div class="flex gap-4">
           <input
@@ -733,7 +715,6 @@
   </div>
 </div>
 
-<!-- Persona selection dialog -->
 {#if showPersonaDialog}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div

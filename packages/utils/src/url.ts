@@ -16,48 +16,22 @@ function readTunnelUrl(): string | null {
   return url || null;
 }
 
-/**
- * Publicly accessible frontend URL.
- *
- * Used by:
- * - WhatsApp notification links
- * - Backend CORS origin validation
- */
+/** Public frontend URL for notification links and CORS validation. */
 export function getFrontendUrl(): string {
   return readTunnelUrl() ?? "http://localhost:5173";
 }
 
-/**
- * Backend base URL.
- *
- * Used by:
- * - Notifier -> backend webhook calls
- * - Frontend SSR API calls
- */
+/** Backend base URL for notifier webhooks and SSR API calls. */
 export function getBackendUrl(): string {
   return "http://localhost:3000";
 }
 
-/**
- * Public base URL for externally accessible static assets.
- *
- * Used by:
- * - WhatsApp Cloud API media URLs
- *
- * Notes:
- * - Dev: Cloudflare tunnel (via vite proxy)
- * - Prod: PUBLIC_URL
- */
+/** Public URL for media assets, using the tunnel in development or PUBLIC_URL in production. */
 export function getPublicUrl(): string {
   return readTunnelUrl() ?? process.env.PUBLIC_URL ?? "http://localhost:5173";
 }
 
-/**
- * Notifier service base URL.
- *
- * Used by:
- * - Backend -> notifier messaging
- */
+/** Notifier base URL used by the backend for messaging. */
 export function getNotifierUrl(): string {
   return "http://localhost:3001";
 }
