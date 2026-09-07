@@ -518,7 +518,7 @@ describe("Confirming selection (UX tests)", () => {
       }
     });
 
-    test("should notify team when purchase is confirmed", () => {
+    test("should emit a purchase confirmation event", () => {
       const result = transition({
         phase: basePhase,
         message: "confirmo",
@@ -527,14 +527,14 @@ describe("Confirming selection (UX tests)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        const notifyCommand = result.commands.find(
-          (c) => c.type === "NOTIFY_TEAM",
+        expect(result.events).toContainEqual(
+          expect.objectContaining({
+            type: "purchase_confirmed",
+            payload: expect.objectContaining({
+              productName: "Samsung Galaxy A54",
+            }),
+          }),
         );
-        expect(notifyCommand).toBeDefined();
-        if (notifyCommand?.type === "NOTIFY_TEAM") {
-          expect(notifyCommand.channel).toBe("agent");
-          expect(notifyCommand.message).toContain("Samsung Galaxy A54");
-        }
       }
     });
   });
