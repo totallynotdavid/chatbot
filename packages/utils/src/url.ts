@@ -1,6 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+declare global {
+  interface ImportMeta {
+    readonly dir: string;
+  }
+}
+
 function readTunnelUrl(): string | null {
   const tunnelFile = resolve(import.meta.dir, "../../../.cloudflare-url");
 
