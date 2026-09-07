@@ -9,7 +9,7 @@ import type { PageData } from "./$types";
 let { data }: { data: PageData } = $props();
 
 let localConversations = $state<Conversation[]>([]);
-let polling: Timer | null = null;
+let polling: ReturnType<typeof setInterval> | null = null;
 
 let conversations = $derived(
   localConversations.length > 0 ? localConversations : data.conversations,

@@ -22,7 +22,7 @@
   let conversation = $state<any>(null);
   let loading = $state(false);
   let messagesContainer = $state<HTMLDivElement>();
-  let polling: Timer | null = null;
+  let polling: ReturnType<typeof setInterval> | null = null;
 
   // Replay mode state
   let replayMode = $state(false);
