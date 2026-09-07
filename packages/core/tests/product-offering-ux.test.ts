@@ -28,7 +28,6 @@ describe("Offering products (user experience)", () => {
 
   describe("UX issue: User says 'sí' without context", () => {
     test("should NOT confirm purchase when no products have been shown yet", () => {
-      // User says "sí" but we haven't shown them anything yet
       const result = transition({
         phase: basePhase,
         message: "sí",
@@ -37,23 +36,19 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // Should stay in offering_products and ask what they want
         expect(result.nextPhase.phase).toBe("offering_products");
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
         if (msg?.type === "SEND_MESSAGE") {
-          // Should ask what they want to see
           expect(msg.text.toLowerCase()).toMatch(/qu[eé]|celulares|productos/);
         }
       }
     });
 
     test("should NOT confirm purchase when user said 'sí' to vague question", () => {
-      // This catches when bot asks "¿Te interesa?" and user says "sí", but to what?
       const result = transition({
         phase: {
           ...basePhase,
-          // No lastShownCategory, no sentProducts
         },
         message: "Sí, me interesa",
         metadata: createMetadata(),
@@ -62,7 +57,6 @@ describe("Offering products (user experience)", () => {
       expect(result.type).toBe("update");
       if (result.type === "update") {
         expect(result.nextPhase.phase).toBe("offering_products");
-        // Should ask for clarification
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
       }
@@ -77,13 +71,11 @@ describe("Offering products (user experience)", () => {
         metadata: createMetadata(),
       });
 
-      // Should try to extract category or ask for enrichment
       const isUpdate = result.type === "update";
       const needsEnrichment = result.type === "need_enrichment";
 
       expect(isUpdate || needsEnrichment).toBe(true);
 
-      // If it's an update, it should show products or ask for clarification
       if (result.type === "update") {
         expect(result.commands.length).toBeGreaterThan(0);
       }
@@ -117,7 +109,6 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // Should ask which Samsung
         expect(result.nextPhase.phase).toBe("offering_products");
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
@@ -130,7 +121,6 @@ describe("Offering products (user experience)", () => {
 
   describe("UX issue: user changes mind frequently", () => {
     test("should allow user to explore multiple categories without getting stuck", () => {
-      // First show celulares
       let result = transition({
         phase: basePhase,
         message: "celulares",
@@ -144,7 +134,6 @@ describe("Offering products (user experience)", () => {
       const phase1 = result.nextPhase;
       if (phase1.phase !== "offering_products") return;
 
-      // Now user changes mind to TV
       result = transition({
         phase: phase1,
         message: "mejor muéstrame televisores",
@@ -155,7 +144,6 @@ describe("Offering products (user experience)", () => {
       if (result.type !== "update") return;
       expect(result.nextPhase.phase).toBe("offering_products");
 
-      // Should show TV category
       const imgCommand = result.commands.find((c) => c.type === "SEND_IMAGES");
       expect(imgCommand).toBeDefined();
     });
@@ -180,7 +168,6 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // After viewing 2 different categories (now at exploredCount = 2), should remind
         const msgs = result.commands.filter((c) => c.type === "SEND_MESSAGE");
         const hasReminder = msgs.some(
           (c) =>
@@ -204,7 +191,6 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // Should go to objection handling, not closing
         expect(result.nextPhase.phase).toBe("handling_objection");
       }
     });
@@ -222,7 +208,6 @@ describe("Offering products (user experience)", () => {
       expect(result.type).toBe("update");
       if (result.type === "update") {
         expect(result.nextPhase.phase).toBe("handling_objection");
-        // Should have sent a message addressing cost
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
       }
@@ -250,11 +235,9 @@ describe("Offering products (user experience)", () => {
         metadata: createMetadata(),
       });
 
-      // Bot should either stay in offering OR ask for enrichment to understand better
       if (result.type === "update") {
         expect(result.nextPhase.phase).not.toBe("closing");
       } else if (result.type === "need_enrichment") {
-        // Asking for help to understand unclear rejection is also valid
         expect(result.enrichment.type).toBe("detect_question");
       } else {
         throw new Error("Unexpected result type");
@@ -286,7 +269,6 @@ describe("Offering products (user experience)", () => {
         metadata: createMetadata(),
       });
 
-      // Should ask LLM to detect if it's a question or extract intent
       expect(result.type).toBe("need_enrichment");
       if (result.type === "need_enrichment") {
         expect(result.enrichment.type).toBe("detect_question");
@@ -306,7 +288,6 @@ describe("Offering products (user experience)", () => {
         enrichment,
       });
 
-      // Should check if should escalate or try to answer
       expect(result.type).toBe("need_enrichment");
       if (result.type === "need_enrichment") {
         expect(result.enrichment.type).toBe("should_escalate");
@@ -343,7 +324,6 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // Should go to confirmation with the first product
         expect(result.nextPhase.phase).toBe("confirming_selection");
         if (result.nextPhase.phase === "confirming_selection") {
           expect(result.nextPhase.selectedProduct.name).toBe(
@@ -402,7 +382,6 @@ describe("Offering products (user experience)", () => {
 
       expect(result.type).toBe("update");
       if (result.type === "update") {
-        // Should send images for TV category
         const imgCommand = result.commands.find(
           (c) => c.type === "SEND_IMAGES",
         );
@@ -426,7 +405,6 @@ describe("Offering products (user experience)", () => {
       expect(result.type).toBe("update");
       if (result.type === "update") {
         expect(result.nextPhase.phase).toBe("offering_products");
-        // Should ask which specific product, not show category again
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
       }
@@ -458,7 +436,6 @@ describe("Confirming selection (UX tests)", () => {
       expect(result.type).toBe("update");
       if (result.type === "update") {
         expect(result.nextPhase.phase).toBe("offering_products");
-        // Should preserve their interest in this product
         if (result.nextPhase.phase === "offering_products") {
           expect(result.nextPhase.interestedProduct).toBeDefined();
           expect(result.nextPhase.interestedProduct?.name).toBe(
@@ -478,7 +455,6 @@ describe("Confirming selection (UX tests)", () => {
       expect(result.type).toBe("update");
       if (result.type === "update") {
         expect(result.nextPhase.phase).toBe("offering_products");
-        // Should be encouraging, not frustrated
         const msg = result.commands.find((c) => c.type === "SEND_MESSAGE");
         expect(msg).toBeDefined();
         if (msg?.type === "SEND_MESSAGE") {

@@ -347,7 +347,7 @@ describe("Conversation Transitions - Collecting DNI Phase", () => {
     expect(result.type).toBe("update");
     if (result.type === "update") {
       expect(result.nextPhase.phase).toBe("collecting_dni");
-      expect(result.commands).toHaveLength(0); // No message sent
+      expect(result.commands).toHaveLength(0);
     }
   });
 
@@ -416,7 +416,7 @@ describe("Conversation Transitions - Collecting DNI Phase", () => {
         );
         expect(messageCommand?.type).toBe("SEND_MESSAGE");
         if (messageCommand?.type === "SEND_MESSAGE") {
-          // Should send an error message (content varies by variant)
+          // Error-message wording varies.
           expect(messageCommand.text.length).toBeGreaterThan(10);
         }
       }
@@ -549,7 +549,7 @@ describe("Conversation transitions (checking eligibility phase)", () => {
       type: "eligibility_result",
       status: "eligible",
       segment: "fnb",
-      credit: 50, // Below 100 minimum
+      credit: 50, // Below 100-credit minimum.
       name: "PEDRO TORRES",
     };
 
@@ -630,17 +630,14 @@ describe("Conversation transitions (collecting age phase)", () => {
 
 describe("Conversation transitions (terminal states)", () => {
   test("CLOSING should stay in CLOSING for short acknowledgments", () => {
-    // First transition checks if message is a question
     const firstResult = transition({
       phase: { phase: "closing", purchaseConfirmed: false },
       message: "gracias",
       metadata: createMetadata(),
     });
 
-    // Should request question detection enrichment
     expect(firstResult.type).toBe("need_enrichment");
 
-    // Now provide enrichment saying it's not a question
     const enrichment: EnrichmentResult = {
       type: "question_detected",
       isQuestion: false,
