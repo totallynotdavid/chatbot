@@ -416,7 +416,7 @@ describe("Conversation Transitions - Collecting DNI Phase", () => {
         );
         expect(messageCommand?.type).toBe("SEND_MESSAGE");
         if (messageCommand?.type === "SEND_MESSAGE") {
-          // Error-message wording varies.
+          // Message wording varies.
           expect(messageCommand.text.length).toBeGreaterThan(10);
         }
       }
@@ -549,7 +549,7 @@ describe("Conversation transitions (checking eligibility phase)", () => {
       type: "eligibility_result",
       status: "eligible",
       segment: "fnb",
-      credit: 50, // Below 100-credit minimum.
+      credit: 50, // Below the 100-credit minimum.
       name: "PEDRO TORRES",
     };
 

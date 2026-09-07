@@ -22,7 +22,6 @@ export function transitionCheckingEligibility(
   metadata: ConversationMetadata,
   enrichment?: EnrichmentResult,
 ): TransitionResult {
-  // If no enrichment, request eligibility check
   if (!enrichment) {
     return {
       type: "need_enrichment",
@@ -31,7 +30,6 @@ export function transitionCheckingEligibility(
   }
 
   if (enrichment.type === "eligibility_result") {
-    // Case 1: System outage
     if (enrichment.status === "system_outage") {
       return {
         type: "update",
@@ -44,7 +42,6 @@ export function transitionCheckingEligibility(
       };
     }
 
-    // Case 2: Needs human (standard escalation, e.g. edge cases)
     if (enrichment.status === "needs_human") {
       const { message } = selectVariant(
         [
@@ -81,7 +78,6 @@ export function transitionCheckingEligibility(
       };
     }
 
-    // Case 2: Customer is eligible
     if (enrichment.status === "eligible" && enrichment.segment) {
       const segment = enrichment.segment;
       const credit = enrichment.credit || 0;
@@ -90,10 +86,8 @@ export function transitionCheckingEligibility(
       const categoryDisplayNames = enrichment.categoryDisplayNames || [];
       const groupDisplayNames = enrichment.groupDisplayNames || [];
 
-      // For FNB, check business rules
       if (segment === "fnb") {
         if (!checkFNBEligibility(credit)) {
-          // Credit too low for FNB
           const { message } = selectVariant(T.NOT_ELIGIBLE, "NOT_ELIGIBLE", {});
 
           return {
@@ -113,7 +107,6 @@ export function transitionCheckingEligibility(
           };
         }
 
-        // FNB approved, show message with affordable product groups
         const variants = S.FNB_APPROVED(name, credit, groupDisplayNames);
         const { message } = selectVariant(variants, "FNB_APPROVED", {});
 
@@ -139,7 +132,7 @@ export function transitionCheckingEligibility(
         };
       }
 
-      // For GASO, always requires age verification
+      // GASO eligibility requires age verification.
       if (segment === "gaso") {
         const variants = T.ASK_AGE(name);
         const { message } = selectVariant(variants, "ASK_AGE", {});
@@ -163,7 +156,6 @@ export function transitionCheckingEligibility(
       }
     }
 
-    // Case 3: Customer not eligible
     if (enrichment.status === "not_eligible") {
       const attemptCount = (metadata.triedDnis?.length || 0) + 1;
 
@@ -192,7 +184,6 @@ export function transitionCheckingEligibility(
         };
       }
 
-      // Max attempts reached, close conversation
       const { message } = selectVariant(
         T.MAX_ATTEMPTS_REACHED,
         "MAX_ATTEMPTS_REACHED",
@@ -218,7 +209,6 @@ export function transitionCheckingEligibility(
     }
   }
 
-  // For unknown cases, stay in phase
   return {
     type: "update",
     nextPhase: phase,
