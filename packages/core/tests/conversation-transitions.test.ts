@@ -536,7 +536,7 @@ describe("Conversation transitions (checking eligibility phase)", () => {
         expect.objectContaining({
           type: "attention_required",
           payload: expect.objectContaining({
-            reason: "eligibility_check_failed",
+            reason: "both_providers_down",
             dni: "72345678",
           }),
         }),

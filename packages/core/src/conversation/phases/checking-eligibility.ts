@@ -72,7 +72,7 @@ export function transitionCheckingEligibility(
             timestamp: Date.now(),
             payload: {
               phoneNumber: metadata.phoneNumber || "Unknown",
-              reason: "eligibility_check_failed",
+              reason: enrichment.handoffReason || "eligibility_check_failed",
               clientName: metadata.name || "Unknown",
               dni: phase.dni,
             },
