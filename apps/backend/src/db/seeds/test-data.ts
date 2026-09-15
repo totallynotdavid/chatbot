@@ -100,10 +100,14 @@ const TEST_CONVERSATIONS: TestConversation[] = [
   },
 ];
 
-export async function seedTestData(db: Database) {
+export async function seedTestData(
+  db: Database,
+  tenantId: string,
+  channelAccountId: string,
+) {
   const exists = db
-    .prepare("SELECT count(*) as count FROM conversations")
-    .get() as { count: number };
+    .prepare("SELECT count(*) as count FROM conversations WHERE tenant_id = ?")
+    .get(tenantId) as { count: number };
 
   if (exists.count > 0) {
     return;
@@ -112,17 +116,28 @@ export async function seedTestData(db: Database) {
   const now = Date.now();
   const conversationStmt = db.prepare(
     `INSERT INTO conversations (
-      phone_number, client_name, dni, segment, credit_line, status,
-      assigned_agent, assignment_notified_at, is_simulation,
+      tenant_id, channel_account_id, phone_number, client_name, dni, segment,
+      credit_line, status, assigned_agent, assignment_notified_at, is_simulation,
       last_activity_at, context_data, sale_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
   const messageStmt = db.prepare(
     `INSERT INTO messages (
-      id, phone_number, direction, type, content, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)`,
+      id, tenant_id, channel_account_id, phone_number, direction, type, content, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
+
+  // The fixture references an agent by id; it may not exist because the user
+  // seed no longer ships accounts, so only link one that is really there.
+  const agentExists = (id: string): boolean =>
+    (
+      db
+        .prepare("SELECT count(*) as count FROM users WHERE id = ?")
+        .get(id) as {
+        count: number;
+      }
+    ).count > 0;
 
   for (const conversation of TEST_CONVERSATIONS) {
     const lastActivityAt =
@@ -156,14 +171,21 @@ export async function seedTestData(db: Database) {
       },
     };
 
+    const assignedAgent =
+      conversation.assignedAgent && agentExists(conversation.assignedAgent)
+        ? conversation.assignedAgent
+        : null;
+
     conversationStmt.run(
+      tenantId,
+      channelAccountId,
       conversation.phoneNumber,
       conversation.clientName,
       conversation.dni,
       conversation.segment,
       conversation.creditLine,
       conversation.status,
-      conversation.assignedAgent || null,
+      assignedAgent,
       assignmentNotifiedAt,
       0,
       lastActivityAt,
@@ -178,6 +200,8 @@ export async function seedTestData(db: Database) {
 
       messageStmt.run(
         messageId,
+        tenantId,
+        channelAccountId,
         conversation.phoneNumber,
         direction,
         "text",
