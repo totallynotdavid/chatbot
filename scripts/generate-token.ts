@@ -1,8 +1,10 @@
+/** Each preset is the byte length to generate and the variable it is for. */
 const PRESETS = {
-  webhook: 32, // WHATSAPP_WEBHOOK_VERIFY_TOKEN
-  session: 32, // SESSION_SECRET
-  api: 64, // API keys
-  jwt: 32, // JWT secrets
+  webhook: { bytes: 32, variable: "WHATSAPP_WEBHOOK_VERIFY_TOKEN" },
+  secrets: { bytes: 32, variable: "SECRETS_KEY" },
+  session: { bytes: 32, variable: "SESSION_SECRET" },
+  api: { bytes: 64, variable: "API_KEY" },
+  jwt: { bytes: 32, variable: "JWT_SECRET" },
 } as const;
 
 type PresetName = keyof typeof PRESETS;
@@ -18,17 +20,21 @@ function main() {
   const arg = process.argv[2];
 
   let length: number;
-  let label = "Generated token";
+  // The variable the token is printed as. Getting this wrong is not cosmetic:
+  // the .env examples tell operators to run a preset and paste the output, so a
+  // label that always said WHATSAPP_WEBHOOK_VERIFY_TOKEN left SECRETS_KEY unset
+  // for anyone who followed them.
+  let variable = "GENERATED_TOKEN";
 
   if (!arg) {
     // Default: webhook verify token
-    length = PRESETS.webhook;
-    label = "WHATSAPP_WEBHOOK_VERIFY_TOKEN";
+    length = PRESETS.webhook.bytes;
+    variable = PRESETS.webhook.variable;
   } else if (arg in PRESETS) {
     // Preset name
     const preset = arg as PresetName;
-    length = PRESETS[preset];
-    label = `${preset.toUpperCase()} token`;
+    length = PRESETS[preset].bytes;
+    variable = PRESETS[preset].variable;
   } else {
     // Custom length
     length = parseInt(arg, 10);
@@ -43,6 +49,9 @@ function main() {
       );
       console.log(
         "  bun run scripts/generate-token.ts webhook   # Webhook verify token (32 bytes)",
+      );
+      console.log(
+        "  bun run scripts/generate-token.ts secrets   # SECRETS_KEY (32 bytes)",
       );
       console.log(
         "  bun run scripts/generate-token.ts session   # Session secret (32 bytes)",
@@ -60,7 +69,7 @@ function main() {
   const token = generateToken(length);
 
   console.log(`Add to your .env file:`);
-  console.log(`WHATSAPP_WEBHOOK_VERIFY_TOKEN="${token}"`);
+  console.log(`${variable}="${token}"`);
 }
 
 main();
