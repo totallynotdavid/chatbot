@@ -1,10 +1,13 @@
 import { db } from "../db/index.ts";
+import { getAll, tenantPredicate } from "../db/query.ts";
+import type { SQLQueryBindings } from "bun:sqlite";
+import type { ConversationRef } from "@totem/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("llm-tracker");
 
 export type LLMCallData = {
-  phoneNumber: string;
+  ref: ConversationRef;
   operation: string;
   model: string;
   prompt: string;
@@ -38,15 +41,17 @@ async function _trackLLMCallAsync(data: LLMCallData): Promise<void> {
 
   db.prepare(
     `INSERT INTO llm_calls (
-      id, phone_number, operation, model,
+      id, tenant_id, channel_account_id, phone_number, operation, model,
       prompt, user_message, response,
       status, error_type, error_message,
       latency_ms, tokens_prompt, tokens_completion, tokens_total,
       conversation_phase, context_metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
-    data.phoneNumber,
+    data.ref.tenantId,
+    data.ref.channelAccountId,
+    data.ref.phoneNumber,
     data.operation,
     data.model,
     data.prompt,
@@ -64,31 +69,42 @@ async function _trackLLMCallAsync(data: LLMCallData): Promise<void> {
   );
 }
 
-export function getRecentLLMCalls(limit: number = 50) {
-  return db
-    .prepare(
-      `SELECT * FROM llm_calls 
-       ORDER BY created_at DESC 
-       LIMIT ?`,
-    )
-    .all(limit);
+/** `tenantId` null spans tenants and is only reachable by platform operators. */
+export function getRecentLLMCalls(tenantId: string | null, limit: number = 50) {
+  const params: SQLQueryBindings[] = tenantId ? [tenantId, limit] : [limit];
+
+  return getAll(
+    `SELECT * FROM llm_calls
+     WHERE ${tenantPredicate(tenantId)}
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    params,
+  );
 }
 
 /**
  * Get error rate and performance stats by operation
  */
-export function getLLMErrorStats(hoursBack: number = 24) {
-  return db
-    .prepare(
-      `SELECT 
-         operation,
-         COUNT(*) as total_calls,
-         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count,
-         ROUND(AVG(latency_ms), 2) as avg_latency_ms
-       FROM llm_calls
-       WHERE created_at > datetime('now', '-' || ? || ' hours')
-       GROUP BY operation
-       ORDER BY total_calls DESC`,
-    )
-    .all(hoursBack);
+export function getLLMErrorStats(
+  tenantId: string | null,
+  hoursBack: number = 24,
+) {
+  const conditions = ["created_at > datetime('now', '-' || ? || ' hours')"];
+  const params: SQLQueryBindings[] = [hoursBack];
+
+  conditions.push(tenantPredicate(tenantId));
+  if (tenantId) params.push(tenantId);
+
+  return getAll(
+    `SELECT
+       operation,
+       COUNT(*) as total_calls,
+       SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count,
+       ROUND(AVG(latency_ms), 2) as avg_latency_ms
+     FROM llm_calls
+     WHERE ${conditions.join(" AND ")}
+     GROUP BY operation
+     ORDER BY total_calls DESC`,
+    params,
+  );
 }
