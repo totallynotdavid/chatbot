@@ -1,4 +1,4 @@
-import type { WhatsAppAdapter } from "./types.ts";
+import type { ChannelAccount, WhatsAppAdapter } from "./types.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { getNotifierUrl, getPublicUrl } from "@totem/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
@@ -8,8 +8,33 @@ const logger = createLogger("whatsapp");
 const notifierUrl = getNotifierUrl();
 const publicUrl = getPublicUrl();
 
+/**
+ * Whether this account may send at all, in the words cloud-api.ts uses.
+ *
+ * Development is where a `pending` or `disabled` number is most likely to
+ * exist - it is the state a number sits in while it is being set up - so the
+ * adapter used there is exactly the wrong one to skip the check in. Without
+ * it, dev behaves as if a half-configured number worked and the difference
+ * only shows up in production.
+ */
+function maySend(account: ChannelAccount): boolean {
+  if (account.status === "active") return true;
+
+  logger.warn(
+    { channelAccountId: account.id, status: account.status },
+    "Channel account is not active",
+  );
+  return false;
+}
+
 export const DevAdapter: WhatsAppAdapter = {
-  async sendMessage(to: string, content: string): Promise<string | null> {
+  async sendMessage(
+    account: ChannelAccount,
+    to: string,
+    content: string,
+  ): Promise<string | null> {
+    if (!maySend(account)) return null;
+
     const { signal, cleanup } = createAbortTimeout(TIMEOUTS.WHATSAPP_SEND);
 
     try {
@@ -25,7 +50,12 @@ export const DevAdapter: WhatsAppAdapter = {
       if (!response.ok) {
         const errorText = await response.text();
         logger.error(
-          { to, status: response.status, error: errorText },
+          {
+            to,
+            channelAccountId: account.id,
+            status: response.status,
+            error: errorText,
+          },
           "Dev adapter send failed",
         );
         return null;
@@ -43,11 +73,18 @@ export const DevAdapter: WhatsAppAdapter = {
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           logger.error(
-            { to, timeoutMs: TIMEOUTS.WHATSAPP_SEND },
+            {
+              to,
+              channelAccountId: account.id,
+              timeoutMs: TIMEOUTS.WHATSAPP_SEND,
+            },
             "Dev adapter send timeout",
           );
         } else {
-          logger.error({ error, to }, "Dev adapter send error");
+          logger.error(
+            { error, to, channelAccountId: account.id },
+            "Dev adapter send error",
+          );
         }
       }
 
@@ -56,10 +93,13 @@ export const DevAdapter: WhatsAppAdapter = {
   },
 
   async sendImage(
+    account: ChannelAccount,
     to: string,
     imagePath: string,
     caption?: string,
   ): Promise<string | null> {
+    if (!maySend(account)) return null;
+
     const imageUrl = `${publicUrl}/media/${imagePath}`;
 
     const { signal, cleanup } = createAbortTimeout(TIMEOUTS.WHATSAPP_IMAGE);
@@ -77,7 +117,7 @@ export const DevAdapter: WhatsAppAdapter = {
       if (!response.ok) {
         const errorText = await response.text();
         logger.error(
-          { to, imagePath, error: errorText },
+          { to, imagePath, channelAccountId: account.id, error: errorText },
           "Dev adapter image send failed",
         );
         return null;
@@ -95,12 +135,17 @@ export const DevAdapter: WhatsAppAdapter = {
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           logger.error(
-            { to, imagePath, timeoutMs: TIMEOUTS.WHATSAPP_IMAGE },
+            {
+              to,
+              imagePath,
+              channelAccountId: account.id,
+              timeoutMs: TIMEOUTS.WHATSAPP_IMAGE,
+            },
             "Dev adapter image send timeout",
           );
         } else {
           logger.error(
-            { error, to, imagePath },
+            { error, to, imagePath, channelAccountId: account.id },
             "Dev adapter image send error",
           );
         }
@@ -110,7 +155,10 @@ export const DevAdapter: WhatsAppAdapter = {
     }
   },
 
-  async markAsRead(_messageId: string): Promise<void> {
+  async markAsRead(
+    _account: ChannelAccount,
+    _messageId: string,
+  ): Promise<void> {
     // whatsapp-web.js handles read receipts automatically
   },
 };
