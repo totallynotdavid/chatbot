@@ -15,7 +15,20 @@ type EligibilityResult = ProviderCheckResult & {
   nse?: number;
 };
 
+/**
+ * `tenantId` is null when nothing owns the check: GET /api/providers/:dni is an
+ * operator's provider diagnostic, not a conversation, so there is no business
+ * whose catalog the answer could be about.
+ *
+ * That case used to be passed down as the empty string, which reached
+ * `WHERE b.tenant_id = ?` and matched no tenant - so a genuinely eligible DNI
+ * came back "eligible, and nothing is affordable", indistinguishable from a real
+ * empty catalog and wrong whatever the catalog held. The verdict is what that
+ * endpoint asks for; the catalog is simply not consulted, and `catalogChecked`
+ * says so rather than an empty list implying an answer nobody computed.
+ */
 export function mapEligibilityToEnrichment(
+  tenantId: string | null,
   result: EligibilityResult,
 ): Extract<EnrichmentResult, { type: "eligibility_result" }> {
   if (result.needsHuman) {
@@ -36,7 +49,22 @@ export function mapEligibilityToEnrichment(
   if (result.eligible) {
     const segment = result.nse !== undefined ? "gaso" : "fnb";
     const credit = result.credit || 0;
+
+    if (tenantId === null) {
+      return {
+        type: "eligibility_result",
+        status: "eligible",
+        segment,
+        credit,
+        name: result.name,
+        nse: result.nse,
+        requiresAge: segment === "gaso",
+        catalogChecked: false,
+      };
+    }
+
     const affordableCategories = BundleService.getAffordableCategories(
+      tenantId,
       segment,
       credit,
     );
@@ -66,7 +94,7 @@ export function mapEligibilityToEnrichment(
       return (order[aKey] ?? 99) - (order[bKey] ?? 99);
     });
 
-    const affordableBundles = BundleService.getAvailable({
+    const affordableBundles = BundleService.getAvailable(tenantId, {
       segment,
       maxPrice: credit,
       strictPriceLimit: segment === "gaso", // gaso is strict, fnb is soft
@@ -84,6 +112,7 @@ export function mapEligibilityToEnrichment(
       categoryDisplayNames: getCategoryDisplayNames(affordableCategories),
       groupDisplayNames,
       affordableBundles,
+      catalogChecked: true,
     };
   }
 

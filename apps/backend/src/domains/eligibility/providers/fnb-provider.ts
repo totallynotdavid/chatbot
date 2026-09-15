@@ -10,7 +10,7 @@ import { getSimulationPersona } from "../shared.ts";
 import { PersonasService } from "../../personas/index.ts";
 import type { EligibilityProvider } from "./provider.ts";
 import { ProviderError } from "./provider.ts";
-import type { ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@totem/types";
 import { createLogger } from "../../../lib/logger.ts";
 
 const logger = createLogger("fnb-provider");
@@ -20,11 +20,11 @@ export class FNBProvider implements EligibilityProvider {
 
   async checkEligibility(
     dni: string,
-    phoneNumber?: string,
+    ref?: ConversationRef,
   ): Promise<Result<ProviderCheckResult, ProviderError>> {
     // Check for simulation persona
-    if (phoneNumber) {
-      const persona = await getSimulationPersona(phoneNumber);
+    if (ref) {
+      const persona = await getSimulationPersona(ref);
       if (persona) {
         logger.debug({ dni, persona: persona.name }, "Using test persona");
         return Ok(PersonasService.toProviderResult(persona));

@@ -2,6 +2,12 @@ import { getFrontendUrl } from "@totem/utils";
 
 export type NotificationContext = {
   phoneNumber: string;
+  /**
+   * The number the conversation is on. A conversation is (tenant, channel
+   * account, phone number), so a link without it is only unambiguous for a
+   * business with a single WhatsApp number.
+   */
+  channelAccountId?: string | null;
   clientName?: string | null;
   dni?: string | null;
   details?: string;
@@ -12,6 +18,22 @@ function formatLink(suffix?: string): string {
   const baseUrl = getFrontendUrl();
   if (!suffix) return "";
   return `${baseUrl}/dashboard${suffix}`;
+}
+
+/**
+ * Link to the conversation this notification is about.
+ *
+ * The channel account travels with it, the same way the inbox's own links carry
+ * it: a contact writing to two of the tenant's numbers has two threads, and the
+ * dashboard answers a bare phone number with "ambiguous" rather than guessing.
+ * An alert whose link dead-ends is worse than no alert.
+ */
+function conversationLink(ctx: NotificationContext): string {
+  const query = ctx.channelAccountId
+    ? `?channel=${encodeURIComponent(ctx.channelAccountId)}`
+    : "";
+
+  return formatLink(`/conversations/${ctx.phoneNumber}${query}`);
 }
 
 function b(text: string): string {
@@ -25,7 +47,7 @@ export const templates = {
 
     return [
       `${ident}${dniContext} espera atención.`,
-      formatLink(ctx.urlSuffix || `/conversations/${ctx.phoneNumber}`),
+      ctx.urlSuffix ? formatLink(ctx.urlSuffix) : conversationLink(ctx),
     ].join("\n");
   },
 
@@ -34,7 +56,7 @@ export const templates = {
 
     return [
       `${ident} subió su contrato.`,
-      formatLink(ctx.urlSuffix || `/conversations/${ctx.phoneNumber}`),
+      ctx.urlSuffix ? formatLink(ctx.urlSuffix) : conversationLink(ctx),
     ].join("\n");
   },
 
@@ -62,7 +84,7 @@ export const templates = {
     return [
       `${ident}${dniContext} requiere atención.`,
       `Motivo: ${reason}`,
-      formatLink(ctx.urlSuffix || `/conversations/${ctx.phoneNumber}`),
+      ctx.urlSuffix ? formatLink(ctx.urlSuffix) : conversationLink(ctx),
     ].join("\n");
   },
 
@@ -72,7 +94,7 @@ export const templates = {
 
     return [
       `${ident}${dniContext} requiere revisión manual. Revisa la conversación.`,
-      formatLink(ctx.urlSuffix || `/conversations/${ctx.phoneNumber}`),
+      ctx.urlSuffix ? formatLink(ctx.urlSuffix) : conversationLink(ctx),
     ].join("\n");
   },
 
@@ -80,7 +102,7 @@ export const templates = {
     const ident = b(ctx.phoneNumber);
     return [
       `El ${ident} ha excedido el límite de bucles de enriquecimiento.`,
-      `Conversación: ${formatLink(`/conversations/${ctx.phoneNumber}`)}`,
+      `Conversación: ${conversationLink(ctx)}`,
       `Logs: ${formatLink(`/dashboard/logs?phone=${ctx.phoneNumber}`)}`, // TODO: filter by phone is missing in frontend
     ].join("\n");
   },
@@ -89,7 +111,7 @@ export const templates = {
     const ident = b(ctx.phoneNumber);
     return [
       `Se ha producido un error con el ${ident}. Error: ${error}`,
-      `Conversación: ${formatLink(`/conversations/${ctx.phoneNumber}`)}`,
+      `Conversación: ${conversationLink(ctx)}`,
       `Logs: ${formatLink(`/dashboard/logs?phone=${ctx.phoneNumber}`)}`,
     ].join("\n");
   },

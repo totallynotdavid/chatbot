@@ -1,6 +1,10 @@
 import { db } from "../../db/index.ts";
 import { getOne } from "../../db/query.ts";
-import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
+import type { ConversationRef } from "@totem/types";
+import {
+  ChannelUnavailableError,
+  WhatsAppService,
+} from "../../adapters/whatsapp/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
 
 const ALLOWED_AGENT_DATA_FIELDS = [
@@ -13,35 +17,53 @@ const ALLOWED_AGENT_DATA_FIELDS = [
 
 const VALID_SALE_STATUSES = ["pending", "confirmed", "rejected", "no_answer"];
 
-export function takeoverConversation(phoneNumber: string, userId: string) {
+const IDENTITY_WHERE =
+  "tenant_id = ? AND channel_account_id = ? AND phone_number = ?";
+
+function identityParams(ref: ConversationRef): [string, string, string] {
+  return [ref.tenantId, ref.channelAccountId, ref.phoneNumber];
+}
+
+export function takeoverConversation(ref: ConversationRef, userId: string) {
   db.prepare(
     `UPDATE conversations
      SET status = 'human_takeover',
        handover_reason = 'Manual takeover by agent',
        last_activity_at = CURRENT_TIMESTAMP
-     WHERE phone_number = ?`,
-  ).run(phoneNumber);
+     WHERE ${IDENTITY_WHERE}`,
+  ).run(...identityParams(ref));
 
-  logAction(userId, "takeover", "conversation", phoneNumber, {});
+  logAction(
+    { userId, tenantId: ref.tenantId },
+    "takeover",
+    "conversation",
+    ref.phoneNumber,
+    {},
+  );
 
   return { success: true };
 }
 
-export function releaseConversation(phoneNumber: string, userId: string) {
+export function releaseConversation(ref: ConversationRef, userId: string) {
   db.prepare(
     `UPDATE conversations
      SET status = 'active',
        handover_reason = NULL
-     WHERE phone_number = ?`,
-  ).run(phoneNumber);
+     WHERE ${IDENTITY_WHERE}`,
+  ).run(...identityParams(ref));
 
-  logAction(userId, "release", "conversation", phoneNumber);
+  logAction(
+    { userId, tenantId: ref.tenantId },
+    "release",
+    "conversation",
+    ref.phoneNumber,
+  );
 
   return { success: true };
 }
 
 export async function sendManualMessage(
-  phoneNumber: string,
+  ref: ConversationRef,
   content: string,
   userId: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -49,24 +71,42 @@ export async function sendManualMessage(
     return { success: false, error: "Message content required" };
   }
 
-  await WhatsAppService.sendMessage(phoneNumber, content);
-  logAction(userId, "send_message", "conversation", phoneNumber, {
-    message: content,
-  });
+  try {
+    await WhatsAppService.sendMessage(ref, content);
+  } catch (error) {
+    // The number this conversation happens on is switched off. Nothing went
+    // out, so the agent is told rather than shown a message that looks sent.
+    if (error instanceof ChannelUnavailableError) {
+      return {
+        success: false,
+        error:
+          "This conversation's WhatsApp number is not active, so nothing was sent",
+      };
+    }
+    throw error;
+  }
+
+  logAction(
+    { userId, tenantId: ref.tenantId },
+    "send_message",
+    "conversation",
+    ref.phoneNumber,
+    { message: content },
+  );
 
   return { success: true };
 }
 
 export function declineAssignment(
-  phoneNumber: string,
+  ref: ConversationRef,
   userId: string,
 ): { success: boolean; error?: string; clientName?: string | null } {
   const conv = getOne<{
     assigned_agent: string | null;
     client_name: string | null;
   }>(
-    "SELECT assigned_agent, client_name FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
+    `SELECT assigned_agent, client_name FROM conversations WHERE ${IDENTITY_WHERE}`,
+    identityParams(ref),
   );
 
   if (!conv || conv.assigned_agent !== userId) {
@@ -74,18 +114,23 @@ export function declineAssignment(
   }
 
   db.prepare(
-    `UPDATE conversations 
-     SET assignment_notified_at = NULL, assigned_agent = NULL 
-     WHERE phone_number = ?`,
-  ).run(phoneNumber);
+    `UPDATE conversations
+     SET assignment_notified_at = NULL, assigned_agent = NULL
+     WHERE ${IDENTITY_WHERE}`,
+  ).run(...identityParams(ref));
 
-  logAction(userId, "decline_assignment", "conversation", phoneNumber);
+  logAction(
+    { userId, tenantId: ref.tenantId },
+    "decline_assignment",
+    "conversation",
+    ref.phoneNumber,
+  );
 
   return { success: true, clientName: conv.client_name };
 }
 
 export function updateAgentData(
-  phoneNumber: string,
+  ref: ConversationRef,
   userId: string,
   updates: Record<string, string | undefined>,
 ): { success: boolean; error?: string } {
@@ -105,8 +150,8 @@ export function updateAgentData(
   }
 
   const conv = getOne<{ assigned_agent: string | null }>(
-    "SELECT assigned_agent FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
+    `SELECT assigned_agent FROM conversations WHERE ${IDENTITY_WHERE}`,
+    identityParams(ref),
   );
 
   if (conv && !conv.assigned_agent) {
@@ -125,17 +170,17 @@ export function updateAgentData(
     values.push(value);
   }
 
-  values.push(phoneNumber);
+  values.push(...identityParams(ref));
 
   db.prepare(
-    `UPDATE conversations SET ${setClauses.join(", ")} WHERE phone_number = ?`,
+    `UPDATE conversations SET ${setClauses.join(", ")} WHERE ${IDENTITY_WHERE}`,
   ).run(...values);
 
   logAction(
-    userId,
+    { userId, tenantId: ref.tenantId },
     "update_agent_data",
     "conversation",
-    phoneNumber,
+    ref.phoneNumber,
     validUpdates,
   );
 
