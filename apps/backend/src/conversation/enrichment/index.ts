@@ -9,7 +9,7 @@ import { AnswerQuestionHandler } from "./handlers/answer-question-handler.ts";
 import { GenerateBacklogApologyHandler } from "./handlers/generate-backlog-apology-handler.ts";
 import { RecoverUnclearResponseHandler } from "./handlers/recover-unclear-response-handler.ts";
 
-import { CheckEligibilityHandler } from "../../domains/eligibility/handlers/check-eligibility-handler.ts";
+import type { CheckEligibilityHandler } from "../../domains/eligibility/handlers/check-eligibility-handler.ts";
 
 export function initializeEnrichmentRegistry(
   eligibilityHandler: CheckEligibilityHandler,

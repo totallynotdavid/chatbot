@@ -1,14 +1,19 @@
 /**
  * Persistence layer for conversations-related data.
  * Stores ConversationPhase as discriminated union JSON.
+ *
+ * Every read and write is keyed by the full conversation identity
+ * (tenant, channel account, contact number) - there is no lookup by phone
+ * number alone, so one tenant can never reach another's conversation.
  */
 
 import { db } from "../db/index.ts";
 import { getOne } from "../db/query.ts";
-import type { Conversation } from "@totem/types";
+import type { Conversation, ConversationRef } from "@totem/types";
 import type { ConversationPhase, ConversationMetadata } from "@totem/core";
 
 type ConversationData = {
+  ref: ConversationRef;
   phoneNumber: string;
   phase: ConversationPhase;
   metadata: ConversationMetadata;
@@ -17,17 +22,30 @@ type ConversationData = {
 
 const DEFAULT_PHASE: ConversationPhase = { phase: "greeting" };
 
+const IDENTITY_WHERE =
+  "tenant_id = ? AND channel_account_id = ? AND phone_number = ?";
+
+function identityParams(ref: ConversationRef): [string, string, string] {
+  return [ref.tenantId, ref.channelAccountId, ref.phoneNumber];
+}
+
+export function findConversation(ref: ConversationRef): Conversation | null {
+  return (
+    getOne<Conversation>(
+      `SELECT * FROM conversations WHERE ${IDENTITY_WHERE}`,
+      identityParams(ref),
+    ) ?? null
+  );
+}
+
 /**
  * Get or create a conversation
  */
 export function getOrCreateConversation(
-  phoneNumber: string,
+  ref: ConversationRef,
   isSimulation = false,
 ): ConversationData {
-  const conv = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
-  );
+  const conv = findConversation(ref);
 
   if (!conv) {
     const now = Date.now();
@@ -35,21 +53,24 @@ export function getOrCreateConversation(
     const initialMetadata: ConversationMetadata = {
       createdAt: now,
       lastActivityAt: now,
-      phoneNumber,
+      phoneNumber: ref.phoneNumber,
     };
 
     db.prepare(
-      `INSERT INTO conversations (phone_number, context_data, status, is_simulation)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO conversations (tenant_id, channel_account_id, phone_number, context_data, status, is_simulation)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
-      phoneNumber,
+      ref.tenantId,
+      ref.channelAccountId,
+      ref.phoneNumber,
       JSON.stringify({ phase: initialPhase, metadata: initialMetadata }),
       "active",
       isSimulation ? 1 : 0,
     );
 
     return {
-      phoneNumber,
+      ref,
+      phoneNumber: ref.phoneNumber,
       phase: initialPhase,
       metadata: initialMetadata,
       isSimulation,
@@ -63,17 +84,16 @@ export function getOrCreateConversation(
  * Update conversation phase and metadata
  */
 export function updateConversation(
-  phoneNumber: string,
+  ref: ConversationRef,
   phase: ConversationPhase,
   metadata: Partial<ConversationMetadata>,
 ): void {
-  const existing = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
-  );
+  const existing = findConversation(ref);
 
   if (!existing) {
-    throw new Error(`Conversation not found: ${phoneNumber}`);
+    throw new Error(
+      `Conversation not found: ${ref.tenantId}/${ref.channelAccountId}/${ref.phoneNumber}`,
+    );
   }
 
   const currentMetadata = parseMetadata(existing.context_data);
@@ -108,13 +128,13 @@ export function updateConversation(
   const fields = Object.keys(updates)
     .map((k) => `${k} = ?`)
     .join(", ");
-  const values = [...Object.values(updates), phoneNumber] as (
+  const values = [...Object.values(updates), ...identityParams(ref)] as (
     | string
     | number
     | null
   )[];
 
-  db.prepare(`UPDATE conversations SET ${fields} WHERE phone_number = ?`).run(
+  db.prepare(`UPDATE conversations SET ${fields} WHERE ${IDENTITY_WHERE}`).run(
     ...values,
   );
 }
@@ -123,10 +143,10 @@ export function updateConversation(
  * Mark conversation as escalated
  */
 export function escalateConversation(
-  phoneNumber: string,
+  ref: ConversationRef,
   reason: string,
 ): void {
-  updateConversation(phoneNumber, { phase: "escalated", reason }, {});
+  updateConversation(ref, { phase: "escalated", reason }, {});
 }
 
 /**
@@ -141,7 +161,7 @@ export function isSessionTimedOut(metadata: ConversationMetadata): boolean {
  * Reset session for returning user
  */
 export function resetSession(
-  phoneNumber: string,
+  ref: ConversationRef,
   preserveCategory?: string,
 ): void {
   const now = Date.now();
@@ -158,11 +178,26 @@ export function resetSession(
          status = 'active',
          handover_reason = NULL,
          last_activity_at = CURRENT_TIMESTAMP
-     WHERE phone_number = ?`,
+     WHERE ${IDENTITY_WHERE}`,
   ).run(
     JSON.stringify({ phase: DEFAULT_PHASE, metadata: newMetadata }),
-    phoneNumber,
+    ...identityParams(ref),
   );
+}
+
+/**
+ * Identity of a stored conversation row: the inverse of `identityParams` above,
+ * and here for the same reason - this module is where a conversation's identity
+ * is expressed. It existed twice, byte for byte, the second copy being
+ * `refOfConversation` in domains/conversations/read.ts; that one is gone and
+ * everything (the read module and the routes) imports this one.
+ */
+export function refOf(conv: Conversation): ConversationRef {
+  return {
+    tenantId: conv.tenant_id,
+    channelAccountId: conv.channel_account_id,
+    phoneNumber: conv.phone_number,
+  };
 }
 
 // --- Internal helpers ---
@@ -171,6 +206,7 @@ function parseConversation(conv: Conversation): ConversationData {
   const contextData = JSON.parse(conv.context_data || "{}");
 
   return {
+    ref: refOf(conv),
     phoneNumber: conv.phone_number,
     phase: contextData.phase as ConversationPhase,
     metadata: {

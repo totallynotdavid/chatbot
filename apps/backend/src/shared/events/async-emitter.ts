@@ -1,5 +1,5 @@
 import type { DomainEvent } from "./types.ts";
-import { EventBus } from "./event-bus.ts";
+import type { EventBus } from "./event-bus.ts";
 import { createLogger } from "../../lib/logger.ts";
 import type { Logger } from "@totem/logger";
 

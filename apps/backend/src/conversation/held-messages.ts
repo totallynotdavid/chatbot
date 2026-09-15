@@ -1,10 +1,42 @@
 import { db } from "../db/index.ts";
-import { getAll } from "../db/query.ts";
+import {
+  activeChannelAccountsOnly,
+  getAll,
+  getOne,
+  tenantPredicate,
+} from "../db/query.ts";
 import { createLogger } from "../lib/logger.ts";
+import type { ConversationRef } from "@totem/types";
 
 const logger = createLogger("held-messages");
 
+/*
+ * The states of a held message, and who moves each one.
+ *
+ *  - held: `processed_at` null and not claimed. Stored by the webhook
+ *    (`holdMessage`). Only a sweep takes it out, with `claimHeldMessages`, right
+ *    before it answers the group.
+ *  - answering: `processed_at` null and in `answering` below. A claim is refused
+ *    while any row of the group is answering or already answered, so two sweeps
+ *    never answer one group. Only the sweep that claimed it moves it on, and
+ *    only once `handleMessage` has settled - which, after a `LockTimeoutError`,
+ *    is after that sweep has returned. It goes to
+ *      - answered (`markHeldAsProcessed`), when the reply was handled;
+ *      - held (`releaseHeldMessages`), when answering threw, so a later sweep
+ *        answers it.
+ *  - answered: `processed_at` set. Kept for `isHeld` until
+ *    `purgeProcessedHeldMessages`.
+ *
+ * `answering` lives in memory because it stands for an answer running in this
+ * process, the same thing the conversation lock stands for. A restart ends
+ * every such answer, and its rows are held again; a reply that went out just
+ * before the process died is sent again by the next sweep.
+ */
+const answering = new Set<number>();
+
 type AggregatedHeldGroup = {
+  tenant_id: string;
+  channel_account_id: string;
   phone_number: string;
   message_ids: string;
   aggregated_text: string;
@@ -14,28 +46,70 @@ type AggregatedHeldGroup = {
 };
 
 /**
- * Store a message received during maintenance mode
+ * Whether this Meta message id was held for maintenance, whether or not it has
+ * been answered since. An answered row still counts until
+ * `purgeProcessedHeldMessages` removes it.
+ */
+export function isHeld(messageId: string): boolean {
+  const row = getOne<{ count: number }>(
+    "SELECT COUNT(*) as count FROM held_messages WHERE message_id = ?",
+    [messageId],
+  );
+
+  return (row?.count ?? 0) > 0;
+}
+
+/**
+ * Store a message received during maintenance mode. Like the inbox, the Meta
+ * message id is unique and a redelivery of the same message is ignored.
  */
 export function holdMessage(
-  phoneNumber: string,
+  ref: ConversationRef,
   text: string,
   messageId: string,
   whatsappTimestamp: number,
 ): void {
   db.prepare(
-    `INSERT INTO held_messages (phone_number, message_text, message_id, whatsapp_timestamp)
-     VALUES (?, ?, ?, ?)`,
-  ).run(phoneNumber, text, messageId, whatsappTimestamp);
+    `INSERT INTO held_messages (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(message_id) DO NOTHING`,
+  ).run(
+    ref.tenantId,
+    ref.channelAccountId,
+    ref.phoneNumber,
+    text,
+    messageId,
+    whatsappTimestamp,
+  );
 
-  logger.debug({ phoneNumber, messageId, whatsappTimestamp }, "Message held");
+  logger.debug(
+    {
+      tenantId: ref.tenantId,
+      phoneNumber: ref.phoneNumber,
+      messageId,
+      whatsappTimestamp,
+    },
+    "Message held",
+  );
 }
 
 /**
- * Get held messages aggregated by user (like aggregator-worker does)
+ * Held messages not yet answered, aggregated by conversation (like
+ * aggregator-worker does). `tenantId` null spans tenants, for platform-wide
+ * maintenance recovery.
+ *
+ * A number that is no longer active is left out, exactly as the inbox dequeue
+ * leaves it out. Processing a held group is a sending loop, and a send on a
+ * `pending` or `disabled` account is refused: those rows stay held and go out
+ * whenever the number comes back.
  */
-export function getAggregatedHeldMessages(): AggregatedHeldGroup[] {
+export function getAggregatedHeldMessages(
+  tenantId: string | null = null,
+): AggregatedHeldGroup[] {
   return getAll<AggregatedHeldGroup>(
-    `SELECT 
+    `SELECT
+       tenant_id,
+       channel_account_id,
        phone_number,
        GROUP_CONCAT(id) as message_ids,
        GROUP_CONCAT(message_text, ' ') as aggregated_text,
@@ -43,31 +117,67 @@ export function getAggregatedHeldMessages(): AggregatedHeldGroup[] {
        MAX(message_id) as latest_message_id,
        COUNT(*) as message_count
      FROM held_messages
-     GROUP BY phone_number
+     WHERE processed_at IS NULL
+       AND ${tenantPredicate(tenantId)}
+       AND ${activeChannelAccountsOnly()}
+     GROUP BY tenant_id, channel_account_id, phone_number
      ORDER BY MIN(created_at) ASC`,
+    tenantId ? [tenantId] : [],
   );
 }
 
 /**
- * Delete held messages after processing
+ * Take a group for answering. False when another sweep is answering any of it,
+ * or has already answered any of it since the group was read.
  */
-export function clearHeldMessages(ids: number[]): void {
+export function claimHeldMessages(tenantId: string, ids: number[]): boolean {
+  if (ids.some((id) => answering.has(id))) return false;
+
+  const placeholders = ids.map(() => "?").join(",");
+  const unanswered = getOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM held_messages
+     WHERE tenant_id = ? AND processed_at IS NULL AND id IN (${placeholders})`,
+    [tenantId, ...ids],
+  );
+  if ((unanswered?.count ?? 0) !== ids.length) return false;
+
+  for (const id of ids) answering.add(id);
+  return true;
+}
+
+/** Give a claimed group back unanswered. */
+export function releaseHeldMessages(ids: number[]): void {
+  for (const id of ids) answering.delete(id);
+}
+
+/** Record a claimed group as answered, and end the claim. */
+export function markHeldAsProcessed(ids: number[]): void {
   if (ids.length === 0) return;
 
   const placeholders = ids.map(() => "?").join(",");
-  db.prepare(`DELETE FROM held_messages WHERE id IN (${placeholders})`).run(
-    ...ids,
-  );
+  db.prepare(
+    `UPDATE held_messages SET processed_at = ? WHERE id IN (${placeholders})`,
+  ).run(Date.now(), ...ids);
+  releaseHeldMessages(ids);
 
-  logger.debug({ count: ids.length }, "Cleared held messages");
+  logger.debug({ count: ids.length }, "Marked held messages processed");
 }
 
-/**
- * Count held messages (for monitoring)
- */
-export function countHeldMessages(): number {
-  const result = db
-    .prepare(`SELECT COUNT(*) as count FROM held_messages`)
-    .get() as { count: number };
-  return result.count;
+/** Delete answered held messages processed before `before` (epoch ms). */
+export function purgeProcessedHeldMessages(before: number): number {
+  return db
+    .prepare(
+      "DELETE FROM held_messages WHERE processed_at IS NOT NULL AND processed_at < ?",
+    )
+    .run(before).changes;
+}
+
+/** Held messages still waiting to be answered. */
+export function countHeldMessages(tenantId: string | null = null): number {
+  const rows = getAll<{ count: number }>(
+    `SELECT COUNT(*) as count FROM held_messages
+     WHERE processed_at IS NULL AND ${tenantPredicate(tenantId)}`,
+    tenantId ? [tenantId] : [],
+  );
+  return rows[0]?.count ?? 0;
 }
