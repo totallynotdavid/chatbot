@@ -1,29 +1,60 @@
-import process from "node:process";
-import type { WhatsAppAdapter } from "./types.ts";
+import type { ChannelAccount, WhatsAppAdapter } from "./types.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { getPublicUrl } from "@totem/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
+import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 
 const logger = createLogger("whatsapp");
-const TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
-const API_URL = `https://graph.facebook.com/v17.0/${PHONE_ID}/messages`;
+const GRAPH_VERSION = "v17.0";
+
+function messagesUrl(account: ChannelAccount): string {
+  return `https://graph.facebook.com/${GRAPH_VERSION}/${account.phone_number_id}/messages`;
+}
+
+/**
+ * Credentials for one send. Returns null (and logs why) when the account cannot
+ * currently send, so callers degrade the same way the old env-var check did.
+ */
+function credentials(
+  account: ChannelAccount,
+): { token: string; url: string } | null {
+  if (account.status !== "active") {
+    logger.warn(
+      { channelAccountId: account.id, status: account.status },
+      "Channel account is not active",
+    );
+    return null;
+  }
+
+  const token = ChannelAccountService.getAccessToken(account);
+  if (!token) {
+    logger.warn(
+      { channelAccountId: account.id },
+      "Channel account has no usable access token",
+    );
+    return null;
+  }
+
+  return { token, url: messagesUrl(account) };
+}
 
 export const CloudApiAdapter: WhatsAppAdapter = {
-  async sendMessage(to: string, content: string): Promise<string | null> {
-    if (!TOKEN || !PHONE_ID) {
-      logger.warn("WhatsApp not configured");
-      return null;
-    }
+  async sendMessage(
+    account: ChannelAccount,
+    to: string,
+    content: string,
+  ): Promise<string | null> {
+    const creds = credentials(account);
+    if (!creds) return null;
 
     const { signal, cleanup } = createAbortTimeout(TIMEOUTS.WHATSAPP_SEND);
 
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(creds.url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${TOKEN}`,
+          Authorization: `Bearer ${creds.token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -40,7 +71,7 @@ export const CloudApiAdapter: WhatsAppAdapter = {
       if (!response.ok) {
         const error = await response.json();
         logger.error(
-          { error, to, status: response.status },
+          { error, to, channelAccountId: account.id, status: response.status },
           "WhatsApp send failed",
         );
         return null;
@@ -57,11 +88,18 @@ export const CloudApiAdapter: WhatsAppAdapter = {
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           logger.error(
-            { to, timeoutMs: TIMEOUTS.WHATSAPP_SEND },
+            {
+              to,
+              channelAccountId: account.id,
+              timeoutMs: TIMEOUTS.WHATSAPP_SEND,
+            },
             "WhatsApp send timeout",
           );
         } else {
-          logger.error({ error, to }, "WhatsApp send failed");
+          logger.error(
+            { error, to, channelAccountId: account.id },
+            "WhatsApp send failed",
+          );
         }
       }
 
@@ -70,14 +108,13 @@ export const CloudApiAdapter: WhatsAppAdapter = {
   },
 
   async sendImage(
+    account: ChannelAccount,
     to: string,
     imagePath: string,
     caption?: string,
   ): Promise<string | null> {
-    if (!TOKEN || !PHONE_ID) {
-      logger.warn({ imagePath }, "WhatsApp not configured");
-      return null;
-    }
+    const creds = credentials(account);
+    if (!creds) return null;
 
     const publicUrl = getPublicUrl();
     const link = `${publicUrl}/media/${imagePath}`;
@@ -92,10 +129,10 @@ export const CloudApiAdapter: WhatsAppAdapter = {
         image: { link, ...(caption && { caption }) },
       };
 
-      const response = await fetch(API_URL, {
+      const response = await fetch(creds.url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${TOKEN}`,
+          Authorization: `Bearer ${creds.token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -107,7 +144,15 @@ export const CloudApiAdapter: WhatsAppAdapter = {
       if (!response.ok) {
         const error = await response.json();
         logger.error(
-          { error, to, imagePath, link, status: response.status, payload },
+          {
+            error,
+            to,
+            imagePath,
+            link,
+            channelAccountId: account.id,
+            status: response.status,
+            payload,
+          },
           "WhatsApp image send failed",
         );
         return null;
@@ -124,11 +169,19 @@ export const CloudApiAdapter: WhatsAppAdapter = {
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           logger.error(
-            { to, imagePath, timeoutMs: TIMEOUTS.WHATSAPP_IMAGE },
+            {
+              to,
+              imagePath,
+              channelAccountId: account.id,
+              timeoutMs: TIMEOUTS.WHATSAPP_IMAGE,
+            },
             "WhatsApp image send timeout",
           );
         } else {
-          logger.error({ error, to, imagePath }, "WhatsApp image send failed");
+          logger.error(
+            { error, to, imagePath, channelAccountId: account.id },
+            "WhatsApp image send failed",
+          );
         }
       }
 
@@ -136,16 +189,17 @@ export const CloudApiAdapter: WhatsAppAdapter = {
     }
   },
 
-  async markAsRead(messageId: string): Promise<void> {
-    if (!TOKEN || !PHONE_ID) return;
+  async markAsRead(account: ChannelAccount, messageId: string): Promise<void> {
+    const creds = credentials(account);
+    if (!creds) return;
 
     const { signal, cleanup } = createAbortTimeout(5_000);
 
     try {
-      await fetch(API_URL, {
+      await fetch(creds.url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${TOKEN}`,
+          Authorization: `Bearer ${creds.token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
