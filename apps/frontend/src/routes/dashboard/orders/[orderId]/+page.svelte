@@ -149,7 +149,7 @@ function parseProducts(productsJson: string) {
               <div>
                 <p class="text-xs text-ink-400 mb-1">Conversación</p>
                 <a
-                  href="/dashboard/conversations/{order.conversation_phone}"
+                  href="/dashboard/conversations/{order.conversation_phone}?channel={order.channel_account_id}"
                   class="text-sm text-ink-900 hover:underline font-medium"
                 >
                   Ver conversación →

@@ -85,8 +85,31 @@
   </div>
 
   <div class="flex items-center gap-6 text-xs font-mono">
+    {#if auth.canSwitchTenant}
+      <label class="flex items-center gap-2 text-ink-600">
+        <span class="uppercase tracking-widest text-[10px] text-ink-400">
+          Negocio
+        </span>
+        <select
+          class="bg-transparent border border-ink-900/20 rounded px-2 py-1 text-xs"
+          value={auth.activeTenantId ?? ""}
+          onchange={(e) =>
+            auth.selectTenant(e.currentTarget.value || null)}
+        >
+          {#if auth.isPlatformOperator}
+            <option value="">Todos (operador)</option>
+          {:else if !auth.activeTenantId}
+            <option value="">Selecciona un negocio</option>
+          {/if}
+          {#each auth.tenants as tenant (tenant.id)}
+            <option value={tenant.id}>{tenant.name}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
     <span class="text-ink-600">
-      {auth.user?.name || auth.user?.username} ({auth.user?.role})
+      {auth.user?.name || auth.user?.username} ({auth.user?.role ??
+        "sin negocio"})
     </span>
     <button onclick={() => auth.logout()} class="hover:underline text-red-600">
       Salir

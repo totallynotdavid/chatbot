@@ -8,11 +8,11 @@ import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-let localConversations = $state<Conversation[]>([]);
+let localConversations = $state<Conversation[] | null>(null);
 let polling: ReturnType<typeof setInterval> | null = null;
 
 let conversations = $derived(
-  localConversations.length > 0 ? localConversations : data.conversations,
+  localConversations ?? data.conversations,
 );
 
 async function loadConversations() {
@@ -37,10 +37,7 @@ onMount(() => {
 <PageTitle title="Conversaciones" />
 
 <div class="flex h-[calc(100vh-65px)] overflow-hidden bg-white">
-	<ConversationList
-		{conversations}
-		selectedPhone={null}
-	/>
+	<ConversationList {conversations} />
 
 	<div class="hidden md:flex flex-col flex-1 bg-cream-100 relative min-w-0">
 		<div class="flex-1 flex flex-col items-center justify-center text-ink-300 opacity-50">

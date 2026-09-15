@@ -1,17 +1,32 @@
 import { browser } from "$app/environment";
 import { fetchApi } from "$lib/utils/api";
+import { showTenantSelector } from "$lib/state/tenant-switching";
 
 type User = {
   username: string;
-  role: string;
+  /** Role in the active tenant; null until one is selected. */
+  role: string | null;
   name: string;
-  is_available?: number;
+  /** Taking new conversations in the active tenant; false while unpinned. */
+  isAvailable?: boolean;
+  /** VendeYa staff, who may act across tenants rather than inside one. */
+  isPlatformOperator?: boolean;
+  /** Tenant the session is scoped to; null means unscoped. */
+  activeTenantId?: string | null;
+};
+
+type Tenant = {
+  id: string;
+  slug: string;
+  name: string;
+  role: string | null;
 };
 
 type AuthState = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  tenants: Tenant[];
 };
 
 function createAuthState() {
@@ -19,6 +34,7 @@ function createAuthState() {
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    tenants: [],
   });
 
   return {
@@ -58,23 +74,78 @@ function createAuthState() {
     get isSalesAgent() {
       return state.user?.role === "sales_agent";
     },
+    get isPlatformOperator() {
+      return state.user?.isPlatformOperator === true;
+    },
+    get activeTenantId() {
+      return state.user?.activeTenantId ?? null;
+    },
+    get tenants() {
+      return state.tenants;
+    },
+    /** Whether the nav shows the tenant selector; see showTenantSelector. */
+    get canSwitchTenant() {
+      return showTenantSelector({
+        tenantCount: state.tenants.length,
+        activeTenantId: this.activeTenantId,
+        isPlatformOperator: this.isPlatformOperator,
+      });
+    },
     get isAvailable() {
-      return state.user?.is_available === 1;
+      return state.user?.isAvailable === true;
     },
     hydrate(user: User | null) {
       state.user = user;
       state.isAuthenticated = Boolean(user);
       state.isLoading = false;
+
+      // The tenant list is not part of the SSR payload; fetch it once the
+      // client has a session so the scope indicator can render.
+      if (user && browser) {
+        void this.loadTenants();
+      }
     },
     async checkAuth() {
       try {
         const data = await fetchApi<{ user: User | null }>("/api/auth/me");
         state.user = data.user;
         state.isAuthenticated = Boolean(data.user);
+        if (data.user) {
+          await this.loadTenants();
+        }
       } catch {
         this.logout();
       } finally {
         state.isLoading = false;
+      }
+    },
+    async loadTenants() {
+      try {
+        const data = await fetchApi<{
+          tenants: Tenant[];
+          activeTenantId: string | null;
+        }>("/api/tenants");
+        state.tenants = data.tenants;
+        if (state.user) {
+          state.user.activeTenantId = data.activeTenantId;
+        }
+      } catch {
+        state.tenants = [];
+      }
+    },
+    /**
+     * Repoint the session at another tenant. The whole dashboard is scoped to
+     * it, so the page is reloaded rather than trying to invalidate every store.
+     */
+    async selectTenant(tenantId: string | null) {
+      await fetchApi("/api/tenants/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+
+      if (browser) {
+        window.location.reload();
       }
     },
     async logout() {
@@ -83,6 +154,7 @@ function createAuthState() {
       } finally {
         state.user = null;
         state.isAuthenticated = false;
+        state.tenants = [];
         if (browser && window.location.pathname !== "/login") {
           window.location.href = "/login";
         }
@@ -91,16 +163,16 @@ function createAuthState() {
     async toggleAvailability() {
       if (!state.user) return;
 
-      const newStatus = state.user.is_available === 1 ? 0 : 1;
+      const newStatus = !state.user.isAvailable;
       try {
         await fetchApi("/api/auth/availability", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isAvailable: newStatus === 1 }),
+          body: JSON.stringify({ isAvailable: newStatus }),
         });
 
         if (state.user) {
-          state.user.is_available = newStatus;
+          state.user.isAvailable = newStatus;
         }
       } catch (error) {
         console.error("Failed to toggle availability:", error);

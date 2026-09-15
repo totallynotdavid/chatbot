@@ -18,7 +18,40 @@
     JSON.stringify(settings) !== JSON.stringify(initialSettings),
   );
 
-  let isMaintenanceMode = $derived(settings["maintenance_mode"] === "true");
+  // `maintenance_mode` is this tenant's OWN stored setting - what the toggle
+  // below writes and what a save persists. The platform-wide freeze is a
+  // separate, read-only value, and the bot is held when either says so.
+  //
+  // These are kept apart on purpose. They used to arrive combined in
+  // `maintenance_mode`, and since every save posts the whole settings object
+  // back, a platform-wide freeze was written into the tenant's own row the next
+  // time anyone saved anything on this page - and stayed there after the
+  // platform freeze was lifted.
+  let platformFrozen = $derived(
+    settings["_platform_maintenance_mode"] === "true",
+  );
+
+  // Derived from the two raw values rather than read from the server's
+  // `_effective_maintenance_mode`, so it follows the toggle as it moves instead
+  // of lagging a save behind.
+  let effectivelyFrozen = $derived(
+    settings["maintenance_mode"] === "true" || platformFrozen,
+  );
+
+  // The Calidda integrations are shared platform infrastructure, not per
+  // business, so only VendeYa staff can suspend them. A tenant admin sees the
+  // current state read-only rather than a toggle that would silently no-op.
+  let canEditPlatformSettings = $derived(settings["_scope"] === "platform");
+
+  // Where a platform switch's value is. An operator with no tenant selected
+  // owns these and edits them under their own names; a tenant admin is shown
+  // them as `_platform_<key>`, which a save never posts back - under the raw
+  // names they were resubmitted, and refused, on every save of this page.
+  function platformSwitchOn(key: string): boolean {
+    return (
+      settings[canEditPlatformSettings ? key : `_platform_${key}`] === "true"
+    );
+  }
 
   async function loadSettings() {
     loading = true;
@@ -56,6 +89,7 @@
           usersProcessed: number;
           messagesProcessed: number;
           errors: number;
+          stillAnswering: number;
         };
       }>("/api/admin/process-held-messages", {
         method: "POST",
@@ -86,10 +120,18 @@
       const isExitingMaintenance =
         wasInMaintenance && settings["maintenance_mode"] === "false";
 
+      // Only the writable keys go back. The underscore-prefixed ones are the
+      // server's read-only commentary on this tenant's state (the platform
+      // freeze, the effective freeze, the scope); POST ignores them, and not
+      // sending them keeps a save to what this page actually owns.
+      const payload = Object.fromEntries(
+        Object.entries(settings).filter(([key]) => !key.startsWith("_")),
+      );
+
       await fetchApi("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(payload),
       });
 
       initialSettings = { ...settings };
@@ -149,12 +191,35 @@
             </div>
           </label>
         </div>
+
+        <!--
+          A platform-wide freeze holds this business's messages whatever the
+          toggle above says. It is shown rather than folded into the toggle:
+          folding it in is what used to write VendeYa's freeze into this
+          tenant's own setting on the next save.
+        -->
+        {#if platformFrozen}
+          <div
+            class="mt-4 border border-amber-100 bg-amber-50/40 p-4 rounded text-amber-900"
+          >
+            <div class="font-bold text-sm">
+              Mantenimiento global activo en la plataforma
+            </div>
+            <p class="text-xs text-amber-800/80 mt-1 leading-relaxed">
+              VendeYa tiene el modo mantenimiento activado para todas las
+              cuentas, así que el bot está retenido aunque el interruptor de
+              arriba esté apagado. Ese interruptor solo controla el
+              mantenimiento de esta cuenta; guardar cambios en esta página no
+              lo modifica.
+            </p>
+          </div>
+        {/if}
       </div>
     {/if}
   </SectionShell>
 
   <!-- Held messages status (shown when maintenance mode is off but messages pending) -->
-  {#if !loading && !isMaintenanceMode && heldMessagesCount > 0}
+  {#if !loading && !effectivelyFrozen && heldMessagesCount > 0}
     <SectionShell
       title="Mensajes retenidos"
       description="Mensajes recibidos durante el modo mantenimiento pendientes de procesamiento."
@@ -306,7 +371,9 @@
 
   <SectionShell
     title="Integraciones"
-    description="Gestión de conexiones con servicios externos."
+    description={canEditPlatformSettings
+      ? "Gestión de conexiones con servicios externos."
+      : "Conexiones compartidas de la plataforma. Solo el equipo de VendeYa puede modificarlas."}
   >
     {#if loading}
       <div class="p-8 space-y-4 animate-pulse">
@@ -319,12 +386,13 @@
           <label class="flex items-start gap-3 cursor-pointer group">
             <input
               type="checkbox"
-              checked={settings["force_fnb_down"] === "true"}
+              checked={platformSwitchOn("force_fnb_down")}
+              disabled={!canEditPlatformSettings}
               onchange={(e) =>
                 (settings["force_fnb_down"] = e.currentTarget.checked
                   ? "true"
                   : "false")}
-              class="mt-1 h-4 w-4 rounded border-ink-300 text-ink-900 focus:ring-ink-900 focus:ring-offset-0 cursor-pointer"
+              class="mt-1 h-4 w-4 rounded border-ink-300 text-ink-900 focus:ring-ink-900 focus:ring-offset-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div class="flex-1">
               <div class="font-medium text-sm text-ink-900">
@@ -342,12 +410,13 @@
           <label class="flex items-start gap-3 cursor-pointer group">
             <input
               type="checkbox"
-              checked={settings["force_gaso_down"] === "true"}
+              checked={platformSwitchOn("force_gaso_down")}
+              disabled={!canEditPlatformSettings}
               onchange={(e) =>
                 (settings["force_gaso_down"] = e.currentTarget.checked
                   ? "true"
                   : "false")}
-              class="mt-1 h-4 w-4 rounded border-ink-300 text-ink-900 focus:ring-ink-900 focus:ring-offset-0 cursor-pointer"
+              class="mt-1 h-4 w-4 rounded border-ink-300 text-ink-900 focus:ring-ink-900 focus:ring-offset-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div class="flex-1">
               <div class="font-medium text-sm text-ink-900">
