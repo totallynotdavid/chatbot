@@ -1,4 +1,4 @@
-import type { ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@totem/types";
 import { PowerBIClient } from "../../adapters/providers/powerbi-client.ts";
 import { isAvailable, markBlocked } from "../../adapters/providers/health.ts";
 import { PersonasService } from "../../domains/personas/index.ts";
@@ -22,10 +22,10 @@ function parseCreditString(saldoStr: string | undefined): number {
 
 export async function checkGASO(
   dni: string,
-  phoneNumber?: string,
+  ref?: ConversationRef,
 ): Promise<ProviderCheckResult> {
-  if (phoneNumber) {
-    const persona = await getSimulationPersona(phoneNumber);
+  if (ref) {
+    const persona = await getSimulationPersona(ref);
     if (persona) {
       return PersonasService.toProviderResult(persona);
     }

@@ -1,4 +1,5 @@
 import { db } from "../../db/index.ts";
+import { getAll, getOne } from "../../db/query.ts";
 import type { ProviderCheckResult } from "@totem/types";
 
 type TestPersona = {
@@ -99,18 +100,22 @@ const INITIAL_PERSONAS: TestPersona[] = [
   },
 ];
 
+/**
+ * Simulator personas are tenant-owned. The INITIAL_PERSONAS below are the
+ * built-in fallbacks every tenant sees until it defines its own; they carry no
+ * customer data, only fixtures.
+ */
 export const PersonasService = {
-  getAll(): TestPersona[] {
+  getAll(tenantId: string): TestPersona[] {
     // Get from database
-    const dbPersonas = db
-      .prepare(
-        `SELECT id, name, description, segment, client_name as clientName, 
-                dni, credit_line as creditLine, nse, is_active as isActive
-         FROM test_personas 
-         WHERE is_active = 1
-         ORDER BY segment, credit_line DESC`,
-      )
-      .all() as TestPersona[];
+    const dbPersonas = getAll<TestPersona>(
+      `SELECT id, name, description, segment, client_name as clientName,
+              dni, credit_line as creditLine, nse, is_active as isActive
+       FROM test_personas
+       WHERE tenant_id = ? AND is_active = 1
+       ORDER BY segment, credit_line DESC`,
+      [tenantId],
+    );
 
     // Merge with hardcoded personas (db takes precedence)
     const dbIds = new Set(dbPersonas.map((p) => p.id));
@@ -119,28 +124,25 @@ export const PersonasService = {
     return [...dbPersonas, ...hardcodedFiltered];
   },
 
-  getById(id: string): TestPersona | undefined {
+  getById(tenantId: string, id: string): TestPersona | undefined {
     // Check database first
-    const dbPersona = db
-      .prepare(
-        `SELECT id, name, description, segment, client_name as clientName, 
-                dni, credit_line as creditLine, nse, is_active as isActive
-         FROM test_personas 
-         WHERE id = ? AND is_active = 1`,
-      )
-      .get(id) as
-      | {
-          id: string;
-          name: string;
-          description: string | null;
-          segment: "fnb" | "gaso" | "not_eligible";
-          clientName: string;
-          dni: string;
-          creditLine: number;
-          nse: number | null;
-          isActive: number;
-        }
-      | undefined;
+    const dbPersona = getOne<{
+      id: string;
+      name: string;
+      description: string | null;
+      segment: "fnb" | "gaso" | "not_eligible";
+      clientName: string;
+      dni: string;
+      creditLine: number;
+      nse: number | null;
+      isActive: number;
+    }>(
+      `SELECT id, name, description, segment, client_name as clientName,
+              dni, credit_line as creditLine, nse, is_active as isActive
+       FROM test_personas
+       WHERE tenant_id = ? AND id = ? AND is_active = 1`,
+      [tenantId, id],
+    );
 
     if (dbPersona) {
       return {
@@ -181,14 +183,16 @@ export const PersonasService = {
   },
 
   create(
+    tenantId: string,
     persona: Omit<TestPersona, "isActive">,
     createdBy: string,
   ): TestPersona {
     db.prepare(
-      `INSERT INTO test_personas (id, name, description, segment, client_name, dni, credit_line, nse, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO test_personas (id, tenant_id, name, description, segment, client_name, dni, credit_line, nse, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       persona.id,
+      tenantId,
       persona.name,
       persona.description,
       persona.segment,
@@ -202,7 +206,11 @@ export const PersonasService = {
     return { ...persona, isActive: true };
   },
 
-  update(id: string, updates: Partial<Omit<TestPersona, "id" | "isActive">>) {
+  update(
+    tenantId: string,
+    id: string,
+    updates: Partial<Omit<TestPersona, "id" | "isActive">>,
+  ) {
     const sets: string[] = [];
     const values: (string | number | null)[] = [];
 
@@ -237,13 +245,15 @@ export const PersonasService = {
 
     if (sets.length === 0) return;
 
-    values.push(id);
-    db.prepare(`UPDATE test_personas SET ${sets.join(", ")} WHERE id = ?`).run(
-      ...values,
-    );
+    values.push(id, tenantId);
+    db.prepare(
+      `UPDATE test_personas SET ${sets.join(", ")} WHERE id = ? AND tenant_id = ?`,
+    ).run(...values);
   },
 
-  delete(id: string) {
-    db.prepare("UPDATE test_personas SET is_active = 0 WHERE id = ?").run(id);
+  delete(tenantId: string, id: string) {
+    db.prepare(
+      "UPDATE test_personas SET is_active = 0 WHERE id = ? AND tenant_id = ?",
+    ).run(id, tenantId);
   },
 };

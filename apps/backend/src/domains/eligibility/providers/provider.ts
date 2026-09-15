@@ -1,5 +1,5 @@
 import type { Result } from "../../../shared/result/index.ts";
-import type { ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@totem/types";
 
 /**
  * Unified interface for eligibility providers.
@@ -10,7 +10,7 @@ export interface EligibilityProvider {
 
   checkEligibility(
     dni: string,
-    phoneNumber?: string,
+    ref?: ConversationRef,
   ): Promise<Result<ProviderCheckResult, ProviderError>>;
 }
 

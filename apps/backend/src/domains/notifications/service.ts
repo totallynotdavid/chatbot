@@ -13,7 +13,13 @@ export class NotificationService {
     options?: { phoneNumber?: string },
   ): Promise<void> {
     try {
-      await notifyTeam(channel, message, options);
+      // notifyTeam reports a refused or timed-out delivery by returning false
+      // rather than throwing, so the answer has to be read to notice it.
+      const sent = await notifyTeam(channel, message, options);
+
+      if (!sent) {
+        logger.error({ channel }, "Internal notification was not delivered");
+      }
     } catch (error) {
       logger.error({ error, channel }, "Failed to send internal notification");
     }
@@ -24,7 +30,9 @@ export class NotificationService {
     ctx: NotificationContext,
   ): Promise<void> {
     const message = templates.assignment(ctx);
-    await this.send("direct", message, { phoneNumber: agentPhone });
+    await NotificationService.send("direct", message, {
+      phoneNumber: agentPhone,
+    });
   }
 
   static async notifyNewOrder(
@@ -33,12 +41,12 @@ export class NotificationService {
     amount: number,
   ): Promise<void> {
     const message = templates.newOrder(ctx, orderNumber, amount);
-    await this.send("sales", message);
+    await NotificationService.send("sales", message);
   }
 
   static async notifyContractUploaded(ctx: NotificationContext): Promise<void> {
     const message = templates.contractUploaded(ctx);
-    await this.send("sales", message);
+    await NotificationService.send("sales", message);
   }
 
   static async notifySystemOutage(
@@ -47,7 +55,7 @@ export class NotificationService {
     errors: string[],
   ): Promise<void> {
     const message = templates.systemOutage(ctx, errors);
-    await this.send(channel, message);
+    await NotificationService.send(channel, message);
   }
 
   static async notifyDegradation(
@@ -56,7 +64,7 @@ export class NotificationService {
     working: string,
   ): Promise<void> {
     const message = templates.degradation(ctx, failed, working);
-    await this.send("dev", message);
+    await NotificationService.send("dev", message);
   }
 
   static async notifySystemError(
@@ -64,6 +72,6 @@ export class NotificationService {
     error: string,
   ): Promise<void> {
     const message = templates.systemError(ctx, error);
-    await this.send("dev", message);
+    await NotificationService.send("dev", message);
   }
 }

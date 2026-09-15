@@ -1,8 +1,9 @@
-import { db } from "../../db/index.ts";
-import { getAll } from "../../db/query.ts";
+import { getAll, getOne, tenantPredicate } from "../../db/query.ts";
 import * as XLSX from "xlsx";
 
 type ActivityReportParams = {
+  /** null spans tenants; only platform operators ever pass it. */
+  tenantId: string | null;
   startDate: Date;
   endDate: Date;
   segments: string[];
@@ -10,6 +11,7 @@ type ActivityReportParams = {
 };
 
 type OrderReportParams = {
+  tenantId: string | null;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -17,16 +19,15 @@ type OrderReportParams = {
 };
 
 export const ReportService = {
-  generateDailyReport: (date: Date = new Date()) => {
+  generateDailyReport: (tenantId: string | null, date: Date = new Date()) => {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
     const end = new Date(date);
     end.setHours(23, 59, 59, 999);
 
-    const rows = db
-      .prepare(
-        `
-            SELECT 
+    const rows = getAll<Record<string, unknown>>(
+      `
+            SELECT
               phone_number,
               client_name,
               dni,
@@ -35,11 +36,14 @@ export const ReportService = {
               status,
               current_state,
               last_activity_at
-            FROM conversations 
+            FROM conversations
             WHERE last_activity_at BETWEEN ? AND ?
+              AND ${tenantPredicate(tenantId)}
         `,
-      )
-      .all(start.toISOString(), end.toISOString());
+      tenantId
+        ? [start.toISOString(), end.toISOString(), tenantId]
+        : [start.toISOString(), end.toISOString()],
+    );
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
@@ -53,11 +57,14 @@ export const ReportService = {
   },
 
   generateActivityReport: (params: ActivityReportParams) => {
-    const { startDate, endDate, segments, saleStatuses } = params;
+    const { tenantId, startDate, endDate, segments, saleStatuses } = params;
 
     // Build WHERE conditions
     const conditions: string[] = ["is_simulation = 0"];
     const values: any[] = [];
+
+    conditions.push(tenantPredicate(tenantId));
+    if (tenantId) values.push(tenantId);
 
     // Date range - using timestamps
     const startTimestamp = startDate.getTime();
@@ -186,29 +193,32 @@ export const ReportService = {
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   },
 
-  getTodayContactCount: () => {
+  getTodayContactCount: (tenantId: string | null) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const startTimestamp = today.getTime();
 
-    const result = db
-      .prepare(
-        `
-        SELECT COUNT(*) as count 
-        FROM conversations 
+    const result = getOne<{ count: number }>(
+      `
+        SELECT COUNT(*) as count
+        FROM conversations
         WHERE is_simulation = 0 AND last_activity_at >= ?
+          AND ${tenantPredicate(tenantId)}
       `,
-      )
-      .get(startTimestamp) as { count: number };
+      tenantId ? [startTimestamp, tenantId] : [startTimestamp],
+    );
 
     return result?.count ?? 0;
   },
 
-  generateOrderReport: (params: OrderReportParams = {}) => {
-    const { startDate, endDate, status, assignedAgent } = params;
+  generateOrderReport: (params: OrderReportParams) => {
+    const { tenantId, startDate, endDate, status, assignedAgent } = params;
 
     const conditions: string[] = [];
     const values: any[] = [];
+
+    conditions.push(tenantPredicate(tenantId));
+    if (tenantId) values.push(tenantId);
 
     if (startDate) {
       conditions.push("created_at >= ?");
