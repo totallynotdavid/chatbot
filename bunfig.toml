@@ -1,0 +1,5 @@
+[test]
+# `bun test` from the repository root runs the backend suite too, and that suite
+# drives the application's own database connection. The preload points DB_PATH
+# at a throwaway file before anything opens it; see apps/backend/tests/setup.ts.
+preload = ["./apps/backend/tests/setup.ts"]

@@ -1,0 +1,4 @@
+[test]
+# Runs before any test file, so DB_PATH points at a throwaway database before
+# src/db/connection.ts opens one. See tests/setup.ts.
+preload = ["./tests/setup.ts"]
