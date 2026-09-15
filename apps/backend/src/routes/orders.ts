@@ -1,12 +1,22 @@
 import { Hono } from "hono";
+import { pathParam } from "../lib/http.ts";
 import * as ordersModule from "../domains/orders/orders.ts";
-import { logAction } from "../platform/audit/logger";
+import { logAction } from "../platform/audit/logger.ts";
+import {
+  activeTenantId,
+  requireActiveTenant,
+  requireTenantScope,
+} from "../middleware/auth.ts";
+import { lookupConversation } from "../domains/conversations/read.ts";
+import { refOf } from "../conversation/store.ts";
 
 const app = new Hono();
 
+app.use("/*", requireTenantScope);
+
 // Role validation helper for order status transitions
 function canUpdateOrderStatus(
-  userRole: string,
+  userRole: string | null,
   newStatus: string,
 ): { allowed: boolean; reason?: string } {
   // Supervisor-level approvals: admin or supervisor
@@ -50,17 +60,41 @@ function canUpdateOrderStatus(
 
 // Get order metrics
 app.get("/metrics", async (c) => {
-  const metrics = ordersModule.getOrderMetrics();
+  const metrics = ordersModule.getOrderMetrics(c.get("scope").tenantId);
   return c.json(metrics);
 });
 
 // Create order
-app.post("/", async (c) => {
+app.post("/", requireActiveTenant, async (c) => {
   const body = await c.req.json();
   const user = c.get("user");
+  const scope = c.get("scope");
+
+  // The order belongs to the conversation it came from, which fixes both the
+  // tenant and the channel account; a phone number alone is not enough.
+  const lookup = lookupConversation(
+    scope,
+    body.conversationPhone,
+    body.channelAccountId ?? null,
+  );
+
+  if (lookup.status === "ambiguous") {
+    return c.json(
+      {
+        error: "Ambiguous conversation",
+        detail:
+          "This contact is talking to more than one of your numbers; pass channelAccountId",
+      },
+      409,
+    );
+  }
+
+  if (lookup.status === "not_found") {
+    return c.json({ error: "Conversation not found" }, 404);
+  }
 
   const order = ordersModule.createOrder({
-    conversationPhone: body.conversationPhone,
+    ref: refOf(lookup.conversation),
     clientName: body.clientName,
     clientDni: body.clientDni,
     products: body.products,
@@ -84,7 +118,7 @@ app.get("/", async (c) => {
     ? Number(c.req.query("offset"))
     : undefined;
 
-  const ordersData = ordersModule.getOrders({
+  const ordersData = ordersModule.getOrders(c.get("scope").tenantId, {
     status,
     startDate,
     endDate,
@@ -96,22 +130,21 @@ app.get("/", async (c) => {
   return c.json(ordersData);
 });
 
-// Get order by ID
-app.get("/:id", async (c) => {
-  const { id } = c.req.param();
-  const order = ordersModule.getOrderById(id);
-
-  if (!order) {
-    return c.json({ error: "Order not found" }, 404);
-  }
-
-  return c.json(order);
-});
-
 // Get order by conversation phone
 app.get("/by-conversation/:phone", async (c) => {
-  const { phone } = c.req.param();
-  const order = ordersModule.getOrderByConversation(phone);
+  const lookup = lookupConversation(
+    c.get("scope"),
+    pathParam(c, "phone"),
+    c.req.query("channel") ?? null,
+  );
+
+  if (lookup.status !== "found") {
+    // Ambiguous is reported the same way as missing here: this endpoint feeds a
+    // side panel, and guessing a thread would attach the wrong order to it.
+    return c.json({ order: null });
+  }
+
+  const order = ordersModule.getOrderByConversation(refOf(lookup.conversation));
 
   if (!order) {
     return c.json({ order: null });
@@ -120,11 +153,24 @@ app.get("/by-conversation/:phone", async (c) => {
   return c.json({ order });
 });
 
+// Get order by ID
+app.get("/:id", async (c) => {
+  const id = pathParam(c, "id");
+  const order = ordersModule.getOrderById(c.get("scope").tenantId, id);
+
+  if (!order) {
+    return c.json({ error: "Order not found" }, 404);
+  }
+
+  return c.json(order);
+});
+
 // Update order status
-app.patch("/:id/status", async (c) => {
-  const { id } = c.req.param();
+app.patch("/:id/status", requireActiveTenant, async (c) => {
+  const id = pathParam(c, "id");
   const body = await c.req.json();
   const user = c.get("user");
+  const tenantId = activeTenantId(c);
 
   // Check role permissions for this status transition
   const permission = canUpdateOrderStatus(user.role, body.status);
@@ -132,14 +178,19 @@ app.patch("/:id/status", async (c) => {
     return c.json({ error: permission.reason }, 403);
   }
 
+  if (!ordersModule.getOrderById(tenantId, id)) {
+    return c.json({ error: "Order not found" }, 404);
+  }
+
   const order = ordersModule.updateOrderStatus(
+    tenantId,
     id,
     body.status,
     body.notes,
     body.noteType,
   );
 
-  logAction(user.id, "update_order_status", "order", id, {
+  logAction({ userId: user.id, tenantId }, "update_order_status", "order", id, {
     newStatus: body.status,
     notes: body.notes,
   });

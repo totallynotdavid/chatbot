@@ -6,64 +6,168 @@ import {
   processHeldMessages,
   countHeldMessages,
 } from "../../conversation/index.ts";
+import { isMaintenanceMode } from "../../domains/settings/system.ts";
 import { logAction } from "../../platform/audit/logger.ts";
+import { requireTenantScope } from "../../middleware/auth.ts";
 import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("admin-operations");
 
 const operations = new Hono();
 
+// These touch conversation state, so they run inside the caller's tenant.
+// An unpinned platform operator sweeps every tenant, which is the support case.
+operations.use("/*", requireTenantScope);
+
+/** Per-tenant counts, as both processors below report them. */
+type SweepStats = Record<string, number>;
+
+/**
+ * Audit for an operation that may have run across several tenants at once.
+ *
+ * The gate above lets an unpinned platform operator through and the routes then
+ * hand a null tenant to a processor that sweeps every open tenant. Recorded as
+ * a single entry with `tenantId: null` and one set of aggregate counts, that
+ * sweep left no trace of which businesses had been mutated or what happened in
+ * each - the one thing an audit trail of a cross-tenant write has to say, and
+ * the entry landed in none of the affected tenants' own trails either.
+ *
+ * So every tenant the run actually reached gets its own entry, with its own
+ * counts, in its own trail. A run that reached nobody still gets the single
+ * entry it would have had, under whatever scope the caller had, so "an operator
+ * triggered this and it did nothing" stays on the record too.
+ */
+function logSweep(
+  userId: string,
+  callerTenantId: string | null,
+  action: string,
+  totals: SweepStats,
+  byTenant: Record<string, SweepStats>,
+): void {
+  const affected = Object.entries(byTenant);
+
+  if (affected.length === 0) {
+    logAction({ userId, tenantId: callerTenantId }, action, "system", null, {
+      ...totals,
+      tenantsAffected: 0,
+    });
+    return;
+  }
+
+  for (const [tenantId, stats] of affected) {
+    logAction({ userId, tenantId }, action, "system", null, {
+      ...stats,
+      // A tenant-scoped run is indistinguishable from a platform-wide sweep
+      // once the entries are split up, so each one says which it came from.
+      sweptAcrossTenants: callerTenantId === null,
+    });
+  }
+}
+
 operations.get("/held-messages-status", (c) => {
-  const count = countHeldMessages();
+  const count = countHeldMessages(c.get("scope").tenantId);
   return c.json({ pendingCount: count });
 });
 
 // Process held messages from maintenance mode
 operations.post("/process-held-messages", async (c) => {
   const user = c.get("user");
-  const pendingCount = countHeldMessages();
+  const scope = c.get("scope");
+
+  // Maintenance mode's whole guarantee is that nothing goes out while it is on,
+  // and this endpoint sends: `processHeldMessages` runs the bot over every held
+  // message and answers the customer. Without this check an admin could lift
+  // the freeze by hand from the operations panel while it was still switched
+  // on - the dashboard hides the button (settings/+page.svelte), which is not
+  // the same thing as the API refusing.
+  //
+  // Layered the way `isMaintenanceMode` layers it: a platform-wide freeze
+  // refuses the call whatever scope it came from, and a pinned caller's own
+  // tenant freeze refuses theirs. An unpinned platform operator sweeping every
+  // tenant is let through when only individual businesses are frozen - those
+  // are skipped inside the sweep (see conversation/process-held.ts) rather than
+  // holding up recovery for everyone else.
+  if (isMaintenanceMode(scope.tenantId ?? undefined)) {
+    return c.json(
+      {
+        success: false,
+        error: "maintenance_mode",
+        message:
+          "Modo mantenimiento activo: los mensajes siguen retenidos hasta desactivarlo",
+      },
+      409,
+    );
+  }
+
+  const pendingCount = countHeldMessages(scope.tenantId);
 
   if (pendingCount === 0) {
     return c.json({
       success: true,
       message: "No held messages to process",
-      stats: { usersProcessed: 0, messagesProcessed: 0, errors: 0 },
+      stats: {
+        usersProcessed: 0,
+        messagesProcessed: 0,
+        errors: 0,
+        stillAnswering: 0,
+      },
     });
   }
 
   logger.info(
-    { username: user.username, pendingCount },
+    { username: user.username, tenantId: scope.tenantId, pendingCount },
     "Admin triggered held messages processing",
   );
 
-  const result = await processHeldMessages();
+  const { byTenant, frozenTenants, ...stats } = await processHeldMessages(
+    scope.tenantId,
+  );
 
-  logAction(user.id, "process_held_messages", "system", null, result);
+  logSweep(user.id, scope.tenantId, "process_held_messages", stats, byTenant);
 
-  const userWord = result.usersProcessed === 1 ? "usuario" : "usuarios";
-  const messageWord = result.messagesProcessed === 1 ? "mensaje" : "mensajes";
+  if (frozenTenants.length > 0) {
+    logger.info(
+      { username: user.username, frozenTenants },
+      "Left held messages untouched for tenants in their own maintenance mode",
+    );
+  }
+
+  const userWord = stats.usersProcessed === 1 ? "usuario" : "usuarios";
+  const messageWord = stats.messagesProcessed === 1 ? "mensaje" : "mensajes";
+
+  const inFlightWords =
+    stats.stillAnswering === 1 ? "conversación sigue" : "conversaciones siguen";
+  const stillAnswering =
+    stats.stillAnswering > 0
+      ? `; ${stats.stillAnswering} ${inFlightWords} en curso`
+      : "";
 
   return c.json({
     success: true,
-    message: `Procesados ${result.messagesProcessed} ${messageWord} de ${result.usersProcessed} ${userWord}`,
-    stats: result,
+    message: `Procesados ${stats.messagesProcessed} ${messageWord} de ${stats.usersProcessed} ${userWord}${stillAnswering}`,
+    stats,
+    // Named so an operator sweeping the platform can see that a business was
+    // deliberately skipped rather than silently missed.
+    tenantsInMaintenance: frozenTenants.length,
   });
 });
 
 operations.get("/outage-status", (c) => {
-  const waitingCount = countWaitingForRecovery();
+  const waitingCount = countWaitingForRecovery(c.get("scope").tenantId);
   return c.json({ waitingCount });
 });
 
 // Retry eligibility for waiting users
 operations.post("/retry-eligibility", async (c) => {
   const user = c.get("user");
+  const scope = c.get("scope");
 
-  const result = await retryEligibilityHandler.execute();
+  const result = await retryEligibilityHandler.execute(scope.tenantId);
 
   if (isOk(result)) {
-    const stats = result.value;
-    logAction(user.id, "retry_eligibility", "system", null, stats);
+    const { byTenant, ...stats } = result.value;
+
+    logSweep(user.id, scope.tenantId, "retry_eligibility", stats, byTenant);
 
     return c.json({
       success: true,

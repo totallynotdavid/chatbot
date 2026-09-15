@@ -1,32 +1,90 @@
 import { Hono } from "hono";
+import { pathParam } from "../lib/http.ts";
+import type { Context } from "hono";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
 import { PersonasService } from "../domains/personas/index.ts";
+import { ChannelAccountService } from "../domains/channels/accounts.ts";
 import {
   getOrCreateConversation,
   resetSession,
   handleMessage,
 } from "../conversation/index.ts";
+import { findConversation } from "../conversation/store.ts";
 import { db } from "../db/index.ts";
-import { getOne, getAll } from "../db/query.ts";
-import { requireRole } from "../middleware/auth.ts";
-import type { Conversation } from "@totem/types";
+import { getAll } from "../db/query.ts";
+import {
+  activeTenantId,
+  requireActiveTenant,
+  requireRole,
+} from "../middleware/auth.ts";
+import type { Conversation, ConversationRef } from "@totem/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("simulator");
 
 const simulator = new Hono();
 
+// The simulator writes conversations, so it always needs a concrete tenant.
+simulator.use("/*", requireActiveTenant);
 simulator.use("/*", requireRole("admin", "developer"));
+
+/**
+ * Simulated conversations still belong to a channel account: they are stored in
+ * the same table and share its identity. The tenant's default account is used.
+ */
+function simulatorRef(c: Context, phoneNumber: string): ConversationRef | null {
+  const tenantId = activeTenantId(c);
+  const account = ChannelAccountService.getDefaultForTenant(tenantId);
+
+  if (!account) return null;
+
+  return {
+    tenantId,
+    channelAccountId: account.id,
+    phoneNumber,
+  };
+}
+
+/**
+ * The conversation being replayed belongs to the tenant but not necessarily to
+ * the number the simulator runs on: a business with two WhatsApp numbers has
+ * two separate threads with the same contact, and `channelAccountId` says which
+ * of them is being loaded. Without one the tenant's default account is assumed,
+ * which is the whole story for a business with a single number.
+ */
+function replaySourceRef(
+  c: Context,
+  phoneNumber: string,
+  channelAccountId?: string,
+): ConversationRef | null {
+  if (!channelAccountId) return simulatorRef(c, phoneNumber);
+
+  const tenantId = activeTenantId(c);
+  const account = ChannelAccountService.getById(channelAccountId);
+
+  // Another tenant's account is indistinguishable from one that does not exist.
+  if (!account || account.tenant_id !== tenantId) return null;
+
+  return { tenantId, channelAccountId, phoneNumber };
+}
+
+const NO_ACCOUNT = {
+  error:
+    "This tenant has no channel account yet; add one before using the simulator",
+} as const;
+
+/** Every replay is loaded onto this contact, on the tenant's default number. */
+const SIMULATOR_PHONE = "51999999999";
 
 // Get available test personas
 simulator.get("/personas", (c) => {
-  const personas = PersonasService.getAll();
-  return c.json(personas);
+  return c.json(PersonasService.getAll(activeTenantId(c)));
 });
 
 // Create new test persona
 simulator.post("/personas", async (c) => {
   const user = c.get("user");
+  const tenantId = activeTenantId(c);
 
   const { id, name, description, segment, clientName, dni, creditLine, nse } =
     await c.req.json();
@@ -45,59 +103,70 @@ simulator.post("/personas", async (c) => {
 
   try {
     const persona = PersonasService.create(
-      {
-        id,
-        name,
-        description,
-        segment,
-        clientName,
-        dni,
-        creditLine,
-        nse,
-      },
+      tenantId,
+      { id, name, description, segment, clientName, dni, creditLine, nse },
       user.id,
     );
     return c.json(persona);
   } catch (error) {
-    logger.error({ error, user: user.id }, "Persona creation failed");
+    logger.error({ error, user: user.id, tenantId }, "Persona creation failed");
     return c.json({ error: "Failed to create persona" }, 500);
   }
 });
 
 // Update test persona
 simulator.patch("/personas/:id", async (c) => {
-  const personaId = c.req.param("id");
+  const personaId = pathParam(c, "id");
+  const tenantId = activeTenantId(c);
   const updates = await c.req.json();
 
   try {
-    PersonasService.update(personaId, updates);
-    const updated = PersonasService.getById(personaId);
+    PersonasService.update(tenantId, personaId, updates);
+    const updated = PersonasService.getById(tenantId, personaId);
     return c.json(updated);
   } catch (error) {
-    logger.error({ error, personaId }, "Persona update failed");
+    logger.error({ error, personaId, tenantId }, "Persona update failed");
     return c.json({ error: "Failed to update persona" }, 500);
   }
 });
 
 // Delete test persona
 simulator.delete("/personas/:id", (c) => {
-  const personaId = c.req.param("id");
+  const personaId = pathParam(c, "id");
+  const tenantId = activeTenantId(c);
 
   try {
-    PersonasService.delete(personaId);
+    PersonasService.delete(tenantId, personaId);
     return c.json({ status: "deleted" });
   } catch (error) {
-    logger.error({ error, personaId }, "Persona deletion failed");
+    logger.error({ error, personaId, tenantId }, "Persona deletion failed");
     return c.json({ error: "Failed to delete persona" }, 500);
   }
 });
 
-// List all test conversations
+/**
+ * The simulated conversations on the number the simulator runs on.
+ *
+ * Every other route here resolves a phone number through `simulatorRef`, which
+ * is the tenant's default account, while this listed every simulation the
+ * tenant had on any of its numbers. Two numbers meant two rows for the same
+ * contact under a key the frontend builds out of the phone number alone - and
+ * opening, resetting or deleting either of them acted on the default account,
+ * so a row belonging to a different number showed an empty thread (created on
+ * the spot by `getOrCreateConversation`) or a 404. Listing what the actions can
+ * actually reach keeps the two in step. Simulations left on a number that is no
+ * longer the default are not lost, only out of view, and come back if it is
+ * made the default again.
+ */
 simulator.get("/conversations", (c) => {
+  const ref = simulatorRef(c, SIMULATOR_PHONE);
+  if (!ref) return c.json(NO_ACCOUNT, 400);
+
   const conversations = getAll<Conversation>(
-    `SELECT * FROM conversations 
-     WHERE is_simulation = 1 
+    `SELECT * FROM conversations
+     WHERE tenant_id = ? AND channel_account_id = ? AND is_simulation = 1
      ORDER BY last_activity_at DESC`,
+    [ref.tenantId, ref.channelAccountId],
   );
 
   return c.json(conversations);
@@ -105,27 +174,26 @@ simulator.get("/conversations", (c) => {
 
 // Create new test conversation
 simulator.post("/conversations", async (c) => {
+  const tenantId = activeTenantId(c);
   const { phoneNumber, personaId } = await c.req.json();
 
   if (!phoneNumber) {
     return c.json({ error: "phoneNumber required" }, 400);
   }
 
+  const ref = simulatorRef(c, phoneNumber);
+  if (!ref) return c.json(NO_ACCOUNT, 400);
+
   // Validate persona if provided
   if (personaId) {
-    const persona = PersonasService.getById(personaId);
+    const persona = PersonasService.getById(tenantId, personaId);
     if (!persona) {
       return c.json({ error: "Invalid persona_id" }, 400);
     }
   }
 
   // Check if already exists
-  const existing = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
-  );
-
-  if (existing) {
+  if (findConversation(ref)) {
     return c.json({ error: "Conversation already exists" }, 400);
   }
 
@@ -134,21 +202,19 @@ simulator.post("/conversations", async (c) => {
   const initialMetadata = { createdAt: Date.now(), lastActivityAt: Date.now() };
 
   db.prepare(
-    "INSERT INTO conversations (phone_number, context_data, status, is_simulation, persona_id) VALUES (?, ?, ?, ?, ?)",
+    `INSERT INTO conversations (tenant_id, channel_account_id, phone_number, context_data, status, is_simulation, persona_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
-    phoneNumber,
+    ref.tenantId,
+    ref.channelAccountId,
+    ref.phoneNumber,
     JSON.stringify({ phase: initialPhase, metadata: initialMetadata }),
     "active",
     1,
     personaId || null,
   );
 
-  const conv = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [phoneNumber],
-  )!;
-
-  return c.json(conv);
+  return c.json(findConversation(ref)!);
 });
 
 // Send message in simulator
@@ -159,19 +225,16 @@ simulator.post("/message", async (c) => {
     return c.json({ error: "phoneNumber and message required" }, 400);
   }
 
-  getOrCreateConversation(phoneNumber, true);
+  const ref = simulatorRef(c, phoneNumber);
+  if (!ref) return c.json(NO_ACCOUNT, 400);
 
-  WhatsAppService.logMessage(
-    phoneNumber,
-    "inbound",
-    "text",
-    message,
-    "received",
-  );
+  getOrCreateConversation(ref, true);
+
+  WhatsAppService.logMessage(ref, "inbound", "text", message, "received");
 
   // Process message through new handler (synchronous for simulator)
   await handleMessage({
-    phoneNumber,
+    ref,
     content: message,
     timestamp: Date.now(),
     messageId: `sim-${Date.now()}`,
@@ -182,9 +245,11 @@ simulator.post("/message", async (c) => {
 
 // Get conversation state for simulator
 simulator.get("/conversation/:phone", (c) => {
-  const phoneNumber = c.req.param("phone");
-  const conv = getOrCreateConversation(phoneNumber, true);
-  const messages = WhatsAppService.getMessageHistory(phoneNumber, 100);
+  const ref = simulatorRef(c, pathParam(c, "phone"));
+  if (!ref) return c.json(NO_ACCOUNT, 400);
+
+  const conv = getOrCreateConversation(ref, true);
+  const messages = WhatsAppService.getMessageHistory(ref, 100);
 
   return c.json({
     conversation: conv,
@@ -194,21 +259,21 @@ simulator.get("/conversation/:phone", (c) => {
 
 // Reset simulator conversation
 simulator.post("/reset/:phone", (c) => {
-  const phoneNumber = c.req.param("phone");
-  resetSession(phoneNumber);
-  WhatsAppService.clearMessageHistory(phoneNumber);
+  const ref = simulatorRef(c, pathParam(c, "phone"));
+  if (!ref) return c.json(NO_ACCOUNT, 400);
+
+  resetSession(ref);
+  WhatsAppService.clearMessageHistory(ref);
 
   return c.json({ status: "reset" });
 });
 
 // Delete simulator conversation
 simulator.delete("/conversations/:phone", (c) => {
-  const phoneNumber = c.req.param("phone");
+  const ref = simulatorRef(c, pathParam(c, "phone"));
+  if (!ref) return c.json(NO_ACCOUNT, 400);
 
-  // Verify it's a simulation conversation before deleting
-  const conv = db
-    .prepare("SELECT is_simulation FROM conversations WHERE phone_number = ?")
-    .get(phoneNumber) as { is_simulation: number } | undefined;
+  const conv = findConversation(ref);
 
   if (!conv) {
     return c.json({ error: "Conversation not found" }, 404);
@@ -218,50 +283,51 @@ simulator.delete("/conversations/:phone", (c) => {
     return c.json({ error: "Can only delete simulation conversations" }, 403);
   }
 
-  // Delete conversation from database
-  db.prepare("DELETE FROM conversations WHERE phone_number = ?").run(
-    phoneNumber,
-  );
+  db.prepare(
+    `DELETE FROM conversations
+     WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
+  ).run(ref.tenantId, ref.channelAccountId, ref.phoneNumber);
 
-  // Clear message history
-  WhatsAppService.clearMessageHistory(phoneNumber);
+  WhatsAppService.clearMessageHistory(ref);
 
   return c.json({ status: "deleted" });
 });
 
 // Load conversation into simulator (for replay/debugging)
 simulator.post("/load", async (c) => {
-  const { sourcePhone } = await c.req.json();
+  const { sourcePhone, sourceChannel } = await c.req.json();
 
   if (!sourcePhone) {
     return c.json({ error: "sourcePhone required" }, 400);
   }
 
-  // Fetch source conversation
-  const sourceConv = getOne<Conversation>(
-    "SELECT * FROM conversations WHERE phone_number = ?",
-    [sourcePhone],
-  );
+  // The replay is always loaded onto the default account, because that is where
+  // the rest of the simulator looks for it - only the source is read from the
+  // number the conversation actually happened on.
+  const targetRef = simulatorRef(c, SIMULATOR_PHONE);
+  if (!targetRef) return c.json(NO_ACCOUNT, 400);
 
-  if (!sourceConv) {
+  const sourceRef = replaySourceRef(c, sourcePhone, sourceChannel);
+
+  // Source must be a conversation in the caller's own tenant.
+  const sourceConv = sourceRef ? findConversation(sourceRef) : null;
+
+  if (!sourceRef || !sourceConv) {
     return c.json({ error: "Source conversation not found" }, 404);
   }
 
-  const sourceMessages = WhatsAppService.getMessageHistory(sourcePhone, 1000);
-
-  // Use fixed simulator phone
-  const simulatorPhone = "51999999999";
+  const sourceMessages = WhatsAppService.getMessageHistory(sourceRef, 1000);
 
   // Reset simulator first
-  resetSession(simulatorPhone);
-  WhatsAppService.clearMessageHistory(simulatorPhone);
+  resetSession(targetRef);
+  WhatsAppService.clearMessageHistory(targetRef);
 
   // Create/update simulator conversation with source data
-  getOrCreateConversation(simulatorPhone, true);
+  getOrCreateConversation(targetRef, true);
 
   // Update context data and state
   db.prepare(
-    `UPDATE conversations 
+    `UPDATE conversations
      SET context_data = ?,
        client_name = ?,
        dni = ?,
@@ -269,7 +335,7 @@ simulator.post("/load", async (c) => {
        credit_line = ?,
        nse = ?,
        is_calidda_client = ?
-     WHERE phone_number = ?`,
+     WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
   ).run(
     sourceConv.context_data,
     sourceConv.client_name,
@@ -278,13 +344,15 @@ simulator.post("/load", async (c) => {
     sourceConv.credit_line,
     sourceConv.nse,
     sourceConv.is_calidda_client,
-    simulatorPhone,
+    targetRef.tenantId,
+    targetRef.channelAccountId,
+    targetRef.phoneNumber,
   );
 
   // Copy messages in chronological order
   for (const msg of sourceMessages.reverse()) {
     WhatsAppService.logMessage(
-      simulatorPhone,
+      targetRef,
       msg.direction,
       msg.type,
       msg.content,
@@ -294,7 +362,7 @@ simulator.post("/load", async (c) => {
 
   return c.json({
     status: "loaded",
-    simulatorPhone,
+    simulatorPhone: SIMULATOR_PHONE,
     messageCount: sourceMessages.length,
   });
 });
