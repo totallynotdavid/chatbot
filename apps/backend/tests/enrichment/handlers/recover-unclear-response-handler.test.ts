@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { RecoverUnclearResponseHandler } from "../../../src/conversation/enrichment/handlers/recover-unclear-response-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("RecoverUnclearResponseHandler", () => {
   let handler: RecoverUnclearResponseHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -23,7 +29,7 @@ describe("RecoverUnclearResponseHandler", () => {
         message: "mmm",
         context: { phase: "offering_products" },
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("recovery_response");

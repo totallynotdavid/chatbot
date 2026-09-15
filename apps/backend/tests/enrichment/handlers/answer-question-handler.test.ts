@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { AnswerQuestionHandler } from "../../../src/conversation/enrichment/handlers/answer-question-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("AnswerQuestionHandler", () => {
   let handler: AnswerQuestionHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -26,7 +32,7 @@ describe("AnswerQuestionHandler", () => {
           availableCategories: ["celulares", "cocinas", "laptops"],
         },
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("question_answered");
@@ -45,7 +51,7 @@ describe("AnswerQuestionHandler", () => {
           availableCategories: [],
         },
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("question_answered");

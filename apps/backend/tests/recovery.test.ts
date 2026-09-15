@@ -6,9 +6,13 @@ import { PowerBIProvider } from "../src/domains/eligibility/providers/powerbi-pr
 import { initializeEnrichmentRegistry } from "../src/conversation/enrichment/index.ts";
 import { enrichmentRegistry } from "../src/conversation/enrichment/registry.ts";
 import { db } from "../src/db/index.ts";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import jwt from "jsonwebtoken";
+import {
+  applySchema,
+  createTenantFixture,
+  dropTenantFixture,
+  type TenantFixture,
+} from "./helpers/tenancy.ts";
 
 const FAKE_TOKEN = jwt.sign({ commercialAllyId: "123" }, "secret");
 
@@ -17,26 +21,16 @@ describe("Provider outage recovery", () => {
   const testDNI = "12345678";
   const originalFetch = globalThis.fetch;
 
+  let tenant: TenantFixture;
+
   beforeEach(() => {
     process.env.CALIDDA_BASE_URL = "https://test.calidda.com";
     process.env.CALIDDA_USERNAME = "testuser";
     process.env.CALIDDA_PASSWORD = "testpass";
 
-    const schemaPath = join(import.meta.dir, "../src/db/schema.sql");
-    const schema = readFileSync(schemaPath, "utf-8");
+    applySchema();
 
-    const statements = schema
-      .split(";")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    for (const statement of statements) {
-      db.run(statement);
-    }
-
-    db.prepare("DELETE FROM conversations WHERE phone_number = ?").run(
-      testPhone,
-    );
-    db.prepare("DELETE FROM users WHERE id = 'test-agent'").run();
+    tenant = createTenantFixture("recovery");
 
     // Initialize enrichment registry
     const fnbProvider = new FNBProvider();
@@ -51,6 +45,7 @@ describe("Provider outage recovery", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    dropTenantFixture(tenant);
   });
 
   it("should detect system_outage when APIs return 5xx errors", async () => {
@@ -79,7 +74,10 @@ describe("Provider outage recovery", () => {
       fnbProvider,
       powerbiProvider,
     );
-    const result = await eligibilityHandler.execute(testDNI, testPhone);
+    const result = await eligibilityHandler.execute(
+      testDNI,
+      tenant.ref(testPhone),
+    );
 
     if (result.ok && result.value.type === "eligibility_result") {
       expect(result.value.status).toBe("system_outage");
@@ -97,9 +95,14 @@ describe("Provider outage recovery", () => {
     };
     const metadata = { createdAt: Date.now(), lastActivityAt: Date.now() };
     db.prepare(
-      `INSERT INTO conversations (phone_number, context_data, status) 
-        VALUES (?, ?, 'active')`,
-    ).run(testPhone, JSON.stringify({ phase, metadata }));
+      `INSERT INTO conversations (tenant_id, channel_account_id, phone_number, context_data, status)
+        VALUES (?, ?, ?, ?, 'active')`,
+    ).run(
+      tenant.tenantId,
+      tenant.channelAccountId,
+      testPhone,
+      JSON.stringify({ phase, metadata }),
+    );
 
     globalThis.fetch = mock(async (input: any) => {
       const url = input.toString();
@@ -133,7 +136,7 @@ describe("Provider outage recovery", () => {
       powerbiProvider,
     );
     const handler = new RetryEligibilityHandler(eligibilityHandler);
-    const result = await handler.execute();
+    const result = await handler.execute(tenant.tenantId);
 
     if (result.ok) {
       expect(result.value.recoveredCount).toBe(1);
