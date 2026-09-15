@@ -1,0 +1,23 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Notification Evaluator should generate a sent decision for valid assignment 1`] = `
+[
+  {
+    "channel": "whatsapp",
+    "content": "Assigned to Juan Perez",
+    "ruleId": "agent_assignment_whatsapp",
+    "status": "sent",
+    "target": "dynamic_agent",
+  },
+]
+`;
+
+exports[`Notification Evaluator should skip if condition is false 1`] = `
+[
+  {
+    "reason": "condition_false",
+    "ruleId": "agent_assignment_whatsapp",
+    "status": "skipped",
+  },
+]
+`;

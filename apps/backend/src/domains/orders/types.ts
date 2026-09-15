@@ -1,3 +1,5 @@
+import type { ConversationRef } from "@totem/types";
+
 export interface OrderItem {
   productId: string;
   name?: string;
@@ -6,7 +8,8 @@ export interface OrderItem {
 }
 
 export interface CreateOrderInput {
-  conversationPhone: string;
+  /** Conversation the order came out of; also fixes the owning tenant. */
+  ref: ConversationRef;
   clientName: string;
   clientDni: string;
   products: OrderItem[];

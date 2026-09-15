@@ -27,6 +27,7 @@ export const notificationRules: NotificationRule[] = [
       if (event.type !== "agent_assigned") return "";
       return templates.assignment({
         phoneNumber: event.payload.phoneNumber,
+        channelAccountId: event.channelAccountId,
         clientName: event.payload.clientName,
         dni: event.payload.dni,
       });
@@ -42,6 +43,7 @@ export const notificationRules: NotificationRule[] = [
       if (event.type !== "enrichment_limit_exceeded") return "";
       return templates.enrichmentLoop({
         phoneNumber: event.payload.phoneNumber,
+        channelAccountId: event.channelAccountId,
       });
     },
   },
@@ -55,6 +57,7 @@ export const notificationRules: NotificationRule[] = [
       if (event.type !== "contract_uploaded") return "";
       return templates.contractUploaded({
         phoneNumber: event.payload.phoneNumber,
+        channelAccountId: event.channelAccountId,
         clientName: event.payload.clientName,
         details: event.payload.contractPath,
       });
@@ -104,7 +107,10 @@ export const notificationRules: NotificationRule[] = [
       }
 
       return templates.escalation(
-        { phoneNumber: event.payload.phoneNumber },
+        {
+          phoneNumber: event.payload.phoneNumber,
+          channelAccountId: event.channelAccountId,
+        },
         reason,
       );
     },
@@ -118,7 +124,10 @@ export const notificationRules: NotificationRule[] = [
     template: (event) => {
       if (event.type !== "system_error_occurred") return "";
       return templates.systemError(
-        { phoneNumber: event.payload.phoneNumber },
+        {
+          phoneNumber: event.payload.phoneNumber,
+          channelAccountId: event.channelAccountId,
+        },
         event.payload.error,
       );
     },
@@ -133,6 +142,7 @@ export const notificationRules: NotificationRule[] = [
       if (event.type !== "attention_required") return "";
       return templates.attention({
         phoneNumber: event.payload.phoneNumber,
+        channelAccountId: event.channelAccountId,
         clientName: event.payload.clientName,
         dni: event.payload.dni,
       });

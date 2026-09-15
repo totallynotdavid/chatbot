@@ -1,13 +1,23 @@
-import { getOne, getAll } from "../../db/query.ts";
+import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { Order } from "@totem/types";
+import type { ConversationRef, Order } from "@totem/types";
 import type { OrderFilters, OrderMetrics } from "./types.ts";
 
 const MS_PER_DAY = 86400000;
 
-export function getOrders(filters: OrderFilters = {}): Order[] {
+/**
+ * `tenantId` null reads across tenants and is only reachable by a platform
+ * operator; route handlers pass the caller's scope.
+ */
+export function getOrders(
+  tenantId: string | null,
+  filters: OrderFilters = {},
+): Order[] {
   let query = "SELECT * FROM orders WHERE 1=1";
   const params: SQLQueryBindings[] = [];
+
+  query += ` AND ${tenantPredicate(tenantId)}`;
+  if (tenantId) params.push(tenantId);
 
   if (filters.status) {
     query += " AND status = ?";
@@ -42,55 +52,60 @@ export function getOrders(filters: OrderFilters = {}): Order[] {
   return rows;
 }
 
-export function getOrderById(id: string): Order | null {
-  return getOne<Order>("SELECT * FROM orders WHERE id = ?", [id]) || null;
-}
-
-export function getOrderByConversation(phone: string): Order | null {
+export function getOrderById(
+  tenantId: string | null,
+  id: string,
+): Order | null {
   return (
     getOne<Order>(
-      "SELECT * FROM orders WHERE conversation_phone = ? ORDER BY created_at DESC LIMIT 1",
-      [phone],
-    ) || null
+      `SELECT * FROM orders WHERE id = ? AND ${tenantPredicate(tenantId)}`,
+      tenantId ? [id, tenantId] : [id],
+    ) ?? null
   );
 }
 
-export function getOrderMetrics(): OrderMetrics {
+export function getOrderByConversation(ref: ConversationRef): Order | null {
+  return (
+    getOne<Order>(
+      `SELECT * FROM orders
+       WHERE tenant_id = ? AND channel_account_id = ? AND conversation_phone = ?
+       ORDER BY created_at DESC LIMIT 1`,
+      [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
+    ) ?? null
+  );
+}
+
+export function getOrderMetrics(tenantId: string | null): OrderMetrics {
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-  const totalOrders = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders",
-  )!.count;
+  const scope = tenantPredicate(tenantId);
+  const scopeParams: SQLQueryBindings[] = tenantId ? [tenantId] : [];
 
-  const pendingCount = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'pending'",
-  )!.count;
+  const count = (extra: string, params: SQLQueryBindings[] = []): number =>
+    getOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM orders WHERE ${scope}${extra}`,
+      [...scopeParams, ...params],
+    )!.count;
 
-  const supervisorApprovedCount = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'supervisor_approved'",
-  )!.count;
+  const revenue = (extra: string, params: SQLQueryBindings[] = []): number =>
+    getOne<{ revenue: number }>(
+      `SELECT COALESCE(SUM(total_amount), 0) as revenue FROM orders WHERE ${scope}${extra}`,
+      [...scopeParams, ...params],
+    )!.revenue;
 
-  const calidaApprovedCount = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'calidda_approved'",
-  )!.count;
+  const totalOrders = count("");
+  const pendingCount = count(" AND status = 'pending'");
+  const supervisorApprovedCount = count(" AND status = 'supervisor_approved'");
+  const calidaApprovedCount = count(" AND status = 'calidda_approved'");
+  const deliveredCount = count(" AND status = 'delivered'");
+  const rejectedCount = count(" AND status LIKE '%rejected%'");
 
-  const deliveredCount = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders WHERE status = 'delivered'",
-  )!.count;
-
-  const rejectedCount = getOne<{ count: number }>(
-    "SELECT COUNT(*) as count FROM orders WHERE status LIKE '%rejected%'",
-  )!.count;
-
-  const totalRevenue = getOne<{ revenue: number }>(
-    "SELECT COALESCE(SUM(total_amount), 0) as revenue FROM orders WHERE status = 'delivered'",
-  )!.revenue;
-
-  const revenueThisMonth = getOne<{ revenue: number }>(
-    "SELECT COALESCE(SUM(total_amount), 0) as revenue FROM orders WHERE status = 'delivered' AND created_at >= ?",
+  const totalRevenue = revenue(" AND status = 'delivered'");
+  const revenueThisMonth = revenue(
+    " AND status = 'delivered' AND created_at >= ?",
     [thirtyDaysAgo],
-  )!.revenue;
+  );
 
   const avgOrderValue = deliveredCount > 0 ? totalRevenue / deliveredCount : 0;
 

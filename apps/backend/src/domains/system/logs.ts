@@ -1,4 +1,9 @@
-import { db } from "../../db/index.ts";
+import {
+  getAll,
+  tenantOrPlatformPredicate,
+  tenantPredicate,
+} from "../../db/query.ts";
+import type { SQLQueryBindings } from "bun:sqlite";
 
 export type SystemLogSource = "llm" | "audit";
 export type SystemLogStatus = "success" | "error" | "info";
@@ -16,29 +21,37 @@ export interface SystemLogEntry {
 }
 
 export class SystemLogService {
-  static getRecentLogs(limit: number = 100): SystemLogEntry[] {
+  /** `tenantId` null spans tenants; only platform operators pass it. */
+  static getRecentLogs(
+    tenantId: string | null,
+    limit: number = 100,
+  ): SystemLogEntry[] {
+    const llmParams: SQLQueryBindings[] = tenantId
+      ? [tenantId, limit]
+      : [limit];
+
     // Get LLM Calls
-    const llmCalls = db
-      .prepare(
-        `SELECT 
-           id, created_at, operation, status, phone_number, latency_ms, 
-           prompt, response, error_message, context_metadata
-         FROM llm_calls 
-         ORDER BY created_at DESC LIMIT ?`,
-      )
-      .all(limit) as any[];
+    const llmCalls = getAll<any>(
+      `SELECT
+         id, created_at, operation, status, phone_number, latency_ms,
+         prompt, response, error_message, context_metadata
+       FROM llm_calls
+       WHERE ${tenantPredicate(tenantId)}
+       ORDER BY created_at DESC LIMIT ?`,
+      llmParams,
+    );
 
     // Get Audit Logs
-    const auditLogs = db
-      .prepare(
-        `SELECT 
-           a.id, a.created_at, a.action, a.resource_type, a.resource_id, a.metadata,
-           u.username as actor_name, a.user_id
-         FROM audit_log a
-         LEFT JOIN users u ON a.user_id = u.id
-         ORDER BY a.created_at DESC LIMIT ?`,
-      )
-      .all(limit) as any[];
+    const auditLogs = getAll<any>(
+      `SELECT
+         a.id, a.created_at, a.action, a.resource_type, a.resource_id, a.metadata,
+         u.username as actor_name, a.user_id
+       FROM audit_log a
+       LEFT JOIN users u ON a.user_id = u.id
+       WHERE ${tenantOrPlatformPredicate(tenantId, "a.tenant_id")}
+       ORDER BY a.created_at DESC LIMIT ?`,
+      tenantId ? [tenantId, limit] : [limit],
+    );
 
     const normalized: SystemLogEntry[] = [
       ...llmCalls.map((c) => ({

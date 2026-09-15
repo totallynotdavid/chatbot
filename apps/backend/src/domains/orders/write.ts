@@ -7,16 +7,17 @@ import { getOrderById } from "./read.ts";
 import type { CreateOrderInput } from "./types.ts";
 
 export function createOrder(input: CreateOrderInput): Order {
+  const { ref } = input;
   const id = crypto.randomUUID();
   const orderNumber = generateOrderNumber();
   const now = Date.now();
 
   const stmt = db.prepare(`
     INSERT INTO orders (
-      id, order_number, conversation_phone, client_name, client_dni,
-      products, total_amount, delivery_address, delivery_reference,
-      status, assigned_agent, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+      id, tenant_id, channel_account_id, order_number, conversation_phone,
+      client_name, client_dni, products, total_amount, delivery_address,
+      delivery_reference, status, assigned_agent, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
   `);
 
   const productJson = JSON.stringify(input.products);
@@ -24,8 +25,10 @@ export function createOrder(input: CreateOrderInput): Order {
 
   stmt.run(
     id,
+    ref.tenantId,
+    ref.channelAccountId,
     orderNumber,
-    input.conversationPhone,
+    ref.phoneNumber,
     input.clientName,
     input.clientDni,
     productJson,
@@ -37,7 +40,7 @@ export function createOrder(input: CreateOrderInput): Order {
     now,
   );
 
-  const order = getOrderById(id);
+  const order = getOrderById(ref.tenantId, id);
   if (!order) {
     throw new Error(`Failed to create order ${id}`);
   }
@@ -46,12 +49,14 @@ export function createOrder(input: CreateOrderInput): Order {
     type: "order_created",
     traceId: createTraceId(),
     timestamp: Date.now(),
+    tenantId: ref.tenantId,
+    channelAccountId: ref.channelAccountId,
     payload: {
       orderId: id,
       orderNumber,
       amount: input.totalAmount,
       clientName: input.clientName,
-      phoneNumber: input.conversationPhone,
+      phoneNumber: ref.phoneNumber,
       dni: input.clientDni,
       productName: mainProduct?.name || "Producto",
     },
@@ -61,6 +66,7 @@ export function createOrder(input: CreateOrderInput): Order {
 }
 
 export function updateOrderStatus(
+  tenantId: string,
   id: string,
   status: string,
   notes?: string,
@@ -77,13 +83,13 @@ export function updateOrderStatus(
     params.push(notes);
   }
 
-  query += " WHERE id = ?";
-  params.push(id);
+  query += " WHERE id = ? AND tenant_id = ?";
+  params.push(id, tenantId);
 
   const stmt = db.prepare(query);
   stmt.run(...params);
 
-  const order = getOrderById(id);
+  const order = getOrderById(tenantId, id);
   if (!order) {
     throw new Error(`Failed to update order ${id}`);
   }

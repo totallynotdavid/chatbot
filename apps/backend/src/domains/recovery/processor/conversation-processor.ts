@@ -1,10 +1,12 @@
 import { isOk } from "../../../shared/result/index.ts";
-import { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
+import type { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
 import { executeCommands } from "../../../conversation/handler/command-executor.ts";
 import { transitionCheckingEligibility } from "@totem/core";
 import { createTraceId } from "@totem/utils";
 import { createLogger } from "../../../lib/logger.ts";
 import type { ConversationPhase, ConversationMetadata } from "@totem/core";
+import type { ConversationRef } from "@totem/types";
+import type { WaitingConversation } from "../store/recovery-store.ts";
 
 const logger = createLogger("recovery-processor");
 
@@ -15,10 +17,16 @@ export type RecoveryResult = {
 };
 
 export async function processConversation(
-  row: { phone_number: string; context_data: string },
+  row: WaitingConversation,
   stats: RecoveryResult,
   eligibilityHandler: CheckEligibilityHandler,
 ): Promise<void> {
+  const ref: ConversationRef = {
+    tenantId: row.tenant_id,
+    channelAccountId: row.channel_account_id,
+    phoneNumber: row.phone_number,
+  };
+
   try {
     const context = JSON.parse(row.context_data);
     const phase = context.phase as ConversationPhase & {
@@ -27,15 +35,12 @@ export async function processConversation(
     const metadata = context.metadata as ConversationMetadata;
 
     logger.debug(
-      { phoneNumber: row.phone_number, dni: phase.dni },
+      { tenantId: ref.tenantId, phoneNumber: ref.phoneNumber, dni: phase.dni },
       "Retrying eligibility check",
     );
 
     // Check eligibility again
-    const result = await eligibilityHandler.execute(
-      phase.dni,
-      row.phone_number,
-    );
+    const result = await eligibilityHandler.execute(phase.dni, ref);
 
     // Check if still failing
     if (isOk(result) && result.value.type === "eligibility_result") {
@@ -77,24 +82,18 @@ export async function processConversation(
         ];
       }
 
-      await executeCommands(
-        transition,
-        row.phone_number,
-        metadata,
-        false,
-        createTraceId(),
-      );
+      await executeCommands(transition, ref, metadata, false, createTraceId());
       stats.recoveredCount++;
     } else {
       logger.warn(
-        { phoneNumber: row.phone_number },
+        { tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
         "Recovery transition failed",
       );
       stats.errors++;
     }
   } catch (error) {
     logger.error(
-      { error, phoneNumber: row.phone_number },
+      { error, tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
       "Recovery failed for user",
     );
     stats.errors++;

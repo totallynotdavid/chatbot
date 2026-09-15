@@ -1,4 +1,4 @@
-import type { ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@totem/types";
 import { FNBClient } from "../../adapters/providers/fnb-client.ts";
 import { isAvailable, markBlocked } from "../../adapters/providers/health.ts";
 import { PersonasService } from "../../domains/personas/index.ts";
@@ -10,10 +10,10 @@ const logger = createLogger("eligibility");
 
 export async function checkFNB(
   dni: string,
-  phoneNumber?: string,
+  ref?: ConversationRef,
 ): Promise<ProviderCheckResult> {
-  if (phoneNumber) {
-    const persona = await getSimulationPersona(phoneNumber);
+  if (ref) {
+    const persona = await getSimulationPersona(ref);
     if (persona) {
       logger.debug({ dni, persona: persona.name }, "Test persona");
       return PersonasService.toProviderResult(persona);
