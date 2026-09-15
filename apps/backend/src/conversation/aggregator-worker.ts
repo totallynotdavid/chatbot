@@ -1,11 +1,17 @@
 import {
+  type AggregatedGroup,
   getReadyForAggregation,
+  markAsPending,
   markAsProcessing,
   markAsProcessed,
+  markAsFailed,
   countPending,
   countFailed,
 } from "./message-inbox.ts";
 import { handleMessage } from "./handler/index.ts";
+import { ConversationBusyError, LockTimeoutError } from "./locks.ts";
+import { ChannelUnavailableError } from "../adapters/whatsapp/index.ts";
+import type { ConversationRef, QuotedMessageContext } from "@totem/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("aggregator");
@@ -55,7 +61,14 @@ async function runWorkerLoop(): Promise<void> {
   }
 }
 
-async function processReadyMessages(): Promise<void> {
+/**
+ * One pass of the queue: everything ready right now, answered in parallel.
+ *
+ * Exported, along with `processGroup`, because the loop above is only a poll
+ * around them - a test that has to know what the queue does with a message
+ * drives these directly rather than starting a worker and waiting on a timer.
+ */
+export async function processReadyMessages(): Promise<void> {
   const readyGroups = getReadyForAggregation(QUIET_WINDOW_MS);
 
   if (readyGroups.length === 0) {
@@ -67,51 +80,138 @@ async function processReadyMessages(): Promise<void> {
   await Promise.all(readyGroups.map((group) => processGroup(group)));
 }
 
-async function processGroup(group: {
-  phone_number: string;
-  ids: string;
-  aggregated_text: string;
-  oldest_timestamp: number;
-  latest_message_id: string;
-  quoted_message_context: string | null;
-}): Promise<void> {
+/**
+ * One conversation's batch. See `processReadyMessages` for why it is exported,
+ * and message-inbox.ts for the statuses a group moves through.
+ */
+export async function processGroup(group: AggregatedGroup): Promise<void> {
+  const ref = {
+    tenantId: group.tenant_id,
+    channelAccountId: group.channel_account_id,
+    phoneNumber: group.phone_number,
+  };
+
+  markAsProcessing(group.ids);
+
+  logger.debug(
+    { tenantId: ref.tenantId, phoneNumber: ref.phoneNumber, ids: group.ids },
+    "Processing group",
+  );
+
   try {
-    // Mark as processing to prevent double-processing
-    markAsProcessing(group.ids);
-
-    logger.debug(
-      { phoneNumber: group.phone_number, ids: group.ids },
-      "Processing group",
-    );
-
-    // Parse quoted context if available
-    let quotedContext = undefined;
-    if (group.quoted_message_context) {
-      try {
-        quotedContext = JSON.parse(group.quoted_message_context);
-      } catch (error) {
-        logger.warn(
-          { error, phoneNumber: group.phone_number },
-          "Failed to parse quoted context",
-        );
-      }
-    }
-
     await handleMessage({
-      phoneNumber: group.phone_number,
+      ref,
       content: group.aggregated_text,
       timestamp: group.oldest_timestamp,
       messageId: group.latest_message_id,
-      quotedContext,
+      quotedContext: parseQuotedContext(group, ref),
     });
-
-    markAsProcessed(group.ids);
   } catch (error) {
-    logger.error(
-      { error, phoneNumber: group.phone_number },
-      "Group processing failed",
-    );
+    if (error instanceof LockTimeoutError) {
+      recordLateOutcome(group, ref, error);
+      return;
+    }
+    recordUnanswered(group, ref, error);
+    return;
   }
+
+  markAsProcessed(group.ids);
+}
+
+function parseQuotedContext(
+  group: AggregatedGroup,
+  ref: ConversationRef,
+): QuotedMessageContext | undefined {
+  if (!group.quoted_message_context) return undefined;
+
+  try {
+    return JSON.parse(group.quoted_message_context);
+  } catch (error) {
+    logger.warn(
+      { error, tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
+      "Failed to parse quoted context",
+    );
+    return undefined;
+  }
+}
+
+/**
+ * The answer is still running, and may yet reply or be refused. Handing the
+ * group back now would have the next poll answer it a second time; leaving it
+ * `processing` for good would never answer it if the late attempt is refused. So
+ * it stays `processing` until the answer settles, and is recorded then.
+ */
+function recordLateOutcome(
+  group: AggregatedGroup,
+  ref: ConversationRef,
+  timeout: LockTimeoutError,
+): void {
+  logger.warn(
+    { tenantId: ref.tenantId, phoneNumber: ref.phoneNumber, ids: group.ids },
+    "Lock timed out while answering; the group stays processing until the answer settles",
+  );
+
+  timeout.operation
+    .then(
+      () => markAsProcessed(group.ids),
+      (error: unknown) => recordUnanswered(group, ref, error),
+    )
+    .catch((error: unknown) => {
+      logger.error(
+        { error, tenantId: ref.tenantId, ids: group.ids },
+        "Failed to record the outcome of a timed-out answer",
+      );
+    });
+}
+
+function recordUnanswered(
+  group: AggregatedGroup,
+  ref: ConversationRef,
+  error: unknown,
+): void {
+  const context = {
+    tenantId: ref.tenantId,
+    channelAccountId: ref.channelAccountId,
+    phoneNumber: ref.phoneNumber,
+    ids: group.ids,
+  };
+
+  if (error instanceof ConversationBusyError) {
+    // An earlier operation still held the conversation, so this group was never
+    // started and is safe to answer on a later poll.
+    markAsPending(group.ids);
+    logger.warn(
+      context,
+      "Conversation still busy; left the group pending for later",
+    );
+    return;
+  }
+
+  if (error instanceof ChannelUnavailableError) {
+    // The number was switched off between the dequeue and a send, and
+    // `getReadyForAggregation` keeps the group out of every poll until it is
+    // back. Replaying it then is faithful because nothing the transition records
+    // was written: `executeCommands` persists the phase and analytics only once
+    // every send has gone out, and the orchestrator emits the transition's
+    // events after that. The one thing that may already have happened is an
+    // earlier message in the same batch reaching the customer, which the retry
+    // sends again.
+    markAsPending(group.ids);
+    logger.warn(
+      { ...context, status: error.status },
+      "Channel account is not active; left the group pending for later",
+    );
+    return;
+  }
+
+  // `handleMessage` absorbs whatever fails once it is working out a reply, so
+  // what reaches here failed before one: loading the conversation, for one.
+  // Pending would retry it on every poll for as long as the cause lasts.
+  markAsFailed(
+    group.ids,
+    error instanceof Error ? error.message : String(error),
+  );
+  logger.error({ ...context, error }, "Group processing failed");
 }
 
 export function getWorkerStatus(): {

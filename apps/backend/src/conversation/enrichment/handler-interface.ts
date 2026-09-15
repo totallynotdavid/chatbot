@@ -1,11 +1,13 @@
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
 import type { IntelligenceProvider } from "@totem/intelligence";
+import type { ConversationRef } from "@totem/types";
 
 /**
  * Context passed to all enrichment handlers.
  */
 export interface EnrichmentContext {
-  phoneNumber: string;
+  /** Tenant, channel account and contact this enrichment is running for. */
+  ref: ConversationRef;
   provider: IntelligenceProvider;
 }
 

@@ -3,7 +3,7 @@ import type {
   EnrichmentContext,
 } from "../handler-interface.ts";
 import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
-import { CheckEligibilityHandler } from "../../../domains/eligibility/handlers/check-eligibility-handler.ts";
+import type { CheckEligibilityHandler } from "../../../domains/eligibility/handlers/check-eligibility-handler.ts";
 import { isOk } from "../../../shared/result/index.ts";
 import { createLogger } from "../../../lib/logger.ts";
 
@@ -27,7 +27,7 @@ export class CheckEligibilityEnrichmentHandler
     try {
       const result = await this.eligibilityHandler.execute(
         request.dni,
-        context.phoneNumber,
+        context.ref,
       );
 
       if (isOk(result)) {
@@ -52,7 +52,8 @@ export class CheckEligibilityEnrichmentHandler
         {
           error,
           dni: request.dni,
-          phoneNumber: context.phoneNumber,
+          tenantId: context.ref.tenantId,
+          phoneNumber: context.ref.phoneNumber,
         },
         "Eligibility check failed with exception",
       );

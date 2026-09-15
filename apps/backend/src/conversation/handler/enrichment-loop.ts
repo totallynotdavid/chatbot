@@ -6,7 +6,7 @@ import type {
 } from "@totem/core";
 import { transition } from "@totem/core";
 import type { IntelligenceProvider } from "@totem/intelligence";
-import type { CatalogSnapshot } from "@totem/types";
+import type { CatalogSnapshot, ConversationRef } from "@totem/types";
 import { createTraceId } from "@totem/utils";
 import { createLogger } from "../../lib/logger.ts";
 import { enrichmentRegistry } from "../enrichment/index.ts";
@@ -27,7 +27,7 @@ export async function runEnrichmentLoop(
   phase: ConversationPhase,
   message: string,
   metadata: ConversationMetadata,
-  phoneNumber: string,
+  ref: ConversationRef,
   provider: IntelligenceProvider,
   quotedContext?: {
     id: string;
@@ -56,7 +56,12 @@ export async function runEnrichmentLoop(
     if (result.type !== "need_enrichment") {
       if (iterations > 1) {
         logger.debug(
-          { phoneNumber, iterations, finalPhase: result.nextPhase.phase },
+          {
+            tenantId: ref.tenantId,
+            phoneNumber: ref.phoneNumber,
+            iterations,
+            finalPhase: result.nextPhase.phase,
+          },
           "Enrichment complete",
         );
       }
@@ -65,7 +70,8 @@ export async function runEnrichmentLoop(
 
     logger.debug(
       {
-        phoneNumber,
+        tenantId: ref.tenantId,
+        phoneNumber: ref.phoneNumber,
         enrichmentType: result.enrichment.type,
         iteration: iterations,
       },
@@ -74,12 +80,12 @@ export async function runEnrichmentLoop(
 
     if (result.pendingPhase) {
       currentPhase = result.pendingPhase;
-      updateConversation(phoneNumber, currentPhase, metadata);
+      updateConversation(ref, currentPhase, metadata);
     }
 
     const handler = enrichmentRegistry.get(result.enrichment.type);
     enrichment = await handler.execute(result.enrichment, {
-      phoneNumber,
+      ref,
       provider,
     });
 
@@ -90,7 +96,8 @@ export async function runEnrichmentLoop(
   // Safety: too many loops, escalate
   logger.error(
     {
-      phoneNumber,
+      tenantId: ref.tenantId,
+      phoneNumber: ref.phoneNumber,
       iterations: MAX_ENRICHMENT_LOOPS,
       currentPhase: currentPhase.phase,
     },
@@ -108,7 +115,7 @@ export async function runEnrichmentLoop(
         traceId: createTraceId(),
         timestamp: Date.now(),
         payload: {
-          phoneNumber,
+          phoneNumber: ref.phoneNumber,
           lastPhase: currentPhase.phase,
         },
       },
@@ -117,7 +124,7 @@ export async function runEnrichmentLoop(
         traceId: createTraceId(),
         timestamp: Date.now(),
         payload: {
-          phoneNumber,
+          phoneNumber: ref.phoneNumber,
           reason: "enrichment_loop_exceeded",
           context: {
             iterations,

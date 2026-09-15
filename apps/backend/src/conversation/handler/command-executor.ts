@@ -4,6 +4,7 @@ import type {
   ConversationPhase,
   TransitionResult,
 } from "@totem/core";
+import type { ConversationRef } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
@@ -15,17 +16,44 @@ import { sleep } from "./sleep.ts";
 
 const logger = createLogger("commands");
 
+/**
+ * Carry out a transition: send what it says, then record that it happened.
+ *
+ * The order matters. A send can throw - `ChannelUnavailableError` when the number
+ * was switched off mid-flight - and the queue that delivered the message then
+ * puts it back to be answered again once the number returns. That replay is
+ * only faithful if nothing the transition *records* was written before the
+ * sends went out. It used to be: the phase was persisted first and TRACK_EVENT
+ * rows were written inline, so a new contact's "hola" on a number disabled
+ * mid-flight left the conversation in `confirming_client` and a `session_start`
+ * on the books with no greeting delivered - and the retry answered that "hola"
+ * as though it were a reply to a greeting the customer never saw, logging a
+ * second `session_start` besides.
+ *
+ * So every command runs in order (the pacing between consecutive messages is
+ * unchanged), but analytics are collected rather than written, and the phase -
+ * including the products an image or bundle command showed - is persisted once,
+ * after the last command, together with those events. If any command throws,
+ * none of it is written.
+ *
+ * The accepted cost: a batch that throws after an earlier message in it already
+ * went out sends that message again on the retry. A duplicate is visible and
+ * harmless; a conversation that has moved on from what the customer was
+ * actually shown is neither.
+ */
 export async function executeCommands(
   result: TransitionResult,
-  phoneNumber: string,
+  ref: ConversationRef,
   metadata: ConversationMetadata,
   isSimulation: boolean,
   traceId: string,
 ): Promise<void> {
+  const { tenantId, channelAccountId, phoneNumber } = ref;
+
   if (result.type === "need_enrichment") {
     // Should not reach here, enrichment loop should handle it
     logger.error(
-      { phoneNumber, resultType: result.type, traceId },
+      { tenantId, phoneNumber, resultType: result.type, traceId },
       "Unexpected need_enrichment in executeCommands",
     );
     eventBus.emit(
@@ -39,27 +67,14 @@ export async function executeCommands(
             dni: metadata.dni || "Unknown",
           },
         },
-        { traceId },
+        { traceId, tenantId, channelAccountId },
       ),
     );
     return;
   }
 
-  const currentConversation = getOrCreateConversation(phoneNumber);
-  if (
-    JSON.stringify(currentConversation.phase) !==
-    JSON.stringify(result.nextPhase)
-  ) {
-    logger.info(
-      {
-        phoneNumber,
-        fromPhase: currentConversation.phase.phase,
-        toPhase: result.nextPhase.phase,
-      },
-      "Phase transition",
-    );
-    updateConversation(phoneNumber, result.nextPhase, metadata);
-  }
+  let phase = result.nextPhase;
+  const tracked: TrackEventCommand[] = [];
 
   for (let i = 0; i < result.commands.length; i++) {
     const command = result.commands[i];
@@ -73,85 +88,100 @@ export async function executeCommands(
       }
     }
 
-    await executeCommand(
-      command,
-      phoneNumber,
-      result.nextPhase,
-      metadata,
-      isSimulation,
+    switch (command.type) {
+      case "SEND_MESSAGE":
+        await sendMessage(ref, command.text, isSimulation);
+        break;
+
+      case "SEND_IMAGES":
+        phase =
+          (await executeImages(command, ref, result.nextPhase, isSimulation)) ??
+          phase;
+        break;
+
+      case "SEND_BUNDLE":
+        phase =
+          (await executeSingleBundle(
+            command,
+            ref,
+            result.nextPhase,
+            isSimulation,
+          )) ?? phase;
+        break;
+
+      case "TRACK_EVENT":
+        tracked.push(command);
+        break;
+    }
+  }
+
+  // Every send in the batch went out. Only now does the conversation move on.
+  const stored = getOrCreateConversation(ref).phase;
+  if (JSON.stringify(stored) !== JSON.stringify(phase)) {
+    logger.info(
+      {
+        tenantId,
+        phoneNumber,
+        fromPhase: stored.phase,
+        toPhase: phase.phase,
+      },
+      "Phase transition",
     );
+    updateConversation(ref, phase, metadata);
+  }
+
+  for (const command of tracked) {
+    trackEvent(ref, command.event, {
+      segment: metadata.segment,
+      ...command.metadata,
+    });
   }
 }
 
-async function executeCommand(
-  command: Command,
-  phoneNumber: string,
-  phase: ConversationPhase,
-  metadata: ConversationMetadata,
-  isSimulation: boolean,
-): Promise<void> {
-  switch (command.type) {
-    case "SEND_MESSAGE":
-      await sendMessage(phoneNumber, command.text, isSimulation);
-      break;
-
-    case "SEND_IMAGES":
-      await executeImages(command, phoneNumber, phase, isSimulation);
-      break;
-
-    case "SEND_BUNDLE":
-      await executeSingleBundle(command, phoneNumber, phase, isSimulation);
-      break;
-
-    case "TRACK_EVENT":
-      trackEvent(phoneNumber, command.event, {
-        segment: metadata.segment,
-        ...command.metadata,
-      });
-      break;
-  }
-}
+type TrackEventCommand = Extract<Command, { type: "TRACK_EVENT" }>;
 
 async function sendMessage(
-  phoneNumber: string,
+  ref: ConversationRef,
   content: string,
   isSimulation: boolean,
 ): Promise<void> {
   if (isSimulation) {
-    WhatsAppService.logMessage(
-      phoneNumber,
-      "outbound",
-      "text",
-      content,
-      "sent",
-    );
+    WhatsAppService.logMessage(ref, "outbound", "text", content, "sent");
   } else {
-    await WhatsAppService.sendMessage(phoneNumber, content);
+    await WhatsAppService.sendMessage(ref, content);
   }
 }
 
+/**
+ * Send the images a command asks for, and return the phase with those products
+ * recorded as shown - or null when nothing was shown. The caller persists it.
+ */
 async function executeImages(
   command: Extract<Command, { type: "SEND_IMAGES" }>,
-  phoneNumber: string,
+  ref: ConversationRef,
   phase: ConversationPhase,
   isSimulation: boolean,
-): Promise<void> {
+): Promise<ConversationPhase | null> {
   if (
     phase.phase !== "offering_products" &&
     phase.phase !== "handling_objection"
   ) {
     logger.warn(
-      { phoneNumber, currentPhase: phase.phase },
+      {
+        tenantId: ref.tenantId,
+        phoneNumber: ref.phoneNumber,
+        currentPhase: phase.phase,
+      },
       "Images requested outside offering phase",
     );
-    return;
+    return null;
   }
 
   const credit = "credit" in phase ? phase.credit : 0;
   const segment = "segment" in phase ? phase.segment : "fnb";
 
   const result = await sendBundleImages({
-    phoneNumber,
+    ref,
     segment,
     category: command.category,
     creditLine: credit,
@@ -160,9 +190,9 @@ async function executeImages(
     query: command.query,
   });
 
-  // Update phase with sent products for validation in next message
+  // The products sent, for validating the next message against
   if (result.success && result.products.length > 0) {
-    const updatedPhase: ConversationPhase = {
+    return {
       ...phase,
       sentProducts: result.products,
       lastAction: {
@@ -172,41 +202,54 @@ async function executeImages(
         timestamp: Date.now(),
       },
     } as ConversationPhase;
-    const conversation = getOrCreateConversation(phoneNumber);
-    updateConversation(phoneNumber, updatedPhase, conversation.metadata);
-  } else {
-    logger.debug(
-      { phoneNumber, category: command.category, query: command.query },
-      "Command executed but no products sent directly (handled by flow logic)",
-    );
   }
+
+  logger.debug(
+    {
+      tenantId: ref.tenantId,
+      phoneNumber: ref.phoneNumber,
+      category: command.category,
+      query: command.query,
+    },
+    "Command executed but no products sent directly (handled by flow logic)",
+  );
+  return null;
 }
 
+/** One bundle's image, and the phase recording it as shown. See `executeImages`. */
 async function executeSingleBundle(
   command: Extract<Command, { type: "SEND_BUNDLE" }>,
-  phoneNumber: string,
+  ref: ConversationRef,
   phase: ConversationPhase,
   isSimulation: boolean,
-): Promise<void> {
+): Promise<ConversationPhase | null> {
   if (
     phase.phase !== "offering_products" &&
     phase.phase !== "handling_objection"
   ) {
     logger.warn(
-      { phoneNumber, currentPhase: phase.phase },
+      {
+        tenantId: ref.tenantId,
+        phoneNumber: ref.phoneNumber,
+        currentPhase: phase.phase,
+      },
       "Bundle requested outside offering phase",
     );
-    return;
+    return null;
   }
 
-  const bundle = BundleService.getById(command.bundleId);
+  const bundle = BundleService.getById(ref.tenantId, command.bundleId);
 
   if (!bundle) {
     logger.warn(
-      { phoneNumber, bundleId: command.bundleId },
+      {
+        tenantId: ref.tenantId,
+        phoneNumber: ref.phoneNumber,
+        bundleId: command.bundleId,
+      },
       "Bundle not found",
     );
-    return;
+    return null;
   }
 
   const installments = JSON.parse(bundle.installments_json);
@@ -218,24 +261,17 @@ async function executeSingleBundle(
   const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
 
   if (isSimulation) {
-    WhatsAppService.logMessage(
-      phoneNumber,
-      "outbound",
-      "image",
-      caption,
-      "sent",
-    );
+    WhatsAppService.logMessage(ref, "outbound", "image", caption, "sent");
   } else {
     await WhatsAppService.sendImage(
-      phoneNumber,
+      ref,
       `images/${bundle.image_id}.jpg`,
       caption,
       bundle.id,
     );
   }
 
-  // Update phase with sent product
-  const updatedPhase: ConversationPhase = {
+  return {
     ...phase,
     sentProducts: [
       {
@@ -252,7 +288,4 @@ async function executeSingleBundle(
       timestamp: Date.now(),
     },
   } as ConversationPhase;
-
-  const conversation = getOrCreateConversation(phoneNumber);
-  updateConversation(phoneNumber, updatedPhase, conversation.metadata);
 }
