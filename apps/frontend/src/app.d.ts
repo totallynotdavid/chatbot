@@ -4,8 +4,13 @@ declare global {
       user: {
         id: string;
         username: string;
-        role: string;
+        /** Role in the session's active tenant; null when none is selected. */
+        role: string | null;
         name: string;
+        /** VendeYa staff, who act across tenants rather than inside one. */
+        isPlatformOperator: boolean;
+        /** Tenant the session is currently scoped to, if any. */
+        activeTenantId: string | null;
       } | null;
     }
   }

@@ -4,12 +4,13 @@ import { formatPhone } from "$lib/utils/formatters";
 
 type Props = {
   conversation: Conversation;
-  isSelected: boolean;
+  /** Only the simulator has an open thread to mark; the inbox has none. */
+  isSelected?: boolean;
   onclick?: () => void;
   href?: string;
 };
 
-let { conversation, isSelected, onclick, href }: Props = $props();
+let { conversation, isSelected = false, onclick, href }: Props = $props();
 </script>
 
 {#if href}
