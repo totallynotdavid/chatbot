@@ -7,6 +7,10 @@ import { sha256 } from "@oslojs/crypto/sha2";
 import type { Context } from "hono";
 import { setCookie, deleteCookie } from "hono/cookie";
 import process from "node:process";
+import type { TenantMembership, TenantRole } from "@totem/types";
+import { MembershipService } from "../../domains/tenants/index.ts";
+import type { AuthScope } from "./scope.ts";
+import { sessionRole } from "./scope.ts";
 
 const cookieSecure = (() => {
   const flag = process.env.COOKIE_SECURE;
@@ -18,26 +22,40 @@ const cookieSecure = (() => {
 export interface Session {
   id: string;
   userId: string;
+  activeTenantId: string | null;
   expiresAt: Date;
 }
 
 export interface User {
   id: string;
   username: string;
-  role: string;
+  /**
+   * Role in the session's active tenant, or null when no tenant is selected -
+   * a role is held inside a tenant, not globally (see AuthScope).
+   */
+  role: string | null;
   name: string;
+  isPlatformOperator: boolean;
+  activeTenantId: string | null;
+  /**
+   * Whether the agent is taking new conversations in the active tenant. Like
+   * the role, it comes from the membership, so it is false for a caller who has
+   * not pinned one.
+   */
+  isAvailable: boolean;
 }
 
 declare module "hono" {
   interface ContextVariableMap {
     user: User;
     session: Session;
+    scope: AuthScope;
   }
 }
 
 export type SessionValidationResult =
-  | { session: Session; user: User }
-  | { session: null; user: null };
+  | { session: Session; user: User; scope: AuthScope }
+  | { session: null; user: null; scope: null };
 
 export function generateSessionToken(): string {
   const bytes = new Uint8Array(20);
@@ -46,64 +64,102 @@ export function generateSessionToken(): string {
   return token;
 }
 
-export function createSession(token: string, userId: string): Session {
+/**
+ * Pick the tenant a fresh session starts in: none for a platform operator (they
+ * choose explicitly), otherwise the user's only membership. A member of several
+ * tenants also starts unpinned and must select one, which keeps a multi-tenant
+ * user from writing into whichever tenant happened to sort first.
+ */
+export function defaultTenantForUser(
+  userId: string,
+  isPlatformOperator: boolean,
+): string | null {
+  if (isPlatformOperator) return null;
+
+  const memberships = MembershipService.listForUser(userId);
+  return memberships.length === 1 ? memberships[0]!.id : null;
+}
+
+export function createSession(
+  token: string,
+  userId: string,
+  activeTenantId: string | null = null,
+): Session {
   const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
   const session: Session = {
     id: sessionId,
     userId,
+    activeTenantId,
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // 30 days
   };
   db.prepare(
-    "INSERT INTO session (id, user_id, expires_at) VALUES (?, ?, ?)",
+    "INSERT INTO session (id, user_id, active_tenant_id, expires_at) VALUES (?, ?, ?, ?)",
   ).run(
     session.id,
     session.userId,
+    session.activeTenantId,
     Math.floor(session.expiresAt.getTime() / 1000),
   );
   return session;
+}
+
+/**
+ * Repoint a session at another tenant. The caller must already have been
+ * checked against the target (membership, or platform operator).
+ */
+export function setSessionTenant(
+  sessionId: string,
+  tenantId: string | null,
+): void {
+  db.prepare("UPDATE session SET active_tenant_id = ? WHERE id = ?").run(
+    tenantId,
+    sessionId,
+  );
 }
 
 export function validateSessionToken(token: string): SessionValidationResult {
   const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
   const row = db
     .prepare(`
-        SELECT s.id, s.user_id, s.expires_at, u.id as uid, u.username, u.role, u.name as uname
+        SELECT s.id, s.user_id, s.active_tenant_id, s.expires_at,
+               u.id as uid, u.username, u.role, u.name as uname,
+               u.is_platform_operator, u.is_active,
+               t.status as tenant_status
         FROM session s
-        INNER JOIN users u ON u.id = s.user_id 
+        INNER JOIN users u ON u.id = s.user_id
+        LEFT JOIN tenants t ON t.id = s.active_tenant_id
         WHERE s.id = ?
     `)
     .get(sessionId) as
     | {
         id: string;
         user_id: string;
+        active_tenant_id: string | null;
         expires_at: number;
         uid: string;
         username: string;
         role: string;
         uname: string;
+        is_platform_operator: number;
+        is_active: number;
+        tenant_status: string | null;
       }
     | undefined;
 
-  if (!row) {
-    return { session: null, user: null };
+  if (!row || row.is_active === 0) {
+    return { session: null, user: null, scope: null };
   }
 
   const session: Session = {
     id: row.id,
     userId: row.user_id,
+    activeTenantId: row.active_tenant_id,
     expiresAt: new Date(row.expires_at * 1000),
-  };
-
-  const user: User = {
-    id: row.uid,
-    username: row.username,
-    role: row.role,
-    name: row.uname,
   };
 
   if (Date.now() >= session.expiresAt.getTime()) {
     db.prepare("DELETE FROM session WHERE id = ?").run(session.id);
-    return { session: null, user: null };
+    return { session: null, user: null, scope: null };
   }
 
   if (Date.now() >= session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15) {
@@ -114,7 +170,57 @@ export function validateSessionToken(token: string): SessionValidationResult {
     );
   }
 
-  return { session, user };
+  const isPlatformOperator = row.is_platform_operator === 1;
+
+  // Membership and the tenant's own status are re-read on every request:
+  // revoking one or suspending the other takes effect at once rather than at
+  // the next login.
+  let membership: TenantMembership | null = null;
+  if (session.activeTenantId) {
+    membership = MembershipService.get(session.activeTenantId, row.uid);
+
+    // A suspended tenant is closed to everyone, platform operators included -
+    // otherwise suspension only stopped new sessions from pinning it while
+    // every session pinned beforehand kept full read and write access. The pin
+    // is dropped rather than the session: the user stays logged in and can
+    // select another tenant, exactly as when a membership is revoked.
+    //
+    // Dropping the pin is the whole story only for a member, for whom no pin
+    // means no access. For a platform operator no pin is the *cross-tenant*
+    // view, so this step alone would hand back what it removed; the reads
+    // themselves exclude suspended tenants (`tenantPredicate` in db/query.ts,
+    // `canAccessTenant` in auth/scope.ts), and writes need a pin they can no
+    // longer obtain.
+    const tenantIsOpen = row.tenant_status === "active";
+    const stillAMember = membership !== null || isPlatformOperator;
+
+    if (!tenantIsOpen || !stillAMember) {
+      setSessionTenant(session.id, null);
+      session.activeTenantId = null;
+      membership = null;
+    }
+  }
+
+  const membershipRole: TenantRole | null = membership?.role ?? null;
+
+  const scope: AuthScope = {
+    userId: row.uid,
+    tenantId: session.activeTenantId,
+    membershipRole,
+    isPlatformOperator,
+  };
+
+  const user: User = {
+    id: row.uid,
+    username: row.username,
+    role: sessionRole({ isPlatformOperator, membershipRole }),
+    name: row.uname,
+    isPlatformOperator,
+    activeTenantId: session.activeTenantId,
+    isAvailable: membership?.is_available === 1,
+  };
+
+  return { session, user, scope };
 }
 
 export function invalidateSession(sessionId: string): void {
