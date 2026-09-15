@@ -8,6 +8,12 @@ node_modules
 dist
 logs
 
+# private asset storage (signed contracts, call recordings) - generated at
+# runtime and by tests, never source. `data/uploads` is deliberately not here:
+# the seeded catalog images under it are tracked.
+**/data/private/
+**/data/contracts/
+
 # database
 *.sqlite
 *.sqlite-shm
