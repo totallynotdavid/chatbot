@@ -1,9 +1,9 @@
-import type { Segment } from "@totem/types";
+import type { ConversationRef, Segment } from "@totem/types";
 import { BundleService } from "../domains/catalog/index.ts";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
 
 export type SendBundleParams = {
-  phoneNumber: string;
+  ref: ConversationRef;
   segment: Segment;
   category?: string;
   creditLine: number;
@@ -29,19 +29,12 @@ export type SendBundleResult = {
 export async function sendBundleImages(
   params: SendBundleParams,
 ): Promise<SendBundleResult> {
-  const {
-    phoneNumber,
-    segment,
-    category,
-    creditLine,
-    isSimulation,
-    offset,
-    query,
-  } = params;
+  const { ref, segment, category, creditLine, isSimulation, offset, query } =
+    params;
 
   const strictPriceLimit = segment === "gaso";
 
-  const bundles = BundleService.getAvailable({
+  const bundles = BundleService.getAvailable(ref.tenantId, {
     maxPrice: creditLine,
     category,
     segment,
@@ -67,16 +60,10 @@ export async function sendBundleImages(
     const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
 
     if (isSimulation) {
-      WhatsAppService.logMessage(
-        phoneNumber,
-        "outbound",
-        "image",
-        caption,
-        "sent",
-      );
+      WhatsAppService.logMessage(ref, "outbound", "image", caption, "sent");
     } else {
       await WhatsAppService.sendImage(
-        phoneNumber,
+        ref,
         `images/${bundle.image_id}.jpg`,
         caption,
         bundle.id, // Pass product ID for tracking
@@ -98,15 +85,9 @@ export async function sendBundleImages(
       : "¿Alguno te interesa?";
 
   if (isSimulation) {
-    WhatsAppService.logMessage(
-      phoneNumber,
-      "outbound",
-      "text",
-      followUp,
-      "sent",
-    );
+    WhatsAppService.logMessage(ref, "outbound", "text", followUp, "sent");
   } else {
-    await WhatsAppService.sendMessage(phoneNumber, followUp);
+    await WhatsAppService.sendMessage(ref, followUp);
   }
 
   return { success: true, products: sentProducts };

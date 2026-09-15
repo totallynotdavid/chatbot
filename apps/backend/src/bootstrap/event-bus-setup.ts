@@ -6,6 +6,9 @@ import { notificationRules } from "../domains/notifications/config.ts";
 import { dispatchNotifications } from "../domains/notifications/dispatcher.ts";
 
 import { createOrder } from "../domains/orders/write.ts";
+import { createLogger } from "../lib/logger.ts";
+
+const logger = createLogger("event-bus");
 
 function subscribe<E extends DomainEvent>(
   eventType: string,
@@ -31,8 +34,22 @@ export function setupEventSubscribers(): void {
   subscribe(
     "purchase_confirmed",
     async (event: DomainEvent & { type: "purchase_confirmed" }) => {
+      if (!event.tenantId || !event.channelAccountId) {
+        // Without the conversation's identity there is no tenant to file the
+        // order under; dropping it is safer than guessing one.
+        logger.error(
+          { traceId: event.traceId, phoneNumber: event.payload.phoneNumber },
+          "purchase_confirmed carried no tenant; order not created",
+        );
+        return;
+      }
+
       createOrder({
-        conversationPhone: event.payload.phoneNumber,
+        ref: {
+          tenantId: event.tenantId,
+          channelAccountId: event.channelAccountId,
+          phoneNumber: event.payload.phoneNumber,
+        },
         clientName: event.payload.clientName,
         clientDni: event.payload.dni,
         products: [

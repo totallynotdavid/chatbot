@@ -1,6 +1,9 @@
 import { getProvider } from "@totem/intelligence";
-import type { QuotedMessageContext } from "@totem/types";
-import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
+import type { ConversationRef, QuotedMessageContext } from "@totem/types";
+import {
+  ChannelUnavailableError,
+  WhatsAppService,
+} from "../../adapters/whatsapp/index.ts";
 import { ProductService } from "../../domains/catalog/products.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { createEvent, eventBus } from "../../shared/events/index.ts";
@@ -18,7 +21,8 @@ import { sleep } from "./sleep.ts";
 const logger = createLogger("conversation");
 
 export type IncomingMessage = {
-  phoneNumber: string;
+  /** Which tenant, which of its numbers, and the contact writing in. */
+  ref: ConversationRef;
   content: string;
   timestamp: number;
   messageId: string;
@@ -26,49 +30,74 @@ export type IncomingMessage = {
 };
 
 export async function handleMessage(message: IncomingMessage): Promise<void> {
-  const { phoneNumber, content, timestamp, messageId, quotedContext } = message;
+  const { ref, content, timestamp, messageId, quotedContext } = message;
+  const { tenantId, channelAccountId, phoneNumber } = ref;
 
-  await withLock(phoneNumber, async () => {
+  await withLock(ref, async () => {
     logger.debug(
-      { phoneNumber, messageId, hasQuoted: !!quotedContext },
+      { tenantId, phoneNumber, messageId, hasQuoted: !!quotedContext },
       "Processing message",
     );
 
-    const conversation = getOrCreateConversation(phoneNumber);
+    const conversation = getOrCreateConversation(ref);
 
     if (isSessionTimedOut(conversation.metadata)) {
       logger.info(
-        { phoneNumber, lastCategory: conversation.metadata.lastCategory },
+        {
+          tenantId,
+          phoneNumber,
+          lastCategory: conversation.metadata.lastCategory,
+        },
         "Session timeout reset",
       );
-      resetSession(phoneNumber, conversation.metadata.lastCategory);
+      resetSession(ref, conversation.metadata.lastCategory);
     }
 
     const traceId = crypto.randomUUID();
+    const eventContext = { traceId, tenantId, channelAccountId };
 
-    await WhatsAppService.markAsReadAndShowTyping(messageId);
+    await WhatsAppService.markAsReadAndShowTyping(ref, messageId);
 
     try {
       const provider = getProvider();
 
       const catalogContext = {
-        activeBrands: ProductService.getActiveBrands(),
-        activeCategories: ProductService.getCategories(),
+        activeBrands: ProductService.getActiveBrands(tenantId),
+        activeCategories: ProductService.getCategories(tenantId),
       };
 
       const result = await runEnrichmentLoop(
         conversation.phase,
         content,
         conversation.metadata,
-        phoneNumber,
+        ref,
         provider,
         quotedContext,
         catalogContext,
       );
 
+      const delay = calculateResponseDelay(timestamp, Date.now());
+      if (delay > 0) {
+        await sleep(delay);
+      }
+
+      await executeCommands(
+        result,
+        ref,
+        conversation.metadata,
+        conversation.isSimulation,
+        traceId,
+      );
+
+      // The transition's events go out after its replies, for the reason
+      // `executeCommands` persists the phase after them: a send that throws
+      // puts this message back on its queue to be answered again from the
+      // same phase, and anything emitted before that point is emitted twice.
+      // `purchase_confirmed` creates an order, so emitted first it turned one
+      // number switched off mid-confirmation into two orders for one sale.
       if (result.events && result.events.length > 0) {
         for (const event of result.events) {
-          await eventBus.emit({ ...event, traceId });
+          await eventBus.emit({ ...event, ...eventContext });
         }
       }
 
@@ -84,27 +113,34 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
                 message: content,
               },
             },
-            { traceId },
+            eventContext,
           ),
         );
       }
-
-      const delay = calculateResponseDelay(timestamp, Date.now());
-      if (delay > 0) {
-        await sleep(delay);
+    } catch (error) {
+      if (error instanceof ChannelUnavailableError) {
+        // Not a processing failure and not something to alert about: the
+        // business switched this number off. The caller is the queue the
+        // message came from, and it needs the throw to know the reply never
+        // went out, so this is the one error that is passed on rather than
+        // absorbed here.
+        logger.warn(
+          {
+            tenantId,
+            channelAccountId,
+            phoneNumber,
+            messageId,
+            status: error.status,
+          },
+          "Channel account is not active; leaving this message for its queue",
+        );
+        throw error;
       }
 
-      await executeCommands(
-        result,
-        phoneNumber,
-        conversation.metadata,
-        conversation.isSimulation,
-        traceId,
-      );
-    } catch (error) {
       logger.error(
         {
           error,
+          tenantId,
           phoneNumber,
           messageId,
           phase: conversation.phase.phase,
@@ -124,7 +160,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
               phase: conversation.phase.phase,
             },
           },
-          { traceId },
+          eventContext,
         ),
       );
     }
