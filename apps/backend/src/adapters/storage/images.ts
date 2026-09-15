@@ -1,15 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { IMAGES_DIR } from "../../lib/storage-paths.ts";
 
 export interface ImageStorage {
   store(buffer: Buffer): Promise<string>;
   getUrl(imageId: string): string;
+  /** Key recorded on the `assets` row for this image. */
+  storageKey(imageId: string): string;
   delete(imageId: string): Promise<void>;
   exists(imageId: string): Promise<boolean>;
 }
 
-const IMAGES_DIR = path.join(process.cwd(), "data", "uploads", "images");
 const MAX_SIZE = 1024;
 const JPEG_QUALITY = 85;
 
@@ -20,6 +22,11 @@ async function optimizeImage(buffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
+/**
+ * 16 hex characters of randomness. Catalog image URLs are public by design
+ * (Meta fetches them unauthenticated when we send an image message), so the id
+ * carries the unguessability instead.
+ */
 function generateId(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 }
@@ -38,6 +45,10 @@ export const LocalImageStorage: ImageStorage = {
 
   getUrl(imageId: string): string {
     return `/images/${imageId}.jpg`;
+  },
+
+  storageKey(imageId: string): string {
+    return `images/${imageId}.jpg`;
   },
 
   async delete(imageId: string): Promise<void> {
