@@ -5,6 +5,77 @@ export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 export type UserRole = "admin" | "developer" | "supervisor" | "sales_agent";
 export type PeriodStatus = "draft" | "active" | "archived";
 
+// Tenancy
+/** Role a user holds inside one tenant. Platform operators hold none. */
+export type TenantRole = UserRole;
+export type TenantStatus = "active" | "suspended";
+
+export type Tenant = {
+  id: string;
+  slug: string;
+  name: string;
+  status: TenantStatus;
+  created_at: number;
+  updated_at: number;
+};
+
+export type TenantMembership = {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  role: TenantRole;
+  /** Whether the agent takes new conversations *in this tenant*. */
+  is_available: number;
+  created_at: number;
+  created_by: string | null;
+};
+
+// Channel accounts
+export type ChannelType = "whatsapp";
+export type ChannelAccountStatus = "active" | "pending" | "disabled";
+
+export type ChannelAccount = {
+  id: string;
+  tenant_id: string;
+  channel_type: ChannelType;
+  waba_id: string | null;
+  phone_number_id: string;
+  display_phone_number: string | null;
+  label: string | null;
+  access_token_secret_id: string | null;
+  verify_token_secret_id: string | null;
+  status: ChannelAccountStatus;
+  created_at: number;
+  updated_at: number;
+};
+
+/**
+ * Identity of one conversation: which business, which of its numbers, and the
+ * contact on the other end. The same contact phone number reaching two tenants
+ * is two distinct conversations.
+ */
+export type ConversationRef = {
+  tenantId: string;
+  channelAccountId: string;
+  phoneNumber: string;
+};
+
+// Assets
+export type AssetKind = "catalog_image" | "contract" | "recording";
+export type AssetVisibility = "public" | "private";
+
+export type Asset = {
+  id: string;
+  tenant_id: string;
+  kind: AssetKind;
+  visibility: AssetVisibility;
+  storage_key: string;
+  content_type: string | null;
+  byte_size: number | null;
+  created_by: string | null;
+  created_at: number;
+};
+
 // Catalog types
 export type {
   Product,
@@ -44,6 +115,8 @@ export type OrderStatus =
   | "delivered";
 
 export type Conversation = {
+  tenant_id: string;
+  channel_account_id: string;
   phone_number: string;
   client_name: string | null;
   dni: string | null;
@@ -66,14 +139,15 @@ export type Conversation = {
   agent_notes: string | null;
   sale_status: SaleStatus;
   // Contract recording fields
-  recording_contract_path: string | null;
-  recording_audio_path: string | null;
+  recording_contract_asset_id: string | null;
+  recording_audio_asset_id: string | null;
   recording_uploaded_at: string | null;
   assignment_notified_at: string | null;
 };
 
 export type CatalogPeriod = {
   id: string;
+  tenant_id: string;
   name: string;
   year_month: string;
   status: PeriodStatus;
@@ -84,6 +158,8 @@ export type CatalogPeriod = {
 
 export type ConversationMessage = {
   id: string;
+  tenant_id: string;
+  channel_account_id: string;
   phone_number: string;
   direction: "inbound" | "outbound";
   type: MessageType;
@@ -99,14 +175,16 @@ export type User = {
   role: UserRole;
   name: string;
   phone_number: string | null;
+  is_platform_operator: number;
   is_active: number;
-  is_available: number;
   created_at: string;
   created_by: string | null;
 };
 
 export type AnalyticsEvent = {
   id: string;
+  tenant_id: string;
+  channel_account_id: string;
   phone_number: string;
   event_type: string;
   metadata: string;
@@ -116,6 +194,7 @@ export type AnalyticsEvent = {
 
 export type AuditLog = {
   id: string;
+  tenant_id: string | null;
   user_id: string;
   action: string;
   resource_type: string;
@@ -126,6 +205,8 @@ export type AuditLog = {
 
 export type Order = {
   id: string;
+  tenant_id: string;
+  channel_account_id: string;
   order_number: string;
   conversation_phone: string;
   client_name: string;
@@ -152,6 +233,7 @@ export type ProviderCheckResult = {
 
 export type TestPersona = {
   id: string;
+  tenant_id: string;
   name: string;
   description: string;
   segment: "fnb" | "gaso" | "not_eligible";
