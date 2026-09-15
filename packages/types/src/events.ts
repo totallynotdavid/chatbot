@@ -1,6 +1,14 @@
 export type BaseEvent = {
   traceId: string;
   timestamp: number;
+  /**
+   * Tenant the event belongs to. Optional only because a few platform-level
+   * events (a shared provider going down) are not attributable to one tenant;
+   * everything raised from a conversation carries it.
+   */
+  tenantId?: string;
+  /** Channel account the event originated on, when there is one. */
+  channelAccountId?: string;
 };
 
 export type DomainEvent =

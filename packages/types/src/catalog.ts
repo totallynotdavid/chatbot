@@ -1,4 +1,4 @@
-import type { StockStatus } from "./index.ts";
+import type { Segment, StockStatus } from "./index.ts";
 
 /** Category group for progressive disclosure */
 export type CategoryGroup = "tecnología" | "hogar" | "combos";
@@ -146,6 +146,7 @@ export const CATEGORY_GROUPS = {
 /** Base product template (segment-agnostic inventory) */
 export type Product = {
   id: string;
+  tenant_id: string;
   name: string;
   category: string;
   brand: string | null;
@@ -196,7 +197,9 @@ export type InstallmentSchedule = {
 /** Bundles are promotional packages */
 export type Bundle = {
   id: string;
+  tenant_id: string;
   period_id: string;
+  segment: Segment;
   name: string;
   price: number;
   primary_category: string;
