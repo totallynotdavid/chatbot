@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { GenerateBacklogApologyHandler } from "../../../src/conversation/enrichment/handlers/generate-backlog-apology-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("GenerateBacklogApologyHandler", () => {
   let handler: GenerateBacklogApologyHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -23,7 +29,7 @@ describe("GenerateBacklogApologyHandler", () => {
         message: "Hola",
         ageMinutes: 30,
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("backlog_apology");

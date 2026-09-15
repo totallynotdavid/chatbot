@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { IsProductRequestHandler } from "../../../src/conversation/enrichment/handlers/is-product-request-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("IsProductRequestHandler", () => {
   let handler: IsProductRequestHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -16,7 +22,7 @@ describe("IsProductRequestHandler", () => {
 
     const result = await handler.execute(
       { type: "is_product_request", message: "Quiero ver laptops" },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("product_request_detected");

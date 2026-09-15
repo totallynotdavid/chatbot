@@ -3,12 +3,20 @@ import { createMockProvider } from "@totem/intelligence";
 import { ExtractBundleIntentHandler } from "../../../src/conversation/enrichment/handlers/extract-bundle-intent-handler.ts";
 import type { Bundle } from "@totem/types";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 const mockBundle: Bundle = {
   id: "bundle-test123",
+  tenant_id: "tenant-test",
   period_id: "period-2026-01",
   name: "Celular + Laptop",
   price: 2500,
   primary_category: "celulares",
+  segment: "gaso" as const,
   categories_json: '["celulares", "laptops"]',
   image_id: "test123",
   composition_json: '{"fixed":[],"choices":[]}',
@@ -42,7 +50,7 @@ describe("ExtractBundleIntentHandler", () => {
         message: "Quiero el primero",
         affordableBundles: [mockBundle],
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("bundle_intent_extracted");
@@ -62,7 +70,7 @@ describe("ExtractBundleIntentHandler", () => {
         message: "No sé",
         affordableBundles: [mockBundle],
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("bundle_intent_extracted");
@@ -82,7 +90,7 @@ describe("ExtractBundleIntentHandler", () => {
         message: "Quiero algo",
         affordableBundles: [],
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("bundle_intent_extracted");
@@ -101,7 +109,7 @@ describe("ExtractBundleIntentHandler", () => {
         message: "tal vez",
         affordableBundles: [mockBundle],
       },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("bundle_intent_extracted");
