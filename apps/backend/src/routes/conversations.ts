@@ -1,49 +1,105 @@
 import { Hono } from "hono";
+import { pathParam } from "../lib/http.ts";
+import type { Context } from "hono";
+import type { Conversation } from "@totem/types";
 import * as ConversationRead from "../domains/conversations/read.ts";
 import { isValidRole } from "../domains/conversations/read.ts";
+import { refOf } from "../conversation/store.ts";
 import * as ConversationWrite from "../domains/conversations/write.ts";
 import * as ConversationMedia from "../domains/conversations/media.ts";
 import { assignNextAgent } from "../domains/conversations/assignment.ts";
+import { requireActiveTenant, requireTenantScope } from "../middleware/auth.ts";
 
 const conversations = new Hono();
 
+// Nothing here is readable without a tenant scope to read it in. Reads may span
+// tenants for a platform operator who has not pinned one; the writes below
+// additionally take `requireActiveTenant`, because a write has to land in a
+// tenant the caller has actually selected.
+conversations.use("/*", requireTenantScope);
+
+/**
+ * Resolve `:phone` inside the caller's tenant. A conversation belonging to
+ * another tenant is indistinguishable from one that does not exist.
+ *
+ * When the same contact is talking to two of this tenant's numbers, `?channel=`
+ * says which thread is meant; without it the request is refused as ambiguous
+ * rather than answered with whichever was touched last. The conversation list
+ * links carry the channel account, so the dashboard always names it.
+ */
+function resolve(
+  c: Context,
+): { conversation: Conversation } | { error: Response } {
+  const lookup = ConversationRead.lookupConversation(
+    c.get("scope"),
+    pathParam(c, "phone"),
+    c.req.query("channel") ?? null,
+  );
+
+  if (lookup.status === "found") {
+    return { conversation: lookup.conversation };
+  }
+
+  if (lookup.status === "ambiguous") {
+    return {
+      error: c.json(
+        {
+          error: "Ambiguous conversation",
+          detail:
+            "This contact is talking to more than one of your numbers; pass ?channel=<channel_account_id>",
+          channels: lookup.candidates.map((conv) => ({
+            channelAccountId: conv.channel_account_id,
+            lastActivityAt: conv.last_activity_at,
+          })),
+        },
+        409,
+      ),
+    };
+  }
+
+  return { error: c.json({ error: "Conversation not found" }, 404) };
+}
+
 conversations.get("/", (c) => {
   const user = c.get("user");
+  const scope = c.get("scope");
   const status = c.req.query("status");
 
   if (!isValidRole(user.role)) {
     return c.json({ error: "Invalid role" }, 403);
   }
 
-  const rows = ConversationRead.listConversations(status, user.role, user.id);
+  const rows = ConversationRead.listConversations(scope, status, user.role);
   return c.json(rows);
 });
 
 conversations.get("/:phone", (c) => {
-  const phoneNumber = c.req.param("phone");
-  const data = ConversationRead.getConversationDetail(phoneNumber);
+  const found = resolve(c);
+  if ("error" in found) return found.error;
 
-  if (!data) {
-    return c.json({ error: "Conversation not found" }, 404);
-  }
-
-  return c.json(data);
+  return c.json(ConversationRead.getConversationDetail(found.conversation));
 });
 
-conversations.post("/:phone/takeover", (c) => {
-  const phoneNumber = c.req.param("phone");
+conversations.post("/:phone/takeover", requireActiveTenant, (c) => {
+  const found = resolve(c);
+  if ("error" in found) return found.error;
+  const conv = found.conversation;
+
   const user = c.get("user");
-  const result = ConversationWrite.takeoverConversation(phoneNumber, user.id);
+  const result = ConversationWrite.takeoverConversation(refOf(conv), user.id);
   return c.json(result);
 });
 
-conversations.post("/:phone/message", async (c) => {
-  const phoneNumber = c.req.param("phone");
+conversations.post("/:phone/message", requireActiveTenant, async (c) => {
+  const found = resolve(c);
+  if ("error" in found) return found.error;
+  const conv = found.conversation;
+
   const { content } = await c.req.json();
   const user = c.get("user");
 
   const result = await ConversationWrite.sendManualMessage(
-    phoneNumber,
+    refOf(conv),
     content,
     user.id,
   );
@@ -55,36 +111,50 @@ conversations.post("/:phone/message", async (c) => {
   return c.json(result);
 });
 
-conversations.post("/:phone/release", (c) => {
-  const phoneNumber = c.req.param("phone");
+conversations.post("/:phone/release", requireActiveTenant, (c) => {
+  const found = resolve(c);
+  if ("error" in found) return found.error;
+  const conv = found.conversation;
+
   const user = c.get("user");
-  const result = ConversationWrite.releaseConversation(phoneNumber, user.id);
+  const result = ConversationWrite.releaseConversation(refOf(conv), user.id);
   return c.json(result);
 });
 
-conversations.post("/:phone/decline-assignment", async (c) => {
-  const phoneNumber = c.req.param("phone");
-  const user = c.get("user");
-  const result = ConversationWrite.declineAssignment(phoneNumber, user.id);
+conversations.post(
+  "/:phone/decline-assignment",
+  requireActiveTenant,
+  async (c) => {
+    const found = resolve(c);
+    if ("error" in found) return found.error;
+    const conv = found.conversation;
 
-  if (!result.success) {
-    return c.json({ error: result.error }, 403);
-  }
+    const user = c.get("user");
+    const ref = refOf(conv);
+    const result = ConversationWrite.declineAssignment(ref, user.id);
 
-  if (result.clientName !== undefined) {
-    await assignNextAgent(phoneNumber, result.clientName);
-  }
+    if (!result.success) {
+      return c.json({ error: result.error }, 403);
+    }
 
-  return c.json({ success: true });
-});
+    if (result.clientName !== undefined) {
+      await assignNextAgent(ref, result.clientName);
+    }
 
-conversations.patch("/:phone/agent-data", async (c) => {
-  const phoneNumber = c.req.param("phone");
+    return c.json({ success: true });
+  },
+);
+
+conversations.patch("/:phone/agent-data", requireActiveTenant, async (c) => {
+  const found = resolve(c);
+  if ("error" in found) return found.error;
+  const conv = found.conversation;
+
   const user = c.get("user");
   const updates = await c.req.json();
 
   const result = ConversationWrite.updateAgentData(
-    phoneNumber,
+    refOf(conv),
     user.id,
     updates,
   );
@@ -97,14 +167,17 @@ conversations.patch("/:phone/agent-data", async (c) => {
 });
 
 conversations.get("/:phone/replay", (c) => {
-  const phoneNumber = c.req.param("phone");
   const user = c.get("user");
 
   if (user.role !== "admin" && user.role !== "developer") {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  const replayData = ConversationRead.getReplayData(phoneNumber, user.id);
+  const found = resolve(c);
+  if ("error" in found) return found.error;
+  const conv = found.conversation;
+
+  const replayData = ConversationRead.getReplayData(conv, user.id);
 
   if (!replayData) {
     return c.json({ error: "Conversation not found" }, 404);
@@ -113,28 +186,35 @@ conversations.get("/:phone/replay", (c) => {
   return c.json(replayData);
 });
 
-conversations.post("/:phone/upload-contract", async (c) => {
-  const phoneNumber = c.req.param("phone");
-  const user = c.get("user");
-  const formData = await c.req.formData();
+conversations.post(
+  "/:phone/upload-contract",
+  requireActiveTenant,
+  async (c) => {
+    const found = resolve(c);
+    if ("error" in found) return found.error;
+    const conv = found.conversation;
 
-  const contractFile = formData.get("contract") as File | null;
-  const audioFile = formData.get("audio") as File | null;
+    const user = c.get("user");
+    const formData = await c.req.formData();
 
-  if (!contractFile || !audioFile) {
-    return c.json({ error: "Contract and audio files required" }, 400);
-  }
+    const contractFile = formData.get("contract") as File | null;
+    const audioFile = formData.get("audio") as File | null;
 
-  const result = await ConversationMedia.uploadContract({
-    phoneNumber,
-    userId: user.id,
-    contractFile,
-    audioFile,
-    clientName: formData.get("clientName") as string | undefined,
-    userDisplayName: user.name,
-  });
+    if (!contractFile || !audioFile) {
+      return c.json({ error: "Contract and audio files required" }, 400);
+    }
 
-  return c.json(result);
-});
+    const result = await ConversationMedia.uploadContract({
+      ref: refOf(conv),
+      userId: user.id,
+      contractFile,
+      audioFile,
+      clientName: formData.get("clientName") as string | undefined,
+      userDisplayName: user.name,
+    });
+
+    return c.json(result);
+  },
+);
 
 export default conversations;

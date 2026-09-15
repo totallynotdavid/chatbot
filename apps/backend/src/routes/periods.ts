@@ -1,20 +1,28 @@
 import { Hono } from "hono";
+import { pathParam } from "../lib/http.ts";
 import { PeriodService } from "../domains/catalog/periods.ts";
 import { logAction } from "../platform/audit/logger.ts";
-import { requireRole } from "../middleware/auth.ts";
+import {
+  activeTenantId,
+  requireActiveTenant,
+  requireRole,
+  requireTenantScope,
+} from "../middleware/auth.ts";
 
 const periods = new Hono();
 
 const requireCatalogWrite = requireRole("admin", "developer", "supervisor");
 
+periods.use("/*", requireTenantScope);
+
 // List all periods
 periods.get("/", (c) => {
-  return c.json(PeriodService.getAll());
+  return c.json(PeriodService.getAll(c.get("scope").tenantId));
 });
 
 // Get active period
-periods.get("/active", (c) => {
-  const period = PeriodService.getActive();
+periods.get("/active", requireActiveTenant, (c) => {
+  const period = PeriodService.getActive(activeTenantId(c));
   if (!period) {
     return c.json({ error: "No hay período activo" }, 404);
   }
@@ -23,8 +31,8 @@ periods.get("/active", (c) => {
 
 // Get period by ID
 periods.get("/:id", (c) => {
-  const id = c.req.param("id");
-  const period = PeriodService.getById(id);
+  const id = pathParam(c, "id");
+  const period = PeriodService.getById(c.get("scope").tenantId, id);
   if (!period) {
     return c.json({ error: "Período no encontrado" }, 404);
   }
@@ -32,8 +40,9 @@ periods.get("/:id", (c) => {
 });
 
 // Create new period
-periods.post("/", requireCatalogWrite, async (c) => {
+periods.post("/", requireActiveTenant, requireCatalogWrite, async (c) => {
   const user = c.get("user");
+  const tenantId = activeTenantId(c);
   const { name, year_month } = await c.req.json();
 
   if (!name || !year_month) {
@@ -45,71 +54,85 @@ periods.post("/", requireCatalogWrite, async (c) => {
     return c.json({ error: "year_month debe tener formato YYYY-MM" }, 400);
   }
 
-  // Check if period already exists
-  const existing = PeriodService.getByYearMonth(year_month);
+  // Uniqueness is per tenant: another business may already run this month.
+  const existing = PeriodService.getByYearMonth(tenantId, year_month);
   if (existing) {
     return c.json({ error: "Ya existe un período para ese mes" }, 400);
   }
 
   const period = PeriodService.create({
+    tenantId,
     name,
     year_month,
     created_by: user.id,
   });
 
-  logAction(user.id, "create_period", "period", period.id, {
-    name,
-    year_month,
-  });
+  logAction(
+    { userId: user.id, tenantId },
+    "create_period",
+    "period",
+    period.id,
+    { name, year_month },
+  );
 
   return c.json(period, 201);
 });
 
 // Update period status (publish/archive)
-periods.patch("/:id/status", requireCatalogWrite, async (c) => {
-  const id = c.req.param("id");
-  const user = c.get("user");
-  const { status } = await c.req.json();
+periods.patch(
+  "/:id/status",
+  requireActiveTenant,
+  requireCatalogWrite,
+  async (c) => {
+    const id = pathParam(c, "id");
+    const user = c.get("user");
+    const tenantId = activeTenantId(c);
+    const { status } = await c.req.json();
 
-  if (!["draft", "active", "archived"].includes(status)) {
-    return c.json({ error: "Estado inválido" }, 400);
-  }
+    if (!["draft", "active", "archived"].includes(status)) {
+      return c.json({ error: "Estado inválido" }, 400);
+    }
 
-  const period = PeriodService.getById(id);
-  if (!period) {
-    return c.json({ error: "Período no encontrado" }, 404);
-  }
+    const period = PeriodService.getById(tenantId, id);
+    if (!period) {
+      return c.json({ error: "Período no encontrado" }, 404);
+    }
 
-  // Cannot revert archived to draft
-  if (period.status === "archived" && status === "draft") {
-    return c.json(
-      { error: "No se puede revertir un período archivado a borrador" },
-      400,
+    // Cannot revert archived to draft
+    if (period.status === "archived" && status === "draft") {
+      return c.json(
+        { error: "No se puede revertir un período archivado a borrador" },
+        400,
+      );
+    }
+
+    const updated = PeriodService.updateStatus(tenantId, id, status);
+
+    logAction(
+      { userId: user.id, tenantId },
+      "update_period_status",
+      "period",
+      id,
+      { old_status: period.status, new_status: status },
     );
-  }
 
-  const updated = PeriodService.updateStatus(id, status);
-
-  logAction(user.id, "update_period_status", "period", id, {
-    old_status: period.status,
-    new_status: status,
-  });
-
-  return c.json(updated);
-});
+    return c.json(updated);
+  },
+);
 
 // Delete period (only draft, no products)
-periods.delete("/:id", requireCatalogWrite, (c) => {
-  const id = c.req.param("id");
+periods.delete("/:id", requireActiveTenant, requireCatalogWrite, (c) => {
+  const id = pathParam(c, "id");
   const user = c.get("user");
+  const tenantId = activeTenantId(c);
 
-  const result = PeriodService.delete(id);
+  const result = PeriodService.delete(tenantId, id);
 
   if (!result.success) {
     return c.json({ error: result.message }, 400);
   }
 
-  logAction(user.id, "delete_period", "period", id);
+  logAction({ userId: user.id, tenantId }, "delete_period", "period", id);
   return c.json({ success: true });
 });
 
