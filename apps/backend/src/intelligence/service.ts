@@ -6,10 +6,11 @@ import type {
   RecoveryContext,
   IntentResult,
 } from "@totem/intelligence";
+import type { ConversationRef } from "@totem/types";
 import { BundleService } from "../domains/catalog/bundles";
 
 function withObservability<T>(
-  phoneNumber: string,
+  ref: ConversationRef,
   operation: string,
   model: string,
   fn: () => Promise<T>,
@@ -20,7 +21,7 @@ function withObservability<T>(
   return fn()
     .then((result) => {
       trackLLMCall({
-        phoneNumber,
+        ref,
         operation,
         model,
         prompt: "",
@@ -33,7 +34,7 @@ function withObservability<T>(
     .catch((e) => {
       const error = classifyLLMError(e);
       trackLLMCall({
-        phoneNumber,
+        ref,
         operation,
         model,
         prompt: "",
@@ -48,27 +49,27 @@ function withObservability<T>(
 }
 
 export const LLM = {
-  isQuestion: (message: string, phoneNumber: string) =>
+  isQuestion: (message: string, ref: ConversationRef) =>
     withObservability(
-      phoneNumber,
+      ref,
       "isQuestion",
       MODEL_CONFIG.classification.model,
       () => getProvider().isQuestion(message),
       false,
     ),
 
-  shouldEscalate: (message: string, phoneNumber: string) =>
+  shouldEscalate: (message: string, ref: ConversationRef) =>
     withObservability(
-      phoneNumber,
+      ref,
       "shouldEscalate",
       MODEL_CONFIG.classification.model,
       () => getProvider().shouldEscalate(message),
       false,
     ),
 
-  isProductRequest: (message: string, phoneNumber: string) =>
+  isProductRequest: (message: string, ref: ConversationRef) =>
     withObservability(
-      phoneNumber,
+      ref,
       "isProductRequest",
       MODEL_CONFIG.classification.model,
       () => getProvider().isProductRequest(message),
@@ -77,17 +78,17 @@ export const LLM = {
 
   extractBundleIntent: (
     message: string,
-    phoneNumber: string,
+    ref: ConversationRef,
     segment: "fnb" | "gaso",
     creditLine: number,
   ): Promise<IntentResult> => {
-    const affordableBundles = BundleService.getAvailable({
+    const affordableBundles = BundleService.getAvailable(ref.tenantId, {
       segment,
       maxPrice: creditLine,
     });
 
     return withObservability(
-      phoneNumber,
+      ref,
       "extractBundleIntent",
       MODEL_CONFIG.extraction.model,
       () => getProvider().extractBundleIntent(message, affordableBundles),
@@ -98,10 +99,10 @@ export const LLM = {
   answerQuestion: (
     message: string,
     context: AnswerContext,
-    phoneNumber: string,
+    ref: ConversationRef,
   ) =>
     withObservability(
-      phoneNumber,
+      ref,
       "answerQuestion",
       MODEL_CONFIG.generation.model,
       () => getProvider().answerQuestion(message, context),
@@ -111,10 +112,10 @@ export const LLM = {
   suggestAlternative: (
     requestedCategory: string,
     availableCategories: string[],
-    phoneNumber: string,
+    ref: ConversationRef,
   ) =>
     withObservability(
-      phoneNumber,
+      ref,
       "suggestAlternative",
       MODEL_CONFIG.generation.model,
       () =>
@@ -128,10 +129,10 @@ export const LLM = {
   recoverUnclearResponse: (
     message: string,
     context: RecoveryContext,
-    phoneNumber: string,
+    ref: ConversationRef,
   ) =>
     withObservability(
-      phoneNumber,
+      ref,
       "recoverUnclearResponse",
       MODEL_CONFIG.generation.model,
       () => getProvider().recoverUnclearResponse(message, context),
@@ -141,10 +142,10 @@ export const LLM = {
   handleBacklogResponse: (
     message: string,
     delayMinutes: number,
-    phoneNumber: string,
+    ref: ConversationRef,
   ) =>
     withObservability(
-      phoneNumber,
+      ref,
       "handleBacklogResponse",
       MODEL_CONFIG.generation.model,
       () => getProvider().handleBacklogResponse(message, delayMinutes),
