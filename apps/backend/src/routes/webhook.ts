@@ -1,119 +1,309 @@
 import { Hono } from "hono";
 import process from "node:process";
+import { timingSafeEqual } from "node:crypto";
+import type {
+  ChannelAccount,
+  ConversationRef,
+  IncomingMessage,
+} from "@totem/types";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
+import { ChannelAccountService } from "../domains/channels/accounts.ts";
 import { isMaintenanceMode } from "../domains/settings/system.ts";
-import { holdMessage } from "../conversation/held-messages.ts";
-import { storeIncomingMessage } from "../conversation/message-inbox.ts";
-import { parseIncomingMessage } from "../adapters/whatsapp/parsers/index.ts";
+import { holdMessage, isHeld } from "../conversation/held-messages.ts";
+import {
+  isQueued,
+  storeIncomingMessage,
+} from "../conversation/message-inbox.ts";
+import { getOrCreateConversation } from "../conversation/store.ts";
+import { TenantService } from "../domains/tenants/index.ts";
+import type {
+  InboundRouting,
+  ParsedChange,
+} from "../adapters/whatsapp/parsers/index.ts";
+import { parseWebhookBody } from "../adapters/whatsapp/parsers/index.ts";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("webhook");
 
 const webhook = new Hono();
 
+function constantTimeEquals(a: string, b: string): boolean {
+  const left = Buffer.from(a, "utf8");
+  const right = Buffer.from(b, "utf8");
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
+
+/**
+ * Meta's verification handshake carries no phone-number id, so the token is the
+ * only thing identifying the caller. Any channel account whose verify token
+ * matches answers the challenge; the env var stays as the fallback for the
+ * account seeded from it.
+ */
+function verifyTokenMatches(token: string): ChannelAccount | "env" | null {
+  for (const account of ChannelAccountService.listWithVerifyToken()) {
+    const stored = ChannelAccountService.getVerifyToken(account);
+    if (stored && constantTimeEquals(stored, token)) {
+      return account;
+    }
+  }
+
+  const envToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  if (envToken && constantTimeEquals(envToken, token)) {
+    return "env";
+  }
+
+  return null;
+}
+
 webhook.get("/", (c) => {
   const mode = c.req.query("hub.mode");
   const token = c.req.query("hub.verify_token");
   const challenge = c.req.query("hub.challenge");
 
-  if (
-    mode === "subscribe" &&
-    token === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN
-  ) {
-    return c.text(challenge || "");
+  if (mode !== "subscribe" || !token) {
+    return c.text("Forbidden", 403);
   }
 
-  return c.text("Forbidden", 403);
+  const match = verifyTokenMatches(token);
+  if (!match) {
+    logger.warn("Webhook verification rejected: no matching verify token");
+    return c.text("Forbidden", 403);
+  }
+
+  logger.info(
+    {
+      channelAccountId: match === "env" ? null : match.id,
+      source: match === "env" ? "env" : "channel_account",
+    },
+    "Webhook verification succeeded",
+  );
+
+  return c.text(challenge || "");
 });
 
-webhook.post("/", async (c) => {
-  let phoneNumber: string | undefined;
-  try {
-    const body = await c.req.json();
-    const webhookMessage = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+/**
+ * Where a change's messages are meant to go, or why they go nowhere. Resolving
+ * happens once per change: every message in it arrived on the same number.
+ */
+type Target = { account: ChannelAccount } | { rejected: string };
 
-    if (!webhookMessage) {
-      return c.json({ status: "no_message" });
+function resolveTarget(routing: InboundRouting): Target {
+  if (!routing.phoneNumberId) {
+    logger.warn(
+      { wabaId: routing.wabaId },
+      "Webhook payload carries no metadata.phone_number_id",
+    );
+    return { rejected: "unroutable_no_phone_number_id" };
+  }
+
+  const account = ChannelAccountService.getByPhoneNumberId(
+    routing.phoneNumberId,
+  );
+
+  if (!account) {
+    // Deliveries for numbers we do not host are dropped, not errored: Meta
+    // retries 5xx responses and there is nothing to retry into.
+    logger.warn(
+      { phoneNumberId: routing.phoneNumberId, wabaId: routing.wabaId },
+      "Inbound message for unknown channel account",
+    );
+    return { rejected: "unknown_channel_account" };
+  }
+
+  // Only an active account may answer. `pending` matters as much as
+  // `disabled`: the send side refuses anything else (adapters/whatsapp/
+  // cloud-api.ts), so accepting the message here would store it, advance the
+  // conversation and leave the customer waiting on a reply that can never be
+  // sent. Rejecting keeps the bot's state and the customer's experience saying
+  // the same thing.
+  if (account.status !== "active") {
+    logger.warn(
+      {
+        channelAccountId: account.id,
+        tenantId: account.tenant_id,
+        status: account.status,
+      },
+      "Inbound message for a channel account that is not active",
+    );
+    return { rejected: `channel_account_${account.status}` };
+  }
+
+  // A suspended business is switched off, not merely barred from logging in:
+  // its bot stops answering too, rather than serving customers on behalf of an
+  // account that has been cut off.
+  const tenant = TenantService.getById(account.tenant_id);
+  if (!tenant || tenant.status !== "active") {
+    logger.warn(
+      {
+        channelAccountId: account.id,
+        tenantId: account.tenant_id,
+        tenantStatus: tenant?.status ?? "missing",
+      },
+      "Inbound message for a tenant that is not active",
+    );
+    return { rejected: "tenant_not_active" };
+  }
+
+  return { account };
+}
+
+/** Handle one message on the account it arrived on. Returns what became of it. */
+async function handleInbound(
+  account: ChannelAccount,
+  message: IncomingMessage,
+): Promise<string> {
+  const phoneNumber = message.from;
+
+  if (!phoneNumber || phoneNumber === "0") {
+    return "ignored_system_message";
+  }
+
+  // Meta redelivers an entire batch when the response is a 5xx, so a message
+  // that already landed can arrive again next to one that did not. Its id is
+  // the key on both queues, and seeing it again means there is nothing to do.
+  if (isQueued(message.id) || isHeld(message.id)) {
+    return "duplicate";
+  }
+
+  const ref: ConversationRef = {
+    tenantId: account.tenant_id,
+    channelAccountId: account.id,
+    phoneNumber,
+  };
+
+  if (message.quotedContext) {
+    const quotedMessageContent = WhatsAppService.getMessageById(
+      ref,
+      message.quotedContext.id,
+    );
+    if (quotedMessageContent) {
+      message.quotedContext.body = quotedMessageContent.content;
+      message.quotedContext.type = quotedMessageContent.type;
+      message.quotedContext.timestamp = new Date(
+        quotedMessageContent.created_at,
+      ).getTime();
     }
 
-    const incomingMessage = parseIncomingMessage(webhookMessage);
-    phoneNumber = incomingMessage.from;
+    logger.info(
+      {
+        tenantId: ref.tenantId,
+        messageId: message.id,
+        from: phoneNumber,
+        quotedMessage: message.quotedContext,
+      },
+      "Quoted message received",
+    );
+  }
 
-    if (incomingMessage.quotedContext) {
-      const quotedMessageContent = WhatsAppService.getMessageById(
-        incomingMessage.quotedContext.id,
-      );
-      if (quotedMessageContent) {
-        incomingMessage.quotedContext.body = quotedMessageContent.content;
-        incomingMessage.quotedContext.type = quotedMessageContent.type;
-        incomingMessage.quotedContext.timestamp = new Date(
-          quotedMessageContent.created_at,
-        ).getTime();
-      }
-    }
+  if (message.type !== "text") {
+    logger.info(
+      {
+        tenantId: account.tenant_id,
+        messageId: message.id,
+        type: message.type,
+      },
+      "Ignoring a non-text message",
+    );
+    return "non_text_ignored";
+  }
 
-    // Log quoted message detection
-    if (incomingMessage.quotedContext) {
+  if (message.quotedContext) {
+    const quotedProductId = WhatsAppService.findProductByQuotedMessage(
+      ref,
+      message.quotedContext.id,
+    );
+    if (quotedProductId) {
       logger.info(
         {
-          messageId: incomingMessage.id,
-          from: phoneNumber,
-          quotedMessage: incomingMessage.quotedContext,
+          tenantId: ref.tenantId,
+          messageId: message.id,
+          quotedMessageId: message.quotedContext.id,
+          quotedProductId,
         },
-        "Quoted message received",
+        "Resolved product from quoted message",
       );
     }
+  }
 
-    if (phoneNumber === "0" || !phoneNumber) {
-      return c.json({ status: "ignored_system_message" });
+  // The message row belongs to a conversation, so the conversation has to
+  // exist before it is written. Inbound text from a contact is exactly what
+  // starts one; the handler's own get-or-create later is idempotent.
+  getOrCreateConversation(ref);
+
+  WhatsAppService.logMessage(ref, "inbound", "text", message.body, "received");
+
+  // During maintenance, hold messages for later processing
+  if (isMaintenanceMode(ref.tenantId)) {
+    holdMessage(ref, message.body, message.id, message.timestamp);
+    return "maintenance_held";
+  }
+
+  storeIncomingMessage(ref, message);
+
+  return "received";
+}
+
+/**
+ * One POST, any number of messages. Each is routed and handled on its own
+ * account so that a batch spanning two tenants delivers both, and so that one
+ * failure cannot swallow the rest of the payload.
+ */
+webhook.post("/", async (c) => {
+  let changes: ParsedChange[];
+
+  try {
+    changes = parseWebhookBody(await c.req.json());
+  } catch (error) {
+    logger.error({ error }, "Webhook body could not be parsed");
+    return c.json({ error: "invalid_payload" }, 400);
+  }
+
+  const results: Array<{ phoneNumberId: string | null; status: string }> = [];
+  let failed = false;
+
+  for (const { routing, messages } of changes) {
+    const phoneNumberId = routing.phoneNumberId;
+
+    if (messages.length === 0) {
+      results.push({ phoneNumberId, status: "no_message" });
+      continue;
     }
 
-    if (incomingMessage.type !== "text") {
-      return c.json({ status: "non_text_ignored", type: incomingMessage.type });
+    const target = resolveTarget(routing);
+
+    if ("rejected" in target) {
+      for (const _message of messages) {
+        results.push({ phoneNumberId, status: target.rejected });
+      }
+      continue;
     }
 
-    if (incomingMessage.quotedContext) {
-      const quotedProductId = WhatsAppService.findProductByQuotedMessage(
-        incomingMessage.quotedContext.id,
-      );
-      if (quotedProductId) {
-        logger.info(
+    for (const message of messages) {
+      try {
+        results.push({
+          phoneNumberId,
+          status: await handleInbound(target.account, message),
+        });
+      } catch (error) {
+        failed = true;
+        logger.error(
           {
-            messageId: incomingMessage.id,
-            quotedMessageId: incomingMessage.quotedContext.id,
-            quotedProductId,
+            error,
+            phoneNumber: message.from,
+            messageId: message.id,
+            tenantId: target.account.tenant_id,
           },
-          "Resolved product from quoted message",
+          "Webhook processing failed",
         );
+        results.push({ phoneNumberId, status: "error" });
       }
     }
-
-    WhatsAppService.logMessage(
-      phoneNumber,
-      "inbound",
-      "text",
-      incomingMessage.body,
-      "received",
-    );
-
-    // During maintenance, hold messages for later processing
-    if (isMaintenanceMode()) {
-      holdMessage(
-        phoneNumber,
-        incomingMessage.body,
-        incomingMessage.id,
-        incomingMessage.timestamp,
-      );
-      return c.json({ status: "maintenance_held" });
-    }
-
-    storeIncomingMessage(incomingMessage);
-
-    return c.json({ status: "received" });
-  } catch (error) {
-    logger.error({ error, phoneNumber }, "Webhook processing failed");
-    return c.json({ status: "error" }, 500);
   }
+
+  // Meta redelivers the whole batch after a 5xx, so the messages that did land
+  // come back with it; `handleInbound` recognises them by id and skips them.
+  return failed ? c.json({ results }, 500) : c.json({ results });
 });
 
 export default webhook;
