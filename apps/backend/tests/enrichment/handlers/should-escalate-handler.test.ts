@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { ShouldEscalateHandler } from "../../../src/conversation/enrichment/handlers/should-escalate-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("ShouldEscalateHandler", () => {
   let handler: ShouldEscalateHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -16,7 +22,7 @@ describe("ShouldEscalateHandler", () => {
 
     const result = await handler.execute(
       { type: "should_escalate", message: "Quiero hablar con un humano" },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("escalation_needed");
@@ -28,7 +34,7 @@ describe("ShouldEscalateHandler", () => {
 
     const result = await handler.execute(
       { type: "should_escalate", message: "" },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("escalation_needed");

@@ -28,10 +28,12 @@ describe("MockProvider", () => {
     const provider = createMockProvider();
     const mockBundle = {
       id: "fnb-e0945b55ea90479f",
+      tenant_id: "tenant-test",
       period_id: "period-2026-01",
       name: "Samsung Galaxy A26",
       price: 1899,
       primary_category: "celulares",
+      segment: "gaso" as const,
       categories_json: '["celulares"]',
       image_id: "e0945b55ea90479f",
       composition_json:

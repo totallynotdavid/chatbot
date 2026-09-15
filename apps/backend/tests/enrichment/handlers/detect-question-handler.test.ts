@@ -2,6 +2,12 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { createMockProvider } from "@totem/intelligence";
 import { DetectQuestionHandler } from "../../../src/conversation/enrichment/handlers/detect-question-handler.ts";
 
+const TEST_REF = {
+  tenantId: "tenant-test",
+  channelAccountId: "channel-test",
+  phoneNumber: "51999999999",
+};
+
 describe("DetectQuestionHandler", () => {
   let handler: DetectQuestionHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
@@ -16,7 +22,7 @@ describe("DetectQuestionHandler", () => {
 
     const result = await handler.execute(
       { type: "detect_question", message: "¿Cuánto cuesta?" },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("question_detected");
@@ -27,7 +33,7 @@ describe("DetectQuestionHandler", () => {
     // Mock provider returns false by default when no response configured
     const result = await handler.execute(
       { type: "detect_question", message: "test" },
-      { phoneNumber: "51999999999", provider: mockProvider },
+      { ref: TEST_REF, provider: mockProvider },
     );
 
     expect(result.type).toBe("question_detected");

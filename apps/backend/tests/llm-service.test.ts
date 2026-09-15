@@ -85,10 +85,12 @@ describe("Intelligence Provider (MockProvider)", () => {
     test("extracts bundle with confidence", async () => {
       const mockBundle = {
         id: "bundle-e4976160c1e346b8",
+        tenant_id: "tenant-test",
         period_id: "period-2026-01",
         name: "Celular a elección + Cocineta 2Q",
         price: 1799,
         primary_category: "celulares",
+        segment: "gaso" as const,
         categories_json: '["celulares", "cocinas"]',
         image_id: "e4976160c1e346b8",
         composition_json:

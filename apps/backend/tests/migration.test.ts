@@ -1,0 +1,1788 @@
+/**
+ * Migrating a real single-business database.
+ *
+ * The point of the exercise is that the one existing business keeps working
+ * exactly as before: the same conversations, messages, orders, catalog and users
+ * come out the other side, now addressed by (tenant, channel account, phone
+ * number). This builds a database in the pre-tenancy shape, migrates it, and
+ * checks the rows survived with their tenant stamped on.
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { Database } from "bun:sqlite";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
+import process from "node:process";
+import { db as appDb } from "../src/db/index.ts";
+import { initializeDatabase } from "../src/db/init.ts";
+import {
+  backfillSessionTenants,
+  ensurePlatformOperator,
+  needsTenantMigration,
+  resolveLegacyUpload,
+} from "../src/db/migrations.ts";
+import { seedDatabase } from "../src/db/seed.ts";
+import { seedUsers } from "../src/db/seeds/users.ts";
+import {
+  ensureChannelAccountFromEnv,
+  seedTenants,
+} from "../src/db/seeds/tenants.ts";
+import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
+import { PRIVATE_DIR } from "../src/lib/storage-paths.ts";
+import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
+import type { ChannelAccount, Tenant } from "@totem/types";
+
+/** The schema as it stood before tenancy, trimmed to what the test asserts on. */
+const LEGACY_SCHEMA = `
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin', 'developer', 'supervisor', 'sales_agent')),
+    name TEXT NOT NULL,
+    phone_number TEXT,
+    is_active INTEGER DEFAULT 1,
+    is_available INTEGER DEFAULT 1,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    created_by TEXT
+);
+CREATE TABLE session (
+    id TEXT NOT NULL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+CREATE TABLE catalog_periods (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    year_month TEXT NOT NULL UNIQUE,
+    status TEXT DEFAULT 'draft',
+    published_at INTEGER,
+    created_by TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE products (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    brand TEXT,
+    model TEXT,
+    specs_json TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE catalog_bundles (
+    id TEXT PRIMARY KEY,
+    period_id TEXT NOT NULL,
+    segment TEXT NOT NULL CHECK(segment IN ('gaso', 'fnb')),
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    primary_category TEXT NOT NULL,
+    categories_json TEXT,
+    image_id TEXT NOT NULL,
+    composition_json TEXT NOT NULL,
+    installments_json TEXT NOT NULL,
+    notes TEXT,
+    is_active INTEGER DEFAULT 1,
+    stock_status TEXT DEFAULT 'in_stock',
+    created_by TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE conversations (
+    phone_number TEXT PRIMARY KEY,
+    client_name TEXT,
+    dni TEXT,
+    is_calidda_client INTEGER DEFAULT 0,
+    segment TEXT,
+    credit_line REAL,
+    nse INTEGER,
+    age INTEGER,
+    context_data TEXT DEFAULT '{}',
+    current_state TEXT GENERATED ALWAYS AS (json_extract(context_data, '$.phase.phase')) STORED,
+    status TEXT DEFAULT 'active',
+    handover_reason TEXT,
+    is_simulation INTEGER DEFAULT 0,
+    persona_id TEXT,
+    last_activity_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    products_interested TEXT DEFAULT '[]',
+    delivery_address TEXT,
+    delivery_reference TEXT,
+    assigned_agent TEXT,
+    agent_notes TEXT,
+    sale_status TEXT DEFAULT 'pending',
+    recording_contract_path TEXT,
+    recording_audio_path TEXT,
+    recording_uploaded_at INTEGER,
+    assignment_notified_at INTEGER
+);
+CREATE INDEX idx_conversations_status ON conversations(status);
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    type TEXT NOT NULL,
+    content TEXT,
+    whatsapp_message_id TEXT,
+    product_id TEXT,
+    status TEXT DEFAULT 'sent',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE message_inbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL,
+    message_text TEXT NOT NULL,
+    message_id TEXT UNIQUE NOT NULL,
+    whatsapp_timestamp INTEGER NOT NULL,
+    quoted_message_context TEXT,
+    status TEXT DEFAULT 'pending',
+    aggregate_id TEXT,
+    attempts INTEGER DEFAULT 0,
+    last_error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    processed_at INTEGER
+);
+CREATE TABLE held_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL,
+    message_text TEXT NOT NULL,
+    message_id TEXT UNIQUE NOT NULL,
+    whatsapp_timestamp INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE orders (
+    id TEXT PRIMARY KEY,
+    order_number TEXT UNIQUE NOT NULL,
+    conversation_phone TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    client_dni TEXT NOT NULL,
+    products TEXT NOT NULL,
+    total_amount REAL NOT NULL,
+    delivery_address TEXT NOT NULL,
+    delivery_reference TEXT,
+    status TEXT DEFAULT 'pending',
+    assigned_agent TEXT,
+    supervisor_notes TEXT,
+    calidda_notes TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE test_personas (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    segment TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    dni TEXT NOT NULL,
+    credit_line REAL NOT NULL,
+    nse INTEGER,
+    is_active INTEGER DEFAULT 1,
+    created_by TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE analytics_events (
+    id TEXT PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    metadata TEXT DEFAULT '{}',
+    is_simulation INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE llm_calls (
+    id TEXT PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    user_message TEXT NOT NULL,
+    response TEXT,
+    status TEXT NOT NULL,
+    error_type TEXT,
+    error_message TEXT,
+    latency_ms INTEGER,
+    tokens_prompt INTEGER,
+    tokens_completion INTEGER,
+    tokens_total INTEGER,
+    conversation_phase TEXT,
+    context_metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE notification_traces (
+    id TEXT PRIMARY KEY,
+    trace_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    rule_id TEXT,
+    status TEXT NOT NULL,
+    reason TEXT,
+    content_snapshot TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE audit_log (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT,
+    metadata TEXT DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+CREATE TABLE system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+);
+`;
+
+const CUSTOMER = "51999888777";
+
+/** Session expiry far enough out that nothing under test is expiring. */
+const FUTURE_EXPIRY = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+
+/** A lookup the test needs to have found something, narrowed for the assertions. */
+function found<T>(value: T | null | undefined, what: string): T {
+  if (value === null || value === undefined) {
+    throw new Error(`Expected to find ${what}`);
+  }
+  return value;
+}
+
+function seedLegacyData(db: Database) {
+  db.prepare(
+    `INSERT INTO users (id, username, password_hash, role, name, phone_number)
+     VALUES ('admin-001', 'admin', 'hash', 'admin', 'Administrador', NULL),
+            ('agent-001', 'agent1', 'hash', 'sales_agent', 'María', '+51914509251')`,
+  ).run();
+
+  // Two people logged in at the moment the deployment happens. Pre-tenancy
+  // sessions have no tenant column at all.
+  db.prepare(
+    `INSERT INTO session (id, user_id, expires_at)
+     VALUES ('sess-admin', 'admin-001', ?), ('sess-agent', 'agent-001', ?)`,
+  ).run(FUTURE_EXPIRY, FUTURE_EXPIRY);
+
+  db.prepare(
+    `INSERT INTO catalog_periods (id, name, year_month, status)
+     VALUES ('period-2026-09', 'Septiembre 2026', '2026-09', 'active')`,
+  ).run();
+
+  db.prepare(
+    `INSERT INTO products (id, name, category, brand)
+     VALUES ('prod-1', 'Samsung A54', 'celulares', 'samsung')`,
+  ).run();
+
+  db.prepare(
+    `INSERT INTO catalog_bundles
+       (id, period_id, segment, name, price, primary_category, image_id, composition_json, installments_json)
+     VALUES ('bundle-1', 'period-2026-09', 'gaso', 'Combo Cocina', 1200, 'cocinas', 'img1', '{}', '[]')`,
+  ).run();
+
+  db.prepare(
+    `INSERT INTO conversations
+       (phone_number, client_name, dni, segment, credit_line, status, assigned_agent, context_data,
+        recording_contract_path, recording_audio_path)
+     VALUES (?, 'Juan Pérez', '12345678', 'fnb', 5000, 'active', 'agent-001', ?, ?, ?)`,
+  ).run(
+    CUSTOMER,
+    JSON.stringify({
+      phase: { phase: "offering_products" },
+      metadata: { createdAt: 1, lastActivityAt: 2 },
+    }),
+    `contracts/${CUSTOMER}/contract.pdf`,
+    `contracts/${CUSTOMER}/audio.mp3`,
+  );
+
+  db.prepare(
+    `INSERT INTO messages (id, phone_number, direction, type, content, whatsapp_message_id)
+     VALUES ('m1', ?, 'inbound', 'text', 'Hola', 'wamid.1'),
+            ('m2', ?, 'outbound', 'text', '¡Qué tal!', 'wamid.2')`,
+  ).run(CUSTOMER, CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO message_inbox (phone_number, message_text, message_id, whatsapp_timestamp)
+     VALUES (?, 'pendiente', 'wamid.3', 1700000000000)`,
+  ).run(CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO held_messages (phone_number, message_text, message_id, whatsapp_timestamp)
+     VALUES (?, 'retenido', 'wamid.4', 1700000000000)`,
+  ).run(CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO orders
+       (id, order_number, conversation_phone, client_name, client_dni, products, total_amount, delivery_address, assigned_agent)
+     VALUES ('o1', 'ORD-20260901-001', ?, 'Juan Pérez', '12345678', '[]', 1200, 'Lima', 'agent-001')`,
+  ).run(CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO analytics_events (id, phone_number, event_type)
+     VALUES ('a1', ?, 'session_start')`,
+  ).run(CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO llm_calls (id, phone_number, operation, model, prompt, user_message, status)
+     VALUES ('l1', ?, 'isQuestion', 'gpt', '', '', 'success')`,
+  ).run(CUSTOMER);
+
+  db.prepare(
+    `INSERT INTO audit_log (id, user_id, action, resource_type)
+     VALUES ('au1', 'admin-001', 'login', 'user')`,
+  ).run();
+
+  db.prepare(
+    `INSERT INTO system_settings (key, value) VALUES ('maintenance_mode', 'false')`,
+  ).run();
+}
+
+describe("legacy database migration", () => {
+  let dir: string;
+  let db: Database;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "totem-migration-"));
+    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db.run(LEGACY_SCHEMA);
+    seedLegacyData(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("recognises a pre-tenancy database", () => {
+    expect(needsTenantMigration(db)).toBe(true);
+  });
+
+  it("does not re-run on a database that is already migrated", () => {
+    initializeDatabase(db);
+    expect(needsTenantMigration(db)).toBe(false);
+
+    // Running again is a plain schema pass, and changes nothing.
+    initializeDatabase(db);
+    expect(
+      (db.prepare("SELECT COUNT(*) as c FROM tenants").get() as { c: number })
+        .c,
+    ).toBe(1);
+  });
+
+  it("does not touch a fresh database", () => {
+    const fresh = new Database(join(dir, "fresh.sqlite"), { create: true });
+    expect(needsTenantMigration(fresh)).toBe(false);
+    initializeDatabase(fresh);
+    expect(
+      (
+        fresh.prepare("SELECT COUNT(*) as c FROM tenants").get() as {
+          c: number;
+        }
+      ).c,
+    ).toBe(0);
+    fresh.close();
+  });
+
+  describe("after migrating", () => {
+    let tenantId: string;
+    let channelAccountId: string;
+
+    beforeEach(() => {
+      initializeDatabase(db);
+      const tenant = db.prepare("SELECT id, slug FROM tenants").get() as {
+        id: string;
+        slug: string;
+      };
+      tenantId = tenant.id;
+      channelAccountId = (
+        db.prepare("SELECT id FROM channel_accounts").get() as { id: string }
+      ).id;
+    });
+
+    it("creates one tenant with one channel account", () => {
+      const tenant = db.prepare("SELECT * FROM tenants").get() as {
+        slug: string;
+        status: string;
+      };
+      expect(tenant.slug).toBe("totem");
+      expect(tenant.status).toBe("active");
+
+      const account = db.prepare("SELECT * FROM channel_accounts").get() as {
+        tenant_id: string;
+        channel_type: string;
+      };
+      expect(account.tenant_id).toBe(tenantId);
+      expect(account.channel_type).toBe("whatsapp");
+    });
+
+    it("keeps the conversation, now keyed by tenant and channel account", () => {
+      const conv = db
+        .prepare("SELECT * FROM conversations WHERE phone_number = ?")
+        .get(CUSTOMER) as Record<string, unknown>;
+
+      expect(conv.tenant_id).toBe(tenantId);
+      expect(conv.channel_account_id).toBe(channelAccountId);
+      expect(conv.client_name).toBe("Juan Pérez");
+      expect(conv.dni).toBe("12345678");
+      expect(conv.credit_line).toBe(5000);
+      expect(conv.assigned_agent).toBe("agent-001");
+      // The generated column still derives from context_data.
+      expect(conv.current_state).toBe("offering_products");
+    });
+
+    it("keeps every child row, stamped with the tenant", () => {
+      const counts = Object.fromEntries(
+        [
+          "messages",
+          "message_inbox",
+          "held_messages",
+          "orders",
+          "analytics_events",
+          "llm_calls",
+          "audit_log",
+          "products",
+          "catalog_bundles",
+          "catalog_periods",
+          "users",
+        ].map((table) => [
+          table,
+          (
+            db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get() as {
+              c: number;
+            }
+          ).c,
+        ]),
+      );
+
+      expect(counts).toEqual({
+        messages: 2,
+        message_inbox: 1,
+        held_messages: 1,
+        orders: 1,
+        analytics_events: 1,
+        llm_calls: 1,
+        audit_log: 1,
+        products: 1,
+        catalog_bundles: 1,
+        catalog_periods: 1,
+        users: 2,
+      });
+
+      for (const table of [
+        "messages",
+        "message_inbox",
+        "held_messages",
+        "orders",
+        "analytics_events",
+        "llm_calls",
+        "products",
+        "catalog_bundles",
+        "catalog_periods",
+      ]) {
+        const stray = (
+          db
+            .prepare(
+              `SELECT COUNT(*) as c FROM ${table} WHERE tenant_id IS NOT ?`,
+            )
+            .get(tenantId) as { c: number }
+        ).c;
+        expect(`${table}:${stray}`).toBe(`${table}:0`);
+      }
+
+      const message = db
+        .prepare("SELECT * FROM messages WHERE id = 'm1'")
+        .get() as Record<string, unknown>;
+      expect(message.channel_account_id).toBe(channelAccountId);
+      expect(message.content).toBe("Hola");
+      expect(message.whatsapp_message_id).toBe("wamid.1");
+
+      const order = db
+        .prepare("SELECT * FROM orders WHERE id = 'o1'")
+        .get() as Record<string, unknown>;
+      expect(order.channel_account_id).toBe(channelAccountId);
+      expect(order.conversation_phone).toBe(CUSTOMER);
+      expect(order.order_number).toBe("ORD-20260901-001");
+    });
+
+    it("makes every existing user a member of that tenant, keeping their role", () => {
+      const memberships = db
+        .prepare(
+          "SELECT user_id, role, tenant_id FROM tenant_memberships ORDER BY user_id",
+        )
+        .all() as Array<{ user_id: string; role: string; tenant_id: string }>;
+
+      expect(memberships).toEqual([
+        { user_id: "admin-001", role: "admin", tenant_id: tenantId },
+        { user_id: "agent-001", role: "sales_agent", tenant_id: tenantId },
+      ]);
+    });
+
+    /**
+     * `is_platform_operator` did not exist before tenancy, so the column copy
+     * left every migrated account at the schema default of 0 - and creating a
+     * tenant is the one thing only a platform operator may do. A real
+     * deployment upgraded this way had nobody able to onboard the second
+     * business, and no way to make somebody: `seedUsers` refused to run
+     * because the database was full of users. The migration path this branch
+     * exists for ended in a manual database edit.
+     */
+    it("leaves the deployment with a platform operator", () => {
+      const operators = db
+        .prepare("SELECT username FROM users WHERE is_platform_operator = 1")
+        .all() as Array<{ username: string }>;
+
+      // The oldest admin: in a single-business database, whoever set it up.
+      expect(operators).toEqual([{ username: "admin" }]);
+    });
+
+    it("promotes one account, not everybody who happened to be an admin", () => {
+      expect(
+        db
+          .prepare(
+            "SELECT is_platform_operator FROM users WHERE id = 'agent-001'",
+          )
+          .get(),
+      ).toEqual({ is_platform_operator: 0 });
+    });
+
+    /**
+     * The promotion runs after the session backfill for this reason. Reversed,
+     * the one person handed the new powers would have been the one person
+     * logged out of their own business by the deployment, because
+     * `backfillSessionTenants` deliberately skips platform operators.
+     */
+    it("keeps that operator's live session pinned to their business", () => {
+      expect(
+        db
+          .prepare(
+            "SELECT active_tenant_id FROM session WHERE id = 'sess-admin'",
+          )
+          .get(),
+      ).toEqual({ active_tenant_id: tenantId });
+
+      // And their membership survives, so the powers are additional, not a swap.
+      expect(membershipsOn(db).get(tenantId, "admin-001")?.role).toBe("admin");
+    });
+
+    it("turns uploaded contracts into private assets on the conversation", () => {
+      const conv = db
+        .prepare(
+          "SELECT recording_contract_asset_id, recording_audio_asset_id FROM conversations WHERE phone_number = ?",
+        )
+        .get(CUSTOMER) as {
+        recording_contract_asset_id: string | null;
+        recording_audio_asset_id: string | null;
+      };
+
+      expect(conv.recording_contract_asset_id).not.toBeNull();
+      expect(conv.recording_audio_asset_id).not.toBeNull();
+
+      const assets = db
+        .prepare("SELECT * FROM assets ORDER BY kind")
+        .all() as Array<{
+        tenant_id: string;
+        kind: string;
+        visibility: string;
+        storage_key: string;
+      }>;
+
+      expect(assets).toHaveLength(2);
+      expect(assets.map((a) => a.kind)).toEqual(["contract", "recording"]);
+      expect(assets.every((a) => a.visibility === "private")).toBe(true);
+      expect(assets.every((a) => a.tenant_id === tenantId)).toBe(true);
+      expect(assets[0]!.storage_key).toContain(`${tenantId}/legacy/contracts/`);
+    });
+
+    /**
+     * The P1 this test exists for: a session copied across kept its id and its
+     * expiry but got no `active_tenant_id`, because the column is new and the
+     * generic column copy only carries columns both shapes share. An unscoped
+     * session is refused by `requireTenantScope` (403 on every tenant route),
+     * and the dashboard only shows a tenant picker to someone who belongs to
+     * more than one - so an ordinary user who happened to be logged in when the
+     * deployment ran lost the application until they worked out to log out and
+     * back in.
+     */
+    it("pins carried-over sessions to the tenant their user belongs to", () => {
+      const sessions = db
+        .prepare(
+          "SELECT id, user_id, active_tenant_id FROM session ORDER BY id",
+        )
+        .all() as Array<{
+        id: string;
+        user_id: string;
+        active_tenant_id: string | null;
+      }>;
+
+      expect(sessions).toEqual([
+        { id: "sess-admin", user_id: "admin-001", active_tenant_id: tenantId },
+        { id: "sess-agent", user_id: "agent-001", active_tenant_id: tenantId },
+      ]);
+    });
+
+    it("keeps those sessions valid, with their expiry untouched", () => {
+      const expiries = db
+        .prepare("SELECT expires_at FROM session")
+        .all() as Array<{ expires_at: number }>;
+
+      expect(expiries).toEqual([
+        { expires_at: FUTURE_EXPIRY },
+        { expires_at: FUTURE_EXPIRY },
+      ]);
+    });
+
+    it("leaves platform settings alone and drops the legacy tables", () => {
+      expect(
+        db
+          .prepare(
+            "SELECT value FROM system_settings WHERE key = 'maintenance_mode'",
+          )
+          .get(),
+      ).toEqual({ value: "false" });
+
+      const leftovers = db
+        .prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_legacy'")
+        .all();
+      expect(leftovers).toEqual([]);
+    });
+  });
+});
+
+/**
+ * Regression: the migration used to insert the channel account itself, with a
+ * bare `pending` row and no credentials, instead of going through the seed that
+ * imports and encrypts the WHATSAPP_* variables. The migrated business could
+ * receive webhooks but not answer them - the Cloud adapter refuses to send on an
+ * account that is not active.
+ */
+describe("migrating a database with WhatsApp credentials configured", () => {
+  const ENV_KEYS = [
+    "SECRETS_KEY",
+    "WHATSAPP_PHONE_ID",
+    "WHATSAPP_TOKEN",
+    "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
+  ] as const;
+
+  const PHONE_NUMBER_ID = "123456789012345";
+  const ACCESS_TOKEN = "EAAG-migration-access-token";
+  const VERIFY_TOKEN = "migration-verify-token";
+
+  const saved: Record<string, string | undefined> = {};
+  let dir: string;
+  let db: Database;
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) saved[key] = process.env[key];
+
+    process.env.SECRETS_KEY = "a1".repeat(32);
+    process.env.WHATSAPP_PHONE_ID = PHONE_NUMBER_ID;
+    process.env.WHATSAPP_TOKEN = ACCESS_TOKEN;
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
+
+    dir = mkdtempSync(join(tmpdir(), "totem-migration-creds-"));
+    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db.run(LEGACY_SCHEMA);
+    seedLegacyData(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  });
+
+  it("leaves the business a channel account it can send from", () => {
+    initializeDatabase(db);
+
+    const channelAccounts = channelAccountsOn(db);
+    const account = found(
+      channelAccounts.getByPhoneNumberId(PHONE_NUMBER_ID),
+      "the migrated channel account",
+    );
+
+    expect(account.status).toBe("active");
+    expect(account.access_token_secret_id).not.toBeNull();
+    expect(channelAccounts.getAccessToken(account)).toBe(ACCESS_TOKEN);
+    expect(channelAccounts.getVerifyToken(account)).toBe(VERIFY_TOKEN);
+  });
+
+  it("stores the credentials encrypted, not in the account row", () => {
+    initializeDatabase(db);
+
+    const secrets = db
+      .prepare("SELECT purpose, ciphertext FROM channel_secrets")
+      .all() as Array<{ purpose: string; ciphertext: string }>;
+
+    expect(secrets.map((s) => s.purpose).sort()).toEqual([
+      "access_token",
+      "verify_token",
+    ]);
+    expect(secrets.every((s) => !s.ciphertext.includes(ACCESS_TOKEN))).toBe(
+      true,
+    );
+  });
+
+  it("stamps the migrated rows with that same channel account", () => {
+    initializeDatabase(db);
+
+    const accountId = found(
+      channelAccountsOn(db).getByPhoneNumberId(PHONE_NUMBER_ID),
+      "the migrated channel account",
+    ).id;
+
+    const conversation = db
+      .prepare(
+        "SELECT channel_account_id FROM conversations WHERE phone_number = ?",
+      )
+      .get(CUSTOMER) as { channel_account_id: string };
+
+    expect(conversation.channel_account_id).toBe(accountId);
+  });
+
+  it("falls back to a pending account when no key is configured", () => {
+    delete process.env.SECRETS_KEY;
+
+    initializeDatabase(db);
+
+    const account = found(
+      channelAccountsOn(db).getByPhoneNumberId(PHONE_NUMBER_ID),
+      "the migrated channel account",
+    );
+
+    // Nothing to decrypt the token with, so it is not stored and the number is
+    // marked as one that cannot yet send.
+    expect(account.status).toBe("pending");
+    expect(account.access_token_secret_id).toBeNull();
+  });
+
+  it("carries a user's availability onto their membership", () => {
+    db.prepare(
+      "UPDATE users SET is_available = 0 WHERE id = 'agent-001'",
+    ).run();
+
+    initializeDatabase(db);
+
+    const memberships = db
+      .prepare(
+        "SELECT user_id, is_available FROM tenant_memberships ORDER BY user_id",
+      )
+      .all() as Array<{ user_id: string; is_available: number }>;
+
+    expect(memberships).toEqual([
+      { user_id: "admin-001", is_available: 1 },
+      { user_id: "agent-001", is_available: 0 },
+    ]);
+  });
+});
+
+/**
+ * The seeds write to the database they are handed. That is what lets the
+ * migration run them against a database that is not the process-wide one - and
+ * what these assert, by seeding a temporary file and checking nothing landed in
+ * the application connection.
+ */
+describe("seeding a database the seed was handed", () => {
+  const ENV_KEYS = [
+    "BOOTSTRAP_ADMIN_USERNAME",
+    "BOOTSTRAP_ADMIN_PASSWORD",
+  ] as const;
+
+  const USERNAME = "seed-target-admin";
+  const saved: Record<string, string | undefined> = {};
+  let dir: string;
+  let db: Database;
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) saved[key] = process.env[key];
+    process.env.BOOTSTRAP_ADMIN_USERNAME = USERNAME;
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = "a-long-enough-password";
+
+    dir = mkdtempSync(join(tmpdir(), "totem-seed-"));
+    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    initializeDatabase(db);
+
+    // The assertions below read the application connection to show the seeds
+    // did not touch it, so it has to have a schema to read. It only ever had
+    // one here because some earlier file in the suite happened to apply it,
+    // which made this file fail whenever it was run on its own.
+    initializeDatabase(appDb);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  });
+
+  it("writes the tenant, its channel account and the bootstrap membership there", async () => {
+    await seedDatabase(db);
+
+    const tenant = found(tenantsOn(db).getBySlug("totem"), "the seeded tenant");
+
+    expect(channelAccountsOn(db).getDefaultForTenant(tenant.id)).not.toBeNull();
+
+    const user = db
+      .prepare("SELECT id FROM users WHERE username = ?")
+      .get(USERNAME) as { id: string };
+    expect(membershipsOn(db).get(tenant.id, user.id)?.role).toBe("admin");
+
+    // The catalog seed lands there too, keyed to that tenant.
+    expect(
+      db
+        .prepare("SELECT COUNT(*) as c FROM products WHERE tenant_id = ?")
+        .get(tenant.id),
+    ).not.toEqual({ c: 0 });
+  });
+
+  it("leaves the application connection alone", async () => {
+    await seedDatabase(db);
+
+    // Compared by id rather than by slug: a developer's own database may well
+    // have a seeded tenant of its own, and the point is that these rows are not
+    // in it.
+    const tenant = found(tenantsOn(db).getBySlug("totem"), "the seeded tenant");
+    const user = db
+      .prepare("SELECT id FROM users WHERE username = ?")
+      .get(USERNAME) as { id: string };
+
+    expect(tenantsOn(appDb).getById(tenant.id)).toBeNull();
+    expect(
+      appDb
+        .prepare("SELECT COUNT(*) as c FROM users WHERE id = ?")
+        .get(user.id),
+    ).toEqual({ c: 0 });
+  });
+});
+
+/**
+ * Regression: seeding a number that already existed returned it untouched
+ * before looking at whether it still needed credentials. An account created
+ * pending - no SECRETS_KEY at the time, so no token to send with - therefore
+ * stayed pending forever, and the recovery its own warning documents ("set
+ * SECRETS_KEY and re-run the seed") did nothing at all.
+ */
+describe("re-seeding a channel account that was left pending", () => {
+  const ENV_KEYS = [
+    "SECRETS_KEY",
+    "WHATSAPP_PHONE_ID",
+    "WHATSAPP_TOKEN",
+    "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
+  ] as const;
+
+  const KEY = "a1".repeat(32);
+  const PHONE_NUMBER_ID = "222333444555666";
+  const ACCESS_TOKEN = "EAAG-reseed-access-token";
+  const VERIFY_TOKEN = "reseed-verify-token";
+
+  const saved: Record<string, string | undefined> = {};
+  let dir: string;
+  let db: Database;
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) saved[key] = process.env[key];
+
+    delete process.env.SECRETS_KEY;
+    process.env.WHATSAPP_PHONE_ID = PHONE_NUMBER_ID;
+    process.env.WHATSAPP_TOKEN = ACCESS_TOKEN;
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
+
+    dir = mkdtempSync(join(tmpdir(), "totem-reseed-"));
+    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    initializeDatabase(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  });
+
+  it("imports the credentials once the key is configured", () => {
+    const pending = seedTenants(db).channelAccount;
+    expect(pending.status).toBe("pending");
+    expect(pending.access_token_secret_id).toBeNull();
+
+    process.env.SECRETS_KEY = KEY;
+    const recovered = seedTenants(db).channelAccount;
+
+    // The same account, now able to send.
+    expect(recovered.id).toBe(pending.id);
+    expect(recovered.status).toBe("active");
+
+    const channelAccounts = channelAccountsOn(db);
+    expect(channelAccounts.getAccessToken(recovered)).toBe(ACCESS_TOKEN);
+    expect(channelAccounts.getVerifyToken(recovered)).toBe(VERIFY_TOKEN);
+  });
+
+  it("leaves a token that was rotated after the seed alone", () => {
+    process.env.SECRETS_KEY = KEY;
+    const account = seedTenants(db).channelAccount;
+
+    const channelAccounts = channelAccountsOn(db);
+    channelAccounts.setAccessToken(account.id, "EAAG-rotated-by-hand");
+
+    // The env variables are the initial import, not the source of truth.
+    const reseeded = seedTenants(db).channelAccount;
+    expect(channelAccounts.getAccessToken(reseeded)).toBe(
+      "EAAG-rotated-by-hand",
+    );
+  });
+
+  it("does not bring a number somebody disabled back", () => {
+    const pending = seedTenants(db).channelAccount;
+
+    const channelAccounts = channelAccountsOn(db);
+    channelAccounts.updateStatus(pending.id, "disabled");
+
+    process.env.SECRETS_KEY = KEY;
+    const reseeded = seedTenants(db).channelAccount;
+
+    // The credentials are imported - the number is still not to be used.
+    expect(reseeded.status).toBe("disabled");
+    expect(channelAccounts.getAccessToken(reseeded)).toBe(ACCESS_TOKEN);
+  });
+
+  describe("when the configured number belongs to another tenant", () => {
+    let theirs: ChannelAccount;
+    let seeded: { tenant: Tenant; channelAccount: ChannelAccount };
+
+    beforeEach(() => {
+      process.env.SECRETS_KEY = KEY;
+      // As the application connection has it, so a row pairing one tenant with
+      // another tenant's number is refused rather than written.
+      db.run("PRAGMA foreign_keys = ON;");
+
+      const other = tenantsOn(db).create({
+        slug: "otra-empresa",
+        name: "Otra",
+      });
+      theirs = channelAccountsOn(db).create({
+        tenantId: other.id,
+        phoneNumberId: PHONE_NUMBER_ID,
+        label: "Su número",
+      });
+
+      seeded = seedTenants(db);
+    });
+
+    it("does not hand the seeded tenant that number", () => {
+      expect(seeded.channelAccount.id).not.toBe(theirs.id);
+      expect(seeded.channelAccount.tenant_id).toBe(seeded.tenant.id);
+    });
+
+    it("leaves the seeded tenant a pending number with no credentials", () => {
+      expect(seeded.channelAccount.status).toBe("pending");
+      expect(
+        channelAccountsOn(db).getAccessToken(seeded.channelAccount),
+      ).toBeNull();
+    });
+
+    it("does not write credentials into the other tenant's number", () => {
+      const untouched = found(
+        channelAccountsOn(db).getById(theirs.id),
+        "the other tenant's account",
+      );
+      expect(untouched.status).toBe("pending");
+      expect(channelAccountsOn(db).getAccessToken(untouched)).toBeNull();
+    });
+
+    it("gives the seeded tenant the same number on every seed", () => {
+      expect(seedTenants(db).channelAccount.id).toBe(seeded.channelAccount.id);
+    });
+
+    it("lets the whole seed run on it", async () => {
+      await seedDatabase(db);
+    });
+  });
+});
+
+describe("seeding channel accounts with no WhatsApp number configured", () => {
+  let savedPhoneId: string | undefined;
+  let dir: string;
+  let db: Database;
+
+  beforeEach(() => {
+    savedPhoneId = process.env.WHATSAPP_PHONE_ID;
+    delete process.env.WHATSAPP_PHONE_ID;
+
+    dir = mkdtempSync(join(tmpdir(), "totem-unconfigured-"));
+    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    initializeDatabase(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    if (savedPhoneId === undefined) delete process.env.WHATSAPP_PHONE_ID;
+    else process.env.WHATSAPP_PHONE_ID = savedPhoneId;
+  });
+
+  it("gives each tenant a pending number of its own", () => {
+    const tenants = tenantsOn(db);
+    const first = tenants.create({ slug: "primera", name: "Primera" });
+    const second = tenants.create({ slug: "segunda", name: "Segunda" });
+
+    const firstAccount = ensureChannelAccountFromEnv(db, first.id);
+    const secondAccount = ensureChannelAccountFromEnv(db, second.id);
+
+    expect(secondAccount.id).not.toBe(firstAccount.id);
+    expect(firstAccount.tenant_id).toBe(first.id);
+    expect(secondAccount.tenant_id).toBe(second.id);
+    expect(firstAccount.status).toBe("pending");
+    expect(secondAccount.status).toBe("pending");
+  });
+
+  it("finds that same number again on the next seed", () => {
+    const tenant = tenantsOn(db).create({ slug: "unica", name: "Única" });
+
+    const seeded = ensureChannelAccountFromEnv(db, tenant.id);
+
+    expect(ensureChannelAccountFromEnv(db, tenant.id).id).toBe(seeded.id);
+    expect(channelAccountsOn(db).listForTenant(tenant.id)).toHaveLength(1);
+  });
+});
+
+/**
+ * Migrating uploads that actually exist on disk.
+ *
+ * The tests above never create the files behind the legacy paths, so they only
+ * ever exercise the "already missing" branch. These put real bytes where the
+ * legacy columns point and follow them to their new key.
+ *
+ * The P1 here: the file was *moved* with `renameSync`, and a failed move was
+ * caught, logged and ignored - the asset row went in anyway, the conversation
+ * was updated to point at it, and the migration ran on to drop the legacy
+ * tables. A permission or disk fault during migration therefore turned a signed
+ * contract into a 404 with nothing left recording where the bytes had been. And
+ * even a *successful* move was wrong: the move is not covered by the
+ * transaction around the migration, so a rollback anywhere after it left the
+ * database naming a file that had already been renamed away.
+ *
+ * It copies now, verifies the copy, and throws if either step fails - so a
+ * failure rolls the database back onto legacy tables whose files are all still
+ * there, and the whole migration can simply be run again.
+ */
+describe("migrating uploads that exist on disk", () => {
+  const UPLOAD_CUSTOMER = "51900111222";
+  const CONTRACT_BYTES = "%PDF-1.4 signed contract";
+  const AUDIO_BYTES = "ID3 call recording";
+  /** Stands in for whatever a traversal path would have reached. */
+  const SECRET_BYTES = "-----BEGIN OPENSSH PRIVATE KEY-----";
+
+  let dir: string;
+  let db: Database;
+  /**
+   * `data/` relative to the backend: where the pre-tenancy application wrote
+   * its uploads, and so where the migration reads them from. Deliberately not
+   * derived from UPLOAD_DIR - the source of a one-time migration is wherever
+   * the old code actually put it, which was always the working directory.
+   *
+   * The *destination* is a different root entirely (PRIVATE_DIR), and
+   * conflating the two here was a bug waiting for PRIVATE_DIR to be set: this
+   * file read back the migrated bytes from `<cwd>/data/private` while the
+   * migration wrote them wherever the store says.
+   */
+  let legacyRoot: string;
+  let legacyDir: string;
+  let privateRoots: string[];
+
+  function legacyDatabase(contractPath: string | null, audioPath: string) {
+    const database = new Database(join(dir, "legacy.sqlite"), { create: true });
+    database.run(LEGACY_SCHEMA);
+    database
+      .prepare(
+        `INSERT INTO conversations
+           (phone_number, client_name, context_data, recording_contract_path, recording_audio_path)
+         VALUES (?, 'Juan', '{}', ?, ?)`,
+      )
+      .run(UPLOAD_CUSTOMER, contractPath, audioPath);
+    return database;
+  }
+
+  function tenantOf(database: Database): string {
+    const row = database.prepare("SELECT id FROM tenants").get() as {
+      id: string;
+    };
+    privateRoots.push(join(PRIVATE_DIR, row.id));
+    return row.id;
+  }
+
+  /** Contents of every file in a directory tree, for "these bytes are absent". */
+  function filesUnder(root: string): string[] {
+    if (!existsSync(root)) return [];
+    return readdirSync(root, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory()
+        ? filesUnder(join(root, entry.name))
+        : [readFileSync(join(root, entry.name), "utf-8")],
+    );
+  }
+
+  /** What /api/assets/:id would serve for an asset with that storage key. */
+  function storedAt(storageKey: string): string | null {
+    const file = join(PRIVATE_DIR, storageKey);
+    return existsSync(file) ? readFileSync(file, "utf-8") : null;
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "totem-uploads-migration-"));
+    legacyRoot = join(process.cwd(), "data");
+    legacyDir = join(legacyRoot, "contracts", UPLOAD_CUSTOMER);
+    privateRoots = [];
+
+    mkdirSync(legacyDir, { recursive: true });
+    writeFileSync(join(legacyDir, "contract.pdf"), CONTRACT_BYTES);
+    writeFileSync(join(legacyDir, "audio.mp3"), AUDIO_BYTES);
+  });
+
+  afterEach(() => {
+    db?.close();
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(join(legacyRoot, "contracts", UPLOAD_CUSTOMER), {
+      recursive: true,
+      force: true,
+    });
+    for (const root of privateRoots) {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("puts the bytes at the key the asset row names", () => {
+    db = legacyDatabase(
+      `contracts/${UPLOAD_CUSTOMER}/contract.pdf`,
+      `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+    );
+
+    initializeDatabase(db);
+    tenantOf(db);
+
+    const assets = db
+      .prepare("SELECT id, kind, storage_key FROM assets ORDER BY kind")
+      .all() as Array<{ id: string; kind: string; storage_key: string }>;
+
+    expect(assets).toHaveLength(2);
+
+    const contract = found(
+      assets.find((a) => a.kind === "contract"),
+      "the contract asset",
+    );
+    const recording = found(
+      assets.find((a) => a.kind === "recording"),
+      "the recording asset",
+    );
+
+    // The bytes are where the row says they are - which is the whole claim the
+    // row makes, and the one that was not being checked.
+    expect(storedAt(contract.storage_key)).toBe(CONTRACT_BYTES);
+    expect(storedAt(recording.storage_key)).toBe(AUDIO_BYTES);
+
+    // The conversation points at those same assets.
+    const conv = db
+      .prepare(
+        `SELECT recording_contract_asset_id, recording_audio_asset_id
+         FROM conversations WHERE phone_number = ?`,
+      )
+      .get(UPLOAD_CUSTOMER) as {
+      recording_contract_asset_id: string;
+      recording_audio_asset_id: string;
+    };
+
+    expect(conv.recording_contract_asset_id).toBe(contract.id);
+    expect(conv.recording_audio_asset_id).toBe(recording.id);
+  });
+
+  it("removes the legacy duplicate once the migration has committed", () => {
+    db = legacyDatabase(
+      `contracts/${UPLOAD_CUSTOMER}/contract.pdf`,
+      `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+    );
+
+    initializeDatabase(db);
+    tenantOf(db);
+
+    expect(existsSync(join(legacyDir, "contract.pdf"))).toBe(false);
+    expect(existsSync(join(legacyDir, "audio.mp3"))).toBe(false);
+  });
+
+  it("refuses a legacy path that points outside data/", () => {
+    // `recording_contract_path` is a column nothing ever validated, so its
+    // contents are input. Sanitising only the *destination* key left the source
+    // free to climb out of data/ on enough `../`: the migration would read a
+    // file it has no business reading and hand it back from /api/assets/:id
+    // under a tidy, in-prefix storage key. The source is checked now, before
+    // anything touches the filesystem.
+    const secret = join(dir, "id_rsa");
+    writeFileSync(secret, SECRET_BYTES);
+
+    db = legacyDatabase(
+      relative(legacyRoot, secret),
+      `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+    );
+
+    initializeDatabase(db);
+    const tenantId = tenantOf(db);
+
+    // First and foremost: the file was never read. Nothing under the tenant's
+    // private storage holds its bytes, and it is untouched where it lay.
+    expect(filesUnder(join(PRIVATE_DIR, tenantId))).not.toContain(SECRET_BYTES);
+    expect(readFileSync(secret, "utf-8")).toBe(SECRET_BYTES);
+
+    // The traversal path is dropped entirely - no asset, no key, no bytes.
+    // The legitimate upload alongside it still migrates.
+    const assets = db
+      .prepare("SELECT kind, storage_key FROM assets")
+      .all() as Array<{ kind: string; storage_key: string }>;
+
+    expect(assets).toHaveLength(1);
+    expect(assets[0]!.kind).toBe("recording");
+    expect(assets[0]!.storage_key.startsWith(`${tenantId}/legacy/`)).toBe(true);
+    expect(storedAt(assets[0]!.storage_key)).toBe(AUDIO_BYTES);
+
+    // The conversation records the one upload that survived and nothing for
+    // the one that was refused.
+    const conv = db
+      .prepare(
+        `SELECT recording_contract_asset_id, recording_audio_asset_id
+         FROM conversations WHERE phone_number = ?`,
+      )
+      .get(UPLOAD_CUSTOMER) as {
+      recording_contract_asset_id: string | null;
+      recording_audio_asset_id: string | null;
+    };
+
+    expect(conv.recording_contract_asset_id).toBeNull();
+    expect(conv.recording_audio_asset_id).not.toBeNull();
+  });
+
+  describe("a legacy path inside data/ that links outside it", () => {
+    let secret: string;
+
+    beforeEach(() => {
+      secret = join(dir, "outside", "id_rsa");
+      mkdirSync(join(dir, "outside"));
+      writeFileSync(secret, SECRET_BYTES);
+    });
+
+    /** Migrates with the contract at `contractPath` and checks it was refused. */
+    function expectContractRefused(contractPath: string) {
+      db = legacyDatabase(
+        contractPath,
+        `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+      );
+
+      initializeDatabase(db);
+      const tenantId = tenantOf(db);
+
+      expect(filesUnder(join(PRIVATE_DIR, tenantId))).not.toContain(
+        SECRET_BYTES,
+      );
+      expect(readFileSync(secret, "utf-8")).toBe(SECRET_BYTES);
+
+      const assets = db
+        .prepare("SELECT kind, storage_key FROM assets")
+        .all() as Array<{ kind: string; storage_key: string }>;
+
+      expect(assets.map((asset) => asset.kind)).toEqual(["recording"]);
+      const recording = found(assets[0], "the recording asset");
+      expect(storedAt(recording.storage_key)).toBe(AUDIO_BYTES);
+    }
+
+    it("refuses a file that is a symlink to somewhere else", () => {
+      rmSync(join(legacyDir, "contract.pdf"));
+      symlinkSync(secret, join(legacyDir, "contract.pdf"));
+
+      expectContractRefused(`contracts/${UPLOAD_CUSTOMER}/contract.pdf`);
+    });
+
+    it("refuses a file under a directory that is a symlink to somewhere else", () => {
+      symlinkSync(join(dir, "outside"), join(legacyDir, "linked"));
+
+      expectContractRefused(`contracts/${UPLOAD_CUSTOMER}/linked/id_rsa`);
+    });
+  });
+
+  describe("a legacy root that is itself a symlink", () => {
+    let realRoot: string;
+    let linkedRoot: string;
+
+    beforeEach(() => {
+      realRoot = join(dir, "volume", "data");
+      linkedRoot = join(dir, "data");
+      mkdirSync(join(realRoot, "contracts"), { recursive: true });
+      writeFileSync(
+        join(realRoot, "contracts", "contract.pdf"),
+        CONTRACT_BYTES,
+      );
+      symlinkSync(realRoot, linkedRoot);
+    });
+
+    it("still reads the files under it", () => {
+      const from = found(
+        resolveLegacyUpload(linkedRoot, "contracts/contract.pdf"),
+        "the contract under the linked root",
+      );
+
+      expect(readFileSync(from, "utf-8")).toBe(CONTRACT_BYTES);
+    });
+
+    it("still accepts a link that stays inside it", () => {
+      symlinkSync(
+        join(realRoot, "contracts", "contract.pdf"),
+        join(realRoot, "contracts", "alias.pdf"),
+      );
+
+      const from = resolveLegacyUpload(linkedRoot, "contracts/alias.pdf");
+
+      expect(from).toBe(join(realRoot, "contracts", "contract.pdf"));
+    });
+
+    it("still refuses a link that leaves it", () => {
+      writeFileSync(join(dir, "id_rsa"), SECRET_BYTES);
+      symlinkSync(join(dir, "id_rsa"), join(realRoot, "contracts", "key.pdf"));
+
+      expect(resolveLegacyUpload(linkedRoot, "contracts/key.pdf")).toBeNull();
+    });
+  });
+
+  describe("when a file cannot be copied", () => {
+    beforeEach(() => {
+      // A directory where the migration expects a file: `existsSync` says the
+      // upload is there, and `copyFileSync` fails on it. Standing in for the
+      // permission or disk fault this is really about, without needing either.
+      rmSync(join(legacyDir, "contract.pdf"));
+      mkdirSync(join(legacyDir, "contract.pdf"));
+
+      db = legacyDatabase(
+        `contracts/${UPLOAD_CUSTOMER}/contract.pdf`,
+        `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+      );
+    });
+
+    it("aborts the migration instead of recording a file it did not write", () => {
+      expect(() => initializeDatabase(db)).toThrow(/failed to copy legacy/i);
+    });
+
+    it("leaves the database exactly as it found it", () => {
+      try {
+        initializeDatabase(db);
+      } catch {
+        // The assertion is on what survived, not on the throw.
+      }
+
+      // Rolled all the way back: still a legacy database, so running the
+      // migration again is the recovery rather than a hand-repair.
+      expect(needsTenantMigration(db)).toBe(true);
+      expect(
+        db
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'assets'",
+          )
+          .get(),
+      ).toBeNull();
+      expect(
+        db
+          .prepare(
+            `SELECT recording_contract_path, recording_audio_path
+             FROM conversations WHERE phone_number = ?`,
+          )
+          .get(UPLOAD_CUSTOMER),
+      ).toEqual({
+        recording_contract_path: `contracts/${UPLOAD_CUSTOMER}/contract.pdf`,
+        recording_audio_path: `contracts/${UPLOAD_CUSTOMER}/audio.mp3`,
+      });
+    });
+
+    it("leaves every legacy file where it was", () => {
+      try {
+        initializeDatabase(db);
+      } catch {
+        // As above.
+      }
+
+      // Including the one that copied cleanly before the failure: nothing is
+      // deleted until the transaction has committed.
+      expect(existsSync(join(legacyDir, "contract.pdf"))).toBe(true);
+      expect(readFileSync(join(legacyDir, "audio.mp3"), "utf-8")).toBe(
+        AUDIO_BYTES,
+      );
+    });
+
+    it("migrates cleanly once the cause is fixed", () => {
+      try {
+        initializeDatabase(db);
+      } catch {
+        // As above.
+      }
+
+      rmSync(join(legacyDir, "contract.pdf"), { recursive: true });
+      writeFileSync(join(legacyDir, "contract.pdf"), CONTRACT_BYTES);
+
+      initializeDatabase(db);
+      tenantOf(db);
+
+      expect(needsTenantMigration(db)).toBe(false);
+
+      const assets = db
+        .prepare("SELECT kind, storage_key FROM assets ORDER BY kind")
+        .all() as Array<{ kind: string; storage_key: string }>;
+
+      expect(assets).toHaveLength(2);
+      expect(storedAt(assets[0]!.storage_key)).toBe(CONTRACT_BYTES);
+      expect(storedAt(assets[1]!.storage_key)).toBe(AUDIO_BYTES);
+    });
+  });
+});
+
+/**
+ * `backfillSessionTenants` restates `defaultTenantForUser` in SQL. A
+ * single-business legacy database only ever produces one of its three cases, so
+ * the rule is checked here against all of them.
+ */
+describe("the scope a carried-over session is given", () => {
+  let dir: string;
+  let db: Database;
+
+  function user(id: string, isPlatformOperator = false): void {
+    db.prepare(
+      `INSERT INTO users (id, username, password_hash, role, name, is_platform_operator)
+       VALUES (?, ?, 'x', 'admin', ?, ?)`,
+    ).run(id, `user-${id}`, id, isPlatformOperator ? 1 : 0);
+
+    db.prepare(
+      "INSERT INTO session (id, user_id, active_tenant_id, expires_at) VALUES (?, ?, NULL, ?)",
+    ).run(`sess-${id}`, id, FUTURE_EXPIRY);
+  }
+
+  function tenant(id: string): void {
+    db.prepare("INSERT INTO tenants (id, slug, name) VALUES (?, ?, ?)").run(
+      id,
+      id,
+      id,
+    );
+  }
+
+  function member(tenantId: string, userId: string): void {
+    db.prepare(
+      "INSERT INTO tenant_memberships (id, tenant_id, user_id, role) VALUES (?, ?, ?, 'admin')",
+    ).run(crypto.randomUUID(), tenantId, userId);
+  }
+
+  function scopeOf(userId: string): string | null {
+    return (
+      db
+        .prepare("SELECT active_tenant_id FROM session WHERE user_id = ?")
+        .get(userId) as { active_tenant_id: string | null }
+    ).active_tenant_id;
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "totem-session-backfill-"));
+    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    initializeDatabase(db);
+
+    tenant("tn-one");
+    tenant("tn-two");
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("is the single tenant somebody belongs to", () => {
+    user("solo");
+    member("tn-one", "solo");
+
+    backfillSessionTenants(db);
+
+    expect(scopeOf("solo")).toBe("tn-one");
+  });
+
+  it("is nothing for somebody who belongs to several", () => {
+    user("both");
+    member("tn-one", "both");
+    member("tn-two", "both");
+
+    backfillSessionTenants(db);
+
+    // Only they can say which business they meant.
+    expect(scopeOf("both")).toBeNull();
+  });
+
+  it("is nothing for a platform operator", () => {
+    user("staff", true);
+    member("tn-one", "staff");
+
+    backfillSessionTenants(db);
+
+    // Their scope is chosen, never implied - the same rule login follows.
+    expect(scopeOf("staff")).toBeNull();
+  });
+
+  it("leaves a session that already names a tenant alone", () => {
+    user("pinned");
+    member("tn-one", "pinned");
+    member("tn-two", "pinned");
+    db.prepare(
+      "UPDATE session SET active_tenant_id = 'tn-two' WHERE user_id = 'pinned'",
+    ).run();
+
+    backfillSessionTenants(db);
+
+    expect(scopeOf("pinned")).toBe("tn-two");
+  });
+});
+
+/**
+ * Which account the migration hands the platform operator's powers to.
+ *
+ * It is a privilege grant made without anybody present to approve it, so the
+ * rule is written out here in full rather than left to the one case a seeded
+ * legacy database happens to produce.
+ */
+describe("choosing the migrated platform operator", () => {
+  const ENV_KEY = "MIGRATION_PLATFORM_OPERATOR_USERNAME";
+  let savedEnv: string | undefined;
+  let dir: string;
+  let db: Database;
+
+  /** The usernames holding the powers after a migration. */
+  function operators(): string[] {
+    return (
+      db
+        .prepare(
+          "SELECT username FROM users WHERE is_platform_operator = 1 ORDER BY username",
+        )
+        .all() as Array<{ username: string }>
+    ).map((row) => row.username);
+  }
+
+  beforeEach(() => {
+    savedEnv = process.env[ENV_KEY];
+    delete process.env[ENV_KEY];
+
+    dir = mkdtempSync(join(tmpdir(), "totem-operator-"));
+    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db.run(LEGACY_SCHEMA);
+    seedLegacyData(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    if (savedEnv === undefined) delete process.env[ENV_KEY];
+    else process.env[ENV_KEY] = savedEnv;
+  });
+
+  it("is the account the deployment names", () => {
+    process.env[ENV_KEY] = "agent1";
+
+    initializeDatabase(db);
+
+    expect(operators()).toEqual(["agent1"]);
+  });
+
+  it("falls back to the oldest admin when that name matches nobody", () => {
+    process.env[ENV_KEY] = "somebody-who-left";
+
+    initializeDatabase(db);
+
+    // Loud in the log, but a migration is not abandoned over a stale variable.
+    expect(operators()).toEqual(["admin"]);
+  });
+
+  it("falls back to the oldest active admin when the named account is switched off", () => {
+    process.env[ENV_KEY] = "agent1";
+    db.prepare("UPDATE users SET is_active = 0 WHERE id = 'agent-001'").run();
+
+    initializeDatabase(db);
+
+    expect(operators()).toEqual(["admin"]);
+  });
+
+  it("skips an admin whose account was switched off", () => {
+    db.prepare("UPDATE users SET is_active = 0 WHERE id = 'admin-001'").run();
+
+    initializeDatabase(db);
+
+    // Powers nobody can log in to use are no powers at all.
+    expect(operators()).toEqual(["agent1"]);
+  });
+
+  it("takes the oldest account of any role when there is no admin left", () => {
+    db.prepare("DELETE FROM session").run();
+    db.prepare("DELETE FROM users WHERE id = 'admin-001'").run();
+    db.prepare(
+      `INSERT INTO users (id, username, password_hash, role, name, created_at)
+       VALUES ('sup-001', 'supervisor1', 'hash', 'supervisor', 'Ana', 1)`,
+    ).run();
+
+    initializeDatabase(db);
+
+    expect(operators()).toEqual(["supervisor1"]);
+  });
+
+  it("migrates a database with no accounts at all, and promotes nobody", () => {
+    db.prepare("DELETE FROM session").run();
+    db.prepare("DELETE FROM users").run();
+
+    initializeDatabase(db);
+
+    expect(needsTenantMigration(db)).toBe(false);
+    expect(operators()).toEqual([]);
+  });
+
+  it("leaves an existing platform operator in place when run again", () => {
+    initializeDatabase(db);
+    expect(operators()).toEqual(["admin"]);
+
+    // The rule is idempotent: a second call promotes nobody new, whatever the
+    // environment now says.
+    process.env[ENV_KEY] = "agent1";
+    expect(ensurePlatformOperator(db)).toBe("admin");
+    expect(operators()).toEqual(["admin"]);
+  });
+});
+
+/**
+ * The way back for a deployment that has no platform operator at all: a legacy
+ * database with no accounts in it, or one migrated by a build that predates the
+ * promotion above.
+ *
+ * `seedUsers` guarded on "does this database have any users", which is true of
+ * every migrated database the moment it is migrated - so the one account that
+ * was actually missing was the one account it refused to create. The guard is
+ * now the invariant the flag asks for.
+ */
+describe("adding a platform operator to a database that already has users", () => {
+  const ENV_KEYS = [
+    "BOOTSTRAP_ADMIN_USERNAME",
+    "BOOTSTRAP_ADMIN_PASSWORD",
+    "BOOTSTRAP_ADMIN_PLATFORM_OPERATOR",
+    "MIGRATION_PLATFORM_OPERATOR_USERNAME",
+  ] as const;
+
+  const saved: Record<string, string | undefined> = {};
+  let dir: string;
+  let db: Database;
+  let tenantId: string;
+
+  function operators(): string[] {
+    return (
+      db
+        .prepare(
+          "SELECT username FROM users WHERE is_platform_operator = 1 ORDER BY username",
+        )
+        .all() as Array<{ username: string }>
+    ).map((row) => row.username);
+  }
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) saved[key] = process.env[key];
+    delete process.env.MIGRATION_PLATFORM_OPERATOR_USERNAME;
+
+    dir = mkdtempSync(join(tmpdir(), "totem-operator-seed-"));
+    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db.run(LEGACY_SCHEMA);
+    seedLegacyData(db);
+    initializeDatabase(db);
+
+    tenantId = found(
+      tenantsOn(db).getBySlug("totem"),
+      "the migrated tenant",
+    ).id;
+
+    // A database migrated by a build that predates the promotion: full of
+    // users, and not one of them a platform operator.
+    db.prepare("UPDATE users SET is_platform_operator = 0").run();
+
+    process.env.BOOTSTRAP_ADMIN_USERNAME = "vendeya-staff";
+    process.env.BOOTSTRAP_ADMIN_PASSWORD = "a-long-enough-password";
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+
+  it("creates one when the environment asks for a platform operator", async () => {
+    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
+
+    await seedUsers(db, tenantId);
+
+    expect(operators()).toEqual(["vendeya-staff"]);
+
+    // Platform staff belong to no tenant; they select one when they need it.
+    const user = db
+      .prepare("SELECT id FROM users WHERE username = 'vendeya-staff'")
+      .get() as { id: string };
+    expect(membershipsOn(db).get(tenantId, user.id)).toBeNull();
+  });
+
+  it("still creates nothing when it is an ordinary admin being asked for", async () => {
+    delete process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR;
+
+    await seedUsers(db, tenantId);
+
+    // Unchanged: the bootstrap admin is the first account of an empty
+    // database, and this one is not empty.
+    expect(db.prepare("SELECT COUNT(*) as c FROM users").get()).toEqual({
+      c: 2,
+    });
+  });
+
+  it("says so rather than crashing when the username is already taken", async () => {
+    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
+    process.env.BOOTSTRAP_ADMIN_USERNAME = "admin";
+
+    // `username` is UNIQUE: before the guard changed, this row could never be
+    // reached; now it can, and an insert would take the boot down with it.
+    await seedUsers(db, tenantId);
+
+    expect(operators()).toEqual([]);
+    expect(db.prepare("SELECT COUNT(*) as c FROM users").get()).toEqual({
+      c: 2,
+    });
+  });
+
+  it("stops creating operators once there is one", async () => {
+    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
+
+    await seedUsers(db, tenantId);
+    process.env.BOOTSTRAP_ADMIN_USERNAME = "vendeya-staff-2";
+    await seedUsers(db, tenantId);
+
+    expect(operators()).toEqual(["vendeya-staff"]);
+  });
+});
