@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ cookies, locals, fetch }) => {
   }
 
   const allowedRoles = ["admin", "developer", "supervisor"];
-  if (!allowedRoles.includes(locals.user.role)) {
+  if (!locals.user.role || !allowedRoles.includes(locals.user.role)) {
     redirect(303, "/dashboard");
   }
 

@@ -169,23 +169,35 @@
     await loadConversation(selectedPhone);
   }
 
-  async function loadReplayConversation(sourcePhone: string) {
+  async function loadReplayConversation(
+    sourcePhone: string,
+    sourceChannel: string | null,
+  ) {
     try {
+      // Both calls need the number the conversation happened on: the API
+      // refuses to guess when the contact has written to more than one of them.
+      const channelQuery = sourceChannel
+        ? `?channel=${encodeURIComponent(sourceChannel)}`
+        : "";
+
       const replayData = await fetchApi<ReplayData>(
-        `/api/conversations/${sourcePhone}/replay`,
+        `/api/conversations/${sourcePhone}/replay${channelQuery}`,
       );
 
       replayMode = true;
       replayMetadata = replayData.metadata;
 
-      await fetchApi("/api/simulator/load", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourcePhone }),
-      });
+      const loaded = await fetchApi<{ simulatorPhone: string }>(
+        "/api/simulator/load",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourcePhone, sourceChannel }),
+        },
+      );
 
-      // Replay sessions use the reserved simulator phone.
-      selectedPhone = "51900000001";
+      // The reserved simulator contact the replay was loaded onto.
+      selectedPhone = loaded.simulatorPhone;
       await loadTestConversations();
       await loadConversation(selectedPhone);
     } catch (error) {
@@ -294,7 +306,7 @@
     loadPersonas();
 
     if (data.loadPhone) {
-      loadReplayConversation(data.loadPhone);
+      loadReplayConversation(data.loadPhone, data.loadChannel);
     } else {
       loadTestConversations().then(() => {
         if (testConversations.length > 0 && !selectedPhone) {

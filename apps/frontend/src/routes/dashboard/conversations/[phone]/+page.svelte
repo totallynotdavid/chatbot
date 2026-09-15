@@ -54,6 +54,17 @@ $effect(() => {
   deliveryReference = data.conversation?.delivery_reference || "";
 });
 
+/**
+ * Every write below addresses the conversation by phone number, which is only
+ * half its identity: the same contact can be talking to two of the business's
+ * numbers. The channel account from the loaded conversation disambiguates.
+ */
+const channelQuery = $derived(
+  conversation?.channel_account_id
+    ? `?channel=${encodeURIComponent(conversation.channel_account_id)}`
+    : "",
+);
+
 const isHumanTakeover = $derived(conversation?.status === "human_takeover");
 const isPendingAssignment = $derived(
   conversation?.assigned_agent &&
@@ -73,7 +84,7 @@ const saleStatusOptions: { value: SaleStatus; label: string }[] = [
 
 async function handleTakeover() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover`, {
+  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover${channelQuery}`, {
     method: "POST",
   });
   await refreshConversation();
@@ -82,7 +93,7 @@ async function handleTakeover() {
 
 async function handleAcceptAssignment() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover`, {
+  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover${channelQuery}`, {
     method: "POST",
   });
   await refreshConversation();
@@ -93,7 +104,7 @@ async function handleDeclineAssignment() {
   if (!conversation) return;
   try {
     await fetchApi(
-      `/api/conversations/${conversation.phone_number}/decline-assignment`,
+      `/api/conversations/${conversation.phone_number}/decline-assignment${channelQuery}`,
       {
         method: "POST",
       },
@@ -108,7 +119,7 @@ async function handleDeclineAssignment() {
 
 async function handleRelease() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/release`, {
+  await fetchApi(`/api/conversations/${conversation.phone_number}/release${channelQuery}`, {
     method: "POST",
   });
   await refreshConversation();
@@ -117,7 +128,7 @@ async function handleRelease() {
 async function handleSendMessage() {
   if (!(conversation && messageText.trim())) return;
 
-  await fetchApi(`/api/conversations/${conversation.phone_number}/message`, {
+  await fetchApi(`/api/conversations/${conversation.phone_number}/message${channelQuery}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content: messageText }),
@@ -130,7 +141,7 @@ async function handleSendMessage() {
 async function refreshConversation() {
   if (!conversation) return;
   const detail = await fetchApi<any>(
-    `/api/conversations/${conversation.phone_number}`,
+    `/api/conversations/${conversation.phone_number}${channelQuery}`,
   );
   conversation = detail.conversation;
   messages = detail.messages;
@@ -142,7 +153,7 @@ async function saveAgentData() {
 
   try {
     await fetchApi(
-      `/api/conversations/${conversation.phone_number}/agent-data`,
+      `/api/conversations/${conversation.phone_number}/agent-data${channelQuery}`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -173,7 +184,7 @@ async function handleUploadContract() {
     formData.append("clientName", conversation.client_name || "");
 
     await fetchApi(
-      `/api/conversations/${conversation.phone_number}/upload-contract`,
+      `/api/conversations/${conversation.phone_number}/upload-contract${channelQuery}`,
       {
         method: "POST",
         body: formData,
@@ -215,6 +226,7 @@ async function createOrder() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         conversationPhone: conversation.phone_number,
+        channelAccountId: conversation.channel_account_id,
         clientName: conversation.client_name || "Sin nombre",
         clientDni: conversation.dni || "",
         products: conversation.products_interested,

@@ -4,10 +4,19 @@ import ConversationItem from "./conversation-item.svelte";
 
 type Props = {
   conversations: Conversation[];
-  selectedPhone: string | null;
 };
 
-let { conversations, selectedPhone }: Props = $props();
+let { conversations }: Props = $props();
+
+/**
+ * A conversation is identified by (tenant, channel account, phone number): the
+ * same contact writing to two of the business's numbers is two threads. The
+ * link carries the channel account so the detail page opens the right one
+ * instead of whichever was active most recently.
+ */
+function conversationKey(conv: Conversation): string {
+  return `${conv.channel_account_id}:${conv.phone_number}`;
+}
 </script>
 
 <div class="w-full md:w-96 xl:w-96 border-r border-ink-900/10 bg-white flex flex-col shrink-0">
@@ -19,11 +28,10 @@ let { conversations, selectedPhone }: Props = $props();
 	</div>
 
 	<div class="overflow-y-auto flex-1">
-		{#each conversations as conv (conv.phone_number)}
+		{#each conversations as conv (conversationKey(conv))}
 			<ConversationItem
 				conversation={conv}
-				isSelected={selectedPhone === conv.phone_number}
-				href="/dashboard/conversations/{conv.phone_number}"
+				href="/dashboard/conversations/{conv.phone_number}?channel={conv.channel_account_id}"
 			/>
 		{/each}
 

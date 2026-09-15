@@ -1,14 +1,20 @@
 import type { PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ params, cookies, fetch }) => {
+export const load: PageServerLoad = async ({ params, url, cookies, fetch }) => {
   const sessionToken = cookies.get("session");
   if (!sessionToken) {
     return { conversation: null, messages: [], events: [], user: null };
   }
 
+  // A conversation is (tenant, channel account, phone number). The inbox links
+  // carry the channel account; without it the API refuses to guess between two
+  // threads from the same contact on different business numbers.
+  const channel = url.searchParams.get("channel");
+  const channelQuery = channel ? `?channel=${encodeURIComponent(channel)}` : "";
+
   try {
     const [convRes, userRes] = await Promise.all([
-      fetch(`/api/conversations/${params.phone}`, {
+      fetch(`/api/conversations/${params.phone}${channelQuery}`, {
         headers: { cookie: `session=${sessionToken}` },
       }),
       fetch("/api/auth/me", {
@@ -34,7 +40,7 @@ export const load: PageServerLoad = async ({ params, cookies, fetch }) => {
     let orderData = null;
     if (data.conversation) {
       const orderRes = await fetch(
-        `/api/orders/by-conversation/${params.phone}`,
+        `/api/orders/by-conversation/${params.phone}${channelQuery}`,
         { headers: { cookie: `session=${sessionToken}` } },
       );
       if (orderRes.ok) {
