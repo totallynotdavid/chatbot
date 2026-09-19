@@ -38,9 +38,6 @@ export function findConversation(ref: ConversationRef): Conversation | null {
   );
 }
 
-/**
- * Get or create a conversation
- */
 export function getOrCreateConversation(
   ref: ConversationRef,
   isSimulation = false,
@@ -80,9 +77,6 @@ export function getOrCreateConversation(
   return parseConversation(conv);
 }
 
-/**
- * Update conversation phase and metadata
- */
 export function updateConversation(
   ref: ConversationRef,
   phase: ConversationPhase,
@@ -103,16 +97,14 @@ export function updateConversation(
     lastActivityAt: Date.now(),
   };
 
-  // Update denormalized columns for dashboard queries
   const updates: Record<string, unknown> = {
     context_data: JSON.stringify({
       phase: phase,
       metadata: mergedMetadata,
     }),
-    last_activity_at: new Date().toISOString(),
+    last_activity_at: Date.now(),
   };
 
-  // Sync denormalized fields for dashboard
   if (metadata.dni) updates.dni = metadata.dni;
   if (metadata.name) updates.client_name = metadata.name;
   if (metadata.segment) updates.segment = metadata.segment;
@@ -139,9 +131,6 @@ export function updateConversation(
   );
 }
 
-/**
- * Mark conversation as escalated
- */
 export function escalateConversation(
   ref: ConversationRef,
   reason: string,
@@ -149,17 +138,11 @@ export function escalateConversation(
   updateConversation(ref, { phase: "escalated", reason }, {});
 }
 
-/**
- * Check if conversation is timed out (3+ hours inactive)
- */
 export function isSessionTimedOut(metadata: ConversationMetadata): boolean {
   const hoursSince = (Date.now() - metadata.lastActivityAt) / (1000 * 60 * 60);
   return hoursSince >= 3;
 }
 
-/**
- * Reset session for returning user
- */
 export function resetSession(
   ref: ConversationRef,
   preserveCategory?: string,
@@ -177,21 +160,15 @@ export function resetSession(
      SET context_data = ?,
          status = 'active',
          handover_reason = NULL,
-         last_activity_at = CURRENT_TIMESTAMP
+         last_activity_at = ?
      WHERE ${IDENTITY_WHERE}`,
   ).run(
     JSON.stringify({ phase: DEFAULT_PHASE, metadata: newMetadata }),
+    now,
     ...identityParams(ref),
   );
 }
 
-/**
- * Identity of a stored conversation row: the inverse of `identityParams` above,
- * and here for the same reason - this module is where a conversation's identity
- * is expressed. It existed twice, byte for byte, the second copy being
- * `refOfConversation` in domains/conversations/read.ts; that one is gone and
- * everything (the read module and the routes) imports this one.
- */
 export function refOf(conv: Conversation): ConversationRef {
   return {
     tenantId: conv.tenant_id,

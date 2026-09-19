@@ -40,9 +40,10 @@ export function getFunnelStats(
   endDate?: string,
   includeSimulations = false,
 ) {
-  const start =
-    startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const end = endDate || new Date().toISOString();
+  const start = startDate
+    ? new Date(startDate).getTime()
+    : Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const end = endDate ? new Date(endDate).getTime() : Date.now();
 
   const conditions = ["created_at BETWEEN ? AND ?"];
   const params: SQLQueryBindings[] = [start, end];

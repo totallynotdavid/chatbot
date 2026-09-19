@@ -41,8 +41,8 @@ export const ReportService = {
               AND ${tenantPredicate(tenantId)}
         `,
       tenantId
-        ? [start.toISOString(), end.toISOString(), tenantId]
-        : [start.toISOString(), end.toISOString()],
+        ? [start.getTime(), end.getTime(), tenantId]
+        : [start.getTime(), end.getTime()],
     );
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -66,13 +66,11 @@ export const ReportService = {
     conditions.push(tenantPredicate(tenantId));
     if (tenantId) values.push(tenantId);
 
-    // Date range - using timestamps
     const startTimestamp = startDate.getTime();
     const endTimestamp = endDate.getTime();
     conditions.push("last_activity_at >= ? AND last_activity_at <= ?");
     values.push(startTimestamp, endTimestamp);
 
-    // Segment filter
     if (segments.length > 0 && !segments.includes("all")) {
       const segmentConditions: string[] = [];
       if (segments.includes("fnb")) segmentConditions.push("segment = 'fnb'");
@@ -83,7 +81,6 @@ export const ReportService = {
       }
     }
 
-    // Sale status filter
     if (saleStatuses.length > 0 && !saleStatuses.includes("all")) {
       const statusPlaceholders = saleStatuses.map(() => "?").join(",");
       conditions.push(`sale_status IN (${statusPlaceholders})`);

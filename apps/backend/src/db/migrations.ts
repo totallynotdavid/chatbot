@@ -256,6 +256,26 @@ export function backfillSessionTenants(db: Database): void {
   );
 }
 
+/** Converts text `last_activity_at` values SQLite can parse to epoch ms; any other value stays, since the column is NOT NULL and boot must not fail. */
+export function backfillTextActivityTimestamps(db: Database): void {
+  const converted = db
+    .prepare(
+      `UPDATE conversations
+       SET last_activity_at =
+         CAST(ROUND(unixepoch(last_activity_at, 'subsec') * 1000) AS INTEGER)
+       WHERE typeof(last_activity_at) = 'text'
+         AND strftime('%s', last_activity_at) IS NOT NULL`,
+    )
+    .run();
+
+  if (converted.changes > 0) {
+    logger.info(
+      { conversations: converted.changes },
+      "Converted text activity timestamps to epoch milliseconds",
+    );
+  }
+}
+
 /** A legacy upload copied into private storage, and where it came from. */
 type CopiedUpload = { from: string; storageKey: string };
 
