@@ -9,7 +9,7 @@ import {
   isTenantRole,
 } from "../../domains/tenants/index.ts";
 import { activeTenantId, requireActiveTenant } from "../../middleware/auth.ts";
-import type { TenantRole } from "@totem/types";
+import { MIN_PASSWORD_LENGTH, type TenantRole } from "@totem/types";
 
 const users = new Hono();
 
@@ -67,6 +67,14 @@ const USERNAME_UNAVAILABLE = {
     "That username is not available. Usernames are shared across every business on VendeYa, so please choose another.",
 } as const;
 
+const PASSWORD_TOO_SHORT = {
+  error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+} as const;
+
+function meetsPasswordMinimum(password: unknown): password is string {
+  return typeof password === "string" && password.length >= MIN_PASSWORD_LENGTH;
+}
+
 function usernameIsTaken(username: string): boolean {
   return (
     getOne<{ id: string }>("SELECT id FROM users WHERE username = ?", [
@@ -87,6 +95,10 @@ users.post("/", async (c) => {
 
   if (!isTenantRole(role)) {
     return c.json({ error: "Invalid role" }, 400);
+  }
+
+  if (!meetsPasswordMinimum(password)) {
+    return c.json(PASSWORD_TOO_SHORT, 400);
   }
 
   if (usernameIsTaken(username)) {
@@ -119,7 +131,6 @@ users.post("/", async (c) => {
   return c.json({ id, username, role, name });
 });
 
-/** Only members of the active tenant may be administered from it. */
 function memberOfActiveTenant(tenantId: string, userId: string): boolean {
   return MembershipService.get(tenantId, userId) !== null;
 }
@@ -229,8 +240,8 @@ users.post("/:id/password", async (c) => {
     return c.json(CROSS_TENANT_ACCOUNT_ERROR, 403);
   }
 
-  if (!newPassword || newPassword.length < 6) {
-    return c.json({ error: "Password must be at least 6 characters" }, 400);
+  if (!meetsPasswordMinimum(newPassword)) {
+    return c.json(PASSWORD_TOO_SHORT, 400);
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
