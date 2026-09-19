@@ -1,4 +1,10 @@
-export type MessageType = "text" | "image" | "document" | "audio" | "video";
+export type MessageType =
+  | "text"
+  | "image"
+  | "document"
+  | "audio"
+  | "video"
+  | "unknown";
 
 export type QuotedMessageContext = {
   id: string;

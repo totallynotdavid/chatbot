@@ -17,7 +17,7 @@ function mapCloudApiType(cloudApiType: string): MessageType {
     case "video":
       return "video";
     default:
-      return "text"; // Default fallback
+      return "unknown";
   }
 }
 
