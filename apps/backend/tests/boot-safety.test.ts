@@ -1,30 +1,29 @@
 /**
- * That a refused boot is actually refused.
- *
- * `seedUsers` throws on a BOOTSTRAP_ADMIN_PASSWORD under 12 characters, and
- * seeding.test.ts states the contract that throw depends on: "the seeds run on
- * every boot, and a throw here takes the process with it." It did not. `index.ts`
- * called the async `seedDatabase(db)` without awaiting it, so the rejection
- * surfaced only after the rest of the module had run and Bun had taken the
- * default export and bound the port - the process died a moment later, but it
- * had already started serving. A deployment with a weak bootstrap password came
- * up instead of refusing to.
- *
- * Nothing here can be checked in-process: the failure is in what module
- * evaluation does with a rejected promise, so these boot the real entrypoint as
- * a subprocess and watch what it does. The strong-password case is run first and
- * is the control - it proves this harness can see a server that does come up, so
- * "never served" in the weak-password case means something.
+ * Boots the real entrypoint as a subprocess: no account is created, the
+ * no-operator warning shows, and a seed that throws stops the boot before the
+ * port is bound. The first boot is the control that shows the poll can see a
+ * server come up.
  */
 
 import { describe, it, expect, beforeAll } from "bun:test";
+import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
+import { initializeDatabase } from "../src/db/init.ts";
+import {
+  ensureDefaultTenant,
+  unconfiguredPhoneNumberId,
+} from "../src/db/seeds/tenants.ts";
+import { accountsOn } from "../src/domains/accounts/index.ts";
+import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
+import { tenantsOn } from "../src/domains/tenants/index.ts";
+import { ACCOUNT_ENV } from "./helpers/account-env.ts";
 
 const ENTRYPOINT = join(import.meta.dir, "..", "src", "index.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
+const NO_OPERATOR_WARNING = "No platform operator can log in";
 
 /** A port well away from the development default, per boot under test. */
 function freePort(): number {
@@ -42,19 +41,49 @@ type BootResult = {
   output: string;
   /** Whether the app ever answered a request while the process was alive. */
   served: boolean;
+  /** Rows in `users` once the process was gone, or null if it never got that far. */
+  users: number | null;
 };
+
+function countUsers(path: string): number | null {
+  try {
+    const db = new Database(path);
+    try {
+      return (
+        db.prepare("SELECT COUNT(*) as count FROM users").get() as {
+          count: number;
+        }
+      ).count;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Boot the real entrypoint and poll it until it either serves a request or
- * exits. `stopWhenServing` is the control's path: a server that comes up stays
- * up, so it has to be killed rather than waited on.
+ * exits. `stopWhenServing` is for a server that comes up and so stays up: it
+ * has to be killed rather than waited on. `prepare` gets the database file
+ * before the process starts.
  */
 async function boot(
   env: Record<string, string>,
-  { stopWhenServing }: { stopWhenServing: boolean },
+  {
+    stopWhenServing,
+    prepare,
+  }: { stopWhenServing: boolean; prepare?: (db: Database) => void },
 ): Promise<BootResult> {
   const dir = mkdtempSync(join(tmpdir(), "totem-boot-"));
+  const dbPath = join(dir, "boot.sqlite");
   const port = freePort();
+
+  if (prepare) {
+    const db = new Database(dbPath, { create: true });
+    prepare(db);
+    db.close();
+  }
 
   const child = Bun.spawn(["bun", "run", ENTRYPOINT], {
     cwd: BACKEND_ROOT,
@@ -63,9 +92,10 @@ async function boot(
     env: {
       PATH: process.env.PATH ?? "",
       HOME: process.env.HOME ?? "",
-      NODE_ENV: "test",
+      // Development logging goes to stdout, which is where the warning is read.
+      NODE_ENV: "development",
       PORT: String(port),
-      DB_PATH: join(dir, "boot.sqlite"),
+      DB_PATH: dbPath,
       UPLOAD_DIR: join(dir, "uploads"),
       PRIVATE_DIR: join(dir, "private"),
       ...env,
@@ -75,10 +105,6 @@ async function boot(
   let served = false;
   let exited = false;
 
-  // Tight poll: without the fix the window between the port being bound and the
-  // unhandled rejection killing the process is short, so it is watched for
-  // rather than sampled once.
-  //
   // `/api/conversations` rather than `/health`, which spends seconds waiting on
   // the notifier and the eligibility providers: an unauthenticated 401 comes
   // straight back from the middleware and is all the evidence needed that the
@@ -116,55 +142,99 @@ async function boot(
     (await new Response(child.stdout).text()) +
     (await new Response(child.stderr).text());
 
+  const users = countUsers(dbPath);
+
   rmSync(dir, { recursive: true, force: true });
 
-  return { exitCode: child.exitCode, output, served };
+  return { exitCode: child.exitCode, output, served, users };
+}
+
+/** A database whose default tenant's placeholder number belongs to another tenant. */
+function occupyPlaceholderNumber(db: Database) {
+  initializeDatabase(db);
+
+  const totem = ensureDefaultTenant(db);
+  const other = tenantsOn(db).create({ slug: "other", name: "Other" });
+
+  channelAccountsOn(db).create({
+    tenantId: other.id,
+    phoneNumberId: unconfiguredPhoneNumberId(totem.id),
+    label: "Occupied",
+  });
 }
 
 describe("booting the server", () => {
-  let strong: BootResult;
-  let weak: BootResult;
+  let unstaffed: BootResult;
+  let staffed: BootResult;
+  let refused: BootResult;
 
   beforeAll(async () => {
-    strong = await boot(
+    unstaffed = await boot(ACCOUNT_ENV, { stopWhenServing: true });
+
+    staffed = await boot(
+      {},
       {
-        BOOTSTRAP_ADMIN_USERNAME: "boot-admin",
-        BOOTSTRAP_ADMIN_PASSWORD: "a-long-enough-password",
+        stopWhenServing: true,
+        prepare: (db) => {
+          initializeDatabase(db);
+          accountsOn(db).create({
+            username: "vendeya-staff",
+            password: "a-long-enough-password",
+            platformOperator: true,
+          });
+        },
       },
-      { stopWhenServing: true },
     );
 
-    weak = await boot(
-      {
-        BOOTSTRAP_ADMIN_USERNAME: "boot-admin",
-        BOOTSTRAP_ADMIN_PASSWORD: "short",
-      },
-      { stopWhenServing: false },
+    refused = await boot(
+      {},
+      { stopWhenServing: false, prepare: occupyPlaceholderNumber },
     );
-  }, 90_000);
+  }, 180_000);
 
-  describe("with a bootstrap password the seed accepts", () => {
+  describe("on a database with no accounts, with the environment asking for one", () => {
     it("comes up and serves", () => {
-      expect(strong.served).toBe(true);
+      expect(unstaffed.served).toBe(true);
+    });
+
+    it("creates no account", () => {
+      expect(unstaffed.users).toBe(0);
+    });
+
+    it("warns that no platform operator exists, and names the command to run", () => {
+      expect(unstaffed.output).toContain(NO_OPERATOR_WARNING);
+      expect(unstaffed.output).toContain("bun run account create <username>");
     });
   });
 
-  describe("with a bootstrap password under the minimum", () => {
+  describe("on a database that has a platform operator", () => {
+    it("comes up and serves", () => {
+      expect(staffed.served).toBe(true);
+    });
+
+    it("does not warn", () => {
+      expect(staffed.output).not.toContain(NO_OPERATOR_WARNING);
+    });
+
+    it("creates no account of its own", () => {
+      expect(staffed.users).toBe(1);
+    });
+  });
+
+  describe("when a seed throws", () => {
     it("never serves a request", () => {
       // The control above proves a booting server is visible to this poll, so
       // this is the server not being there rather than the poll missing it.
-      expect(weak.served).toBe(false);
+      expect(refused.served).toBe(false);
     });
 
     it("exits non-zero", () => {
-      expect(weak.exitCode).not.toBe(0);
-      expect(weak.exitCode).not.toBeNull();
+      expect(refused.exitCode).not.toBe(0);
+      expect(refused.exitCode).not.toBeNull();
     });
 
     it("says why", () => {
-      expect(weak.output).toContain(
-        "BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters",
-      );
+      expect(refused.output).toContain("which is reserved for tenant");
     });
 
     /**
@@ -174,8 +244,8 @@ describe("booting the server", () => {
      * short-lived server, but the port is never bound at all.
      */
     it("never gets as far as binding the port", () => {
-      expect(weak.output).not.toContain("Started development server");
-      expect(strong.output).toContain("Started development server");
+      expect(refused.output).not.toContain("Started development server");
+      expect(unstaffed.output).toContain("Started development server");
     });
   });
 });
