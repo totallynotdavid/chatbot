@@ -92,6 +92,7 @@ export type {
   CatalogSnapshot,
 } from "./catalog.ts";
 export { CATEGORIES, CATEGORY_GROUPS } from "./catalog.ts";
+export { MIN_PASSWORD_LENGTH } from "./accounts.ts";
 
 export type ConversationState =
   | "INIT"
