@@ -16,6 +16,7 @@ const logger = createLogger("app");
 import { db } from "./db/index.ts";
 import { initializeDatabase } from "./db/init.ts";
 import { seedDatabase } from "./db/seed.ts";
+import { accountsOn } from "./domains/accounts/index.ts";
 
 import {
   requireAuth,
@@ -49,18 +50,18 @@ import { IMAGES_DIR } from "./lib/storage-paths.ts";
 
 const app = new Hono();
 
-// Boot, before this module finishes evaluating and Bun can take the default
-// export below to bind a port.
-//
-// `seedDatabase` is async, and calling it without awaiting made its failures
-// unenforceable: the rejection was raised after every line below had already
-// run and the server was listening. `seedUsers` throws on a
-// BOOTSTRAP_ADMIN_PASSWORD under 12 characters precisely so a deployment
-// configured that way cannot come up - awaited here, that throw aborts module
-// evaluation and there is no default export for Bun to serve from. The CLI path
-// in db/seed.ts awaits it for the same reason.
+// Awaited so a seed that throws stops the boot before Bun binds the port.
 initializeDatabase(db);
 await seedDatabase(db);
+
+if (!accountsOn(db).hasPlatformOperator()) {
+  logger.warn(
+    "No platform operator can log in, so nobody can create a tenant or act " +
+      "across tenants. Run `bun run account create <username> " +
+      "--platform-operator`, or `bun run account promote <username>` for an " +
+      "existing account.",
+  );
+}
 
 // event bus, subscribers
 initializeApplication();
