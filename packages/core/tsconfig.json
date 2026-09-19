@@ -1,7 +1,6 @@
 {
-    "extends": "@totem/tsconfig/base.json",
+    "extends": "@totem/tsconfig/backend.json",
     "compilerOptions": {
-        "baseUrl": ".",
         "paths": {
             "@totem/types": ["../types/src"]
         }
