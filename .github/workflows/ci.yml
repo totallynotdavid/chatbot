@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # whatsapp-web.js pulls puppeteer, which would download Chromium on install.
+  PUPPETEER_SKIP_DOWNLOAD: "true"
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      # Tool versions come from mise.toml, the one place that pins them.
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: biome
+
+      - run: biome format
+
+  typecheck:
+    name: typecheck (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            directory: apps/backend
+            command: bunx tsc --noEmit
+          - name: core
+            directory: packages/core
+            command: bunx tsc --noEmit
+          - name: logger
+            directory: packages/logger
+            command: bunx tsc --noEmit
+          - name: types
+            directory: packages/types
+            command: bunx tsc --noEmit
+          - name: frontend
+            directory: apps/frontend
+            command: bun run check
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: bun
+
+      - run: bun install --frozen-lockfile
+
+      - run: ${{ matrix.command }}
+        working-directory: ${{ matrix.directory }}
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: bun
+
+      # The workspace install also brings in apps/frontend, whose files the
+      # proxy and Lima contract tests import.
+      - run: bun install --frozen-lockfile
+
+      - run: bun run test
+        working-directory: apps/backend
+
+      - run: bun test
+        working-directory: packages/core
+
+      - run: bun test
+        working-directory: apps/frontend
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: bun
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
