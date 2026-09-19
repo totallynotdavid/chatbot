@@ -373,6 +373,23 @@ describe("legacy database migration", () => {
     ).toBe(1);
   });
 
+  it("converts a text activity timestamp it copies across to milliseconds", () => {
+    const iso = "2026-03-10T15:00:00.123Z";
+    db.prepare("UPDATE conversations SET last_activity_at = ?").run(iso);
+
+    initializeDatabase(db);
+
+    expect(
+      (
+        db
+          .prepare(
+            "SELECT last_activity_at FROM conversations WHERE phone_number = ?",
+          )
+          .get(CUSTOMER) as { last_activity_at: unknown }
+      ).last_activity_at,
+    ).toBe(Date.parse(iso));
+  });
+
   it("does not touch a fresh database", () => {
     const fresh = new Database(join(dir, "fresh.sqlite"), { create: true });
     expect(needsTenantMigration(fresh)).toBe(false);

@@ -29,9 +29,9 @@ export function takeoverConversation(ref: ConversationRef, userId: string) {
     `UPDATE conversations
      SET status = 'human_takeover',
        handover_reason = 'Manual takeover by agent',
-       last_activity_at = CURRENT_TIMESTAMP
+       last_activity_at = ?
      WHERE ${IDENTITY_WHERE}`,
-  ).run(...identityParams(ref));
+  ).run(Date.now(), ...identityParams(ref));
 
   logAction(
     { userId, tenantId: ref.tenantId },

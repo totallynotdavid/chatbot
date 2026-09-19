@@ -1,13 +1,15 @@
 import type { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import { migrateToMultiTenant, needsTenantMigration } from "./migrations.ts";
+import {
+  backfillTextActivityTimestamps,
+  migrateToMultiTenant,
+  needsTenantMigration,
+} from "./migrations.ts";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("db-init");
 
-// Resolved against this module, not the working directory, so the schema is
-// found whether the server, the seed script or a test drives initialisation.
 const SCHEMA_PATH = path.join(import.meta.dir, "schema.sql");
 
 function applySchema(db: Database) {
@@ -20,10 +22,12 @@ export function initializeDatabase(db: Database) {
   // CREATE TABLE IF NOT EXISTS pass.
   if (needsTenantMigration(db)) {
     migrateToMultiTenant(db, applySchema);
+    backfillTextActivityTimestamps(db);
     return;
   }
 
   applySchema(db);
+  backfillTextActivityTimestamps(db);
   warnIfChannelPairUnenforced(db);
 }
 
