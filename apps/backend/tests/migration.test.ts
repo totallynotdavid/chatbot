@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import {
   existsSync,
   mkdirSync,
@@ -41,6 +41,7 @@ import { PRIVATE_DIR } from "../src/lib/storage-paths.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import type { ChannelAccount, Tenant } from "@totem/types";
 import { setAccountEnv } from "./helpers/account-env.ts";
+import { createTestDatabase } from "./helpers/database.ts";
 
 /** The schema as it stood before tenancy, trimmed to what the test asserts on. */
 const LEGACY_SCHEMA = `
@@ -347,7 +348,7 @@ describe("legacy database migration", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-migration-"));
-    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
   });
@@ -391,7 +392,7 @@ describe("legacy database migration", () => {
   });
 
   it("does not touch a fresh database", () => {
-    const fresh = new Database(join(dir, "fresh.sqlite"), { create: true });
+    const fresh = createTestDatabase(join(dir, "fresh.sqlite"));
     expect(needsTenantMigration(fresh)).toBe(false);
     initializeDatabase(fresh);
     expect(
@@ -586,16 +587,7 @@ describe("legacy database migration", () => {
       expect(assets[0]!.storage_key).toContain(`${tenantId}/legacy/contracts/`);
     });
 
-    /**
-     * The P1 this test exists for: a session copied across kept its id and its
-     * expiry but got no `active_tenant_id`, because the column is new and the
-     * generic column copy only carries columns both shapes share. An unscoped
-     * session is refused by `requireTenantScope` (403 on every tenant route),
-     * and the dashboard only shows a tenant picker to someone who belongs to
-     * more than one - so an ordinary user who happened to be logged in when the
-     * deployment ran lost the application until they worked out to log out and
-     * back in.
-     */
+    // Migrated sessions must be scoped to a tenant so they pass requireTenantScope.
     it("pins carried-over sessions to the tenant their user belongs to", () => {
       const sessions = db
         .prepare(
@@ -641,13 +633,8 @@ describe("legacy database migration", () => {
   });
 });
 
-/**
- * Regression: the migration used to insert the channel account itself, with a
- * bare `pending` row and no credentials, instead of going through the seed that
- * imports and encrypts the WHATSAPP_* variables. The migrated business could
- * receive webhooks but not answer them - the Cloud adapter refuses to send on an
- * account that is not active.
- */
+// Migrating a database must seed channel accounts through the same path as
+// fresh databases, so credentials are imported and encrypted correctly.
 describe("migrating a database with WhatsApp credentials configured", () => {
   const ENV_KEYS = [
     "SECRETS_KEY",
@@ -673,7 +660,7 @@ describe("migrating a database with WhatsApp credentials configured", () => {
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
 
     dir = mkdtempSync(join(tmpdir(), "totem-migration-creds-"));
-    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
   });
@@ -790,7 +777,7 @@ describe("seeding a database the seed was handed", () => {
     restoreEnv = setAccountEnv();
 
     dir = mkdtempSync(join(tmpdir(), "totem-seed-"));
-    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
 
     // The assertions read the application connection, so it needs a schema too.
@@ -837,13 +824,7 @@ describe("seeding a database the seed was handed", () => {
   });
 });
 
-/**
- * Regression: seeding a number that already existed returned it untouched
- * before looking at whether it still needed credentials. An account created
- * pending - no SECRETS_KEY at the time, so no token to send with - therefore
- * stayed pending forever, and the recovery its own warning documents ("set
- * SECRETS_KEY and re-run the seed") did nothing at all.
- */
+// Re-seeding must check whether an existing pending account can now be activated.
 describe("re-seeding a channel account that was left pending", () => {
   const ENV_KEYS = [
     "SECRETS_KEY",
@@ -870,7 +851,7 @@ describe("re-seeding a channel account that was left pending", () => {
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
 
     dir = mkdtempSync(join(tmpdir(), "totem-reseed-"));
-    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
   });
 
@@ -996,7 +977,7 @@ describe("seeding channel accounts with no WhatsApp number configured", () => {
     delete process.env.WHATSAPP_PHONE_ID;
 
     dir = mkdtempSync(join(tmpdir(), "totem-unconfigured-"));
-    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
   });
 
@@ -1033,26 +1014,8 @@ describe("seeding channel accounts with no WhatsApp number configured", () => {
   });
 });
 
-/**
- * Migrating uploads that actually exist on disk.
- *
- * The tests above never create the files behind the legacy paths, so they only
- * ever exercise the "already missing" branch. These put real bytes where the
- * legacy columns point and follow them to their new key.
- *
- * The P1 here: the file was *moved* with `renameSync`, and a failed move was
- * caught, logged and ignored - the asset row went in anyway, the conversation
- * was updated to point at it, and the migration ran on to drop the legacy
- * tables. A permission or disk fault during migration therefore turned a signed
- * contract into a 404 with nothing left recording where the bytes had been. And
- * even a *successful* move was wrong: the move is not covered by the
- * transaction around the migration, so a rollback anywhere after it left the
- * database naming a file that had already been renamed away.
- *
- * It copies now, verifies the copy, and throws if either step fails - so a
- * failure rolls the database back onto legacy tables whose files are all still
- * there, and the whole migration can simply be run again.
- */
+// Upload migration must copy files before updating the database and fail
+// atomically if the copy fails, leaving the database rollback-safe.
 describe("migrating uploads that exist on disk", () => {
   const UPLOAD_CUSTOMER = "51900111222";
   const CONTRACT_BYTES = "%PDF-1.4 signed contract";
@@ -1078,7 +1041,7 @@ describe("migrating uploads that exist on disk", () => {
   let privateRoots: string[];
 
   function legacyDatabase(contractPath: string | null, audioPath: string) {
-    const database = new Database(join(dir, "legacy.sqlite"), { create: true });
+    const database = createTestDatabase(join(dir, "legacy.sqlite"));
     database.run(LEGACY_SCHEMA);
     database
       .prepare(
@@ -1467,7 +1430,7 @@ describe("the scope a carried-over session is given", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-session-backfill-"));
-    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
 
     tenant("tn-one");
@@ -1549,7 +1512,7 @@ describe("migrating a legacy database", () => {
     restoreEnv = setAccountEnv();
 
     dir = mkdtempSync(join(tmpdir(), "totem-operator-"));
-    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
   });
@@ -1641,7 +1604,7 @@ describe("giving a database that already has users a platform operator", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-operator-seed-"));
-    db = new Database(join(dir, "legacy.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
     initializeDatabase(db);

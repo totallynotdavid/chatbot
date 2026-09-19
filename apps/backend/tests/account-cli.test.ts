@@ -1,7 +1,7 @@
 /** `bun run account` in a subprocess: where the password comes from, what it prints, its exit code. */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +11,7 @@ import { initializeDatabase } from "../src/db/init.ts";
 import { ensureDefaultTenant } from "../src/db/seeds/tenants.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import { ACCOUNT_ENV } from "./helpers/account-env.ts";
+import { createTestDatabase } from "./helpers/database.ts";
 
 const CLI = join(import.meta.dir, "..", "src", "cli", "account.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
@@ -21,7 +22,7 @@ describe("the account command", () => {
   let dbPath: string;
 
   function open(): Database {
-    return new Database(dbPath);
+    return createTestDatabase(dbPath);
   }
 
   function childEnv(extra: Record<string, string> = {}) {
@@ -36,7 +37,6 @@ describe("the account command", () => {
     };
   }
 
-  /** Runs the command with stdin piped, which is how a script uses it. */
   async function run(
     args: string[],
     { stdin, env }: { stdin?: string; env?: Record<string, string> } = {},
@@ -136,7 +136,6 @@ describe("the account command", () => {
     dbPath = join(dir, "cli.sqlite");
 
     const db = open();
-    db.run("PRAGMA synchronous = OFF;");
     initializeDatabase(db);
     ensureDefaultTenant(db);
     db.close();

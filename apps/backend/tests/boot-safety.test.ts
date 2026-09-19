@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,6 +20,7 @@ import { accountsOn } from "../src/domains/accounts/index.ts";
 import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
 import { tenantsOn } from "../src/domains/tenants/index.ts";
 import { ACCOUNT_ENV } from "./helpers/account-env.ts";
+import { createTestDatabase } from "./helpers/database.ts";
 
 const ENTRYPOINT = join(import.meta.dir, "..", "src", "index.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
@@ -47,7 +48,7 @@ type BootResult = {
 
 function countUsers(path: string): number | null {
   try {
-    const db = new Database(path);
+    const db = createTestDatabase(path);
     try {
       return (
         db.prepare("SELECT COUNT(*) as count FROM users").get() as {
@@ -80,7 +81,7 @@ async function boot(
   const port = freePort();
 
   if (prepare) {
-    const db = new Database(dbPath, { create: true });
+    const db = createTestDatabase(dbPath);
     prepare(db);
     db.close();
   }

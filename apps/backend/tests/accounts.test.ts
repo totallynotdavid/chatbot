@@ -1,7 +1,7 @@
 /** Creating and promoting accounts; each refusal also checks nothing was written. */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,6 +13,7 @@ import {
 } from "../src/domains/accounts/index.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import type { Result } from "../src/shared/result/index.ts";
+import { createTestDatabase } from "./helpers/database.ts";
 
 const PASSWORD = "a-long-enough-password";
 
@@ -23,8 +24,7 @@ describe("accounts", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-accounts-"));
-    db = new Database(join(dir, "accounts.sqlite"), { create: true });
-    db.run("PRAGMA synchronous = OFF;");
+    db = createTestDatabase(join(dir, "accounts.sqlite"));
     db.run("PRAGMA foreign_keys = ON;");
     initializeDatabase(db);
     accounts = accountsOn(db);

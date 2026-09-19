@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,6 +22,7 @@ import { tenantsOn } from "../src/domains/tenants/index.ts";
 import { periodId } from "../src/domains/catalog/periods.ts";
 import { currentPeriodId } from "../src/db/seeds/periods.ts";
 import { BASE_PRODUCTS } from "../src/db/seed-data/products.ts";
+import { createTestDatabase } from "./helpers/database.ts";
 
 function currentYearMonth(): string {
   const now = new Date();
@@ -34,7 +35,7 @@ describe("seeding a catalog", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-seeding-"));
-    db = new Database(join(dir, "fresh.sqlite"), { create: true });
+    db = createTestDatabase(join(dir, "fresh.sqlite"));
     db.run("PRAGMA foreign_keys = ON;");
     initializeDatabase(db);
   });
@@ -95,13 +96,8 @@ describe("seeding a catalog", () => {
     ).count;
   }
 
-  /**
-   * Regression: the period seed stopped as soon as the tenant had any period at
-   * all, while the bundle seed wrote into *this month's* period specifically.
-   * One month after onboarding - or for a tenant migrated in with an older
-   * period - that period did not exist, and the bundle insert took the boot
-   * down with a foreign key failure.
-   */
+  // The period seed must create the current month's period if it doesn't exist,
+  // so bundles can be seeded into it.
   it("seeds a tenant whose only period predates this month", async () => {
     const tenantId = tenant("migrated");
     olderPeriod(tenantId);
@@ -147,12 +143,8 @@ describe("seeding a catalog", () => {
     ]);
   });
 
-  /**
-   * Regression: the scoped id took only the first 8 hex characters of the
-   * tenant id, so two tenants whose ids shared that prefix collided on
-   * `products.id` - the exact UNIQUE failure the scoping exists to prevent,
-   * hit during the second tenant's onboarding.
-   */
+  // Product IDs must include enough of the tenant ID to avoid collisions even
+  // when tenant IDs share a prefix.
   it("keeps two tenants whose ids share a prefix apart", async () => {
     const first = tenant("prefix-one", "aaaaaaaa-1111-4111-8111-111111111111");
     const second = tenant("prefix-two", "aaaaaaaa-2222-4222-8222-222222222222");

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,6 +38,7 @@ import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import webhook from "../src/routes/webhook.ts";
 import { signedWebhookRequest } from "./helpers/webhook.ts";
 import type { ConversationRef } from "@totem/types";
+import { createTestDatabase } from "./helpers/database.ts";
 
 describe("foreign key enforcement", () => {
   let tenant: TenantFixture;
@@ -103,14 +104,8 @@ describe("foreign key enforcement", () => {
     ).toThrow();
   });
 
-  /**
-   * `tenant_id` and `channel_account_id` used to be two independent references,
-   * each valid on its own, so a row could name tenant A alongside a number
-   * belonging to tenant B and SQLite would take it. Every table that carries
-   * both columns now references the pair - `channel_accounts(id, tenant_id)` -
-   * so the mismatch is a constraint failure rather than a row that reads as one
-   * tenant's and sends as another's.
-   */
+  // Every table carrying both columns must reference the pair together, not
+  // each one independently, so a mismatch is a constraint failure.
   describe("a tenant paired with another tenant's number", () => {
     let other: TenantFixture;
 
@@ -319,15 +314,8 @@ describe("foreign key enforcement", () => {
     ).toEqual({ c: 0 });
   });
 
-  /**
-   * Regression: `orders` was the one table referencing `conversations` without
-   * ON DELETE CASCADE, `messages` alongside it having one. That was invisible
-   * while foreign keys were off - the order was simply orphaned - but with
-   * enforcement on, deleting a conversation that had reached checkout raises
-   * "FOREIGN KEY constraint failed". Nothing catches it on the way out of the
-   * simulator's delete route, so clearing a test conversation that produced an
-   * order answered 500.
-   */
+  // Every table referencing conversations must specify ON DELETE CASCADE so
+  // deleting a conversation doesn't leave orphaned rows.
   describe("deleting a conversation that has an order behind it", () => {
     const CUSTOMER = "51900000020";
 
@@ -510,7 +498,7 @@ describe("the composite reference itself", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-fk-shape-"));
-    fresh = new Database(join(dir, "fresh.sqlite"), { create: true });
+    fresh = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(fresh);
   });
 
@@ -633,7 +621,7 @@ describe("migration under an enforcing connection", () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-fk-migration-"));
-    legacy = new Database(join(dir, "legacy.sqlite"), { create: true });
+    legacy = createTestDatabase(join(dir, "legacy.sqlite"));
     legacy.run("PRAGMA foreign_keys = ON;");
     legacy.run(`
       CREATE TABLE users (
