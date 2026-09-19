@@ -1,0 +1,415 @@
+/** Creating and promoting accounts; each refusal also checks nothing was written. */
+
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { Database } from "bun:sqlite";
+import bcrypt from "bcryptjs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { initializeDatabase } from "../src/db/init.ts";
+import {
+  accountsOn,
+  type AccountErrorReason,
+} from "../src/domains/accounts/index.ts";
+import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
+import type { Result } from "../src/shared/result/index.ts";
+
+const PASSWORD = "a-long-enough-password";
+
+describe("accounts", () => {
+  let dir: string;
+  let db: Database;
+  let accounts: ReturnType<typeof accountsOn>;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "totem-accounts-"));
+    db = new Database(join(dir, "accounts.sqlite"), { create: true });
+    db.run("PRAGMA synchronous = OFF;");
+    db.run("PRAGMA foreign_keys = ON;");
+    initializeDatabase(db);
+    accounts = accountsOn(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function tenant(slug: string): string {
+    return tenantsOn(db).create({ slug, name: slug }).id;
+  }
+
+  function userCount(): number {
+    return (
+      db.prepare("SELECT COUNT(*) as count FROM users").get() as {
+        count: number;
+      }
+    ).count;
+  }
+
+  function user(username: string) {
+    return (
+      (db.prepare("SELECT * FROM users WHERE username = ?").get(username) as {
+        id: string;
+        role: string;
+        name: string;
+        password_hash: string;
+        is_platform_operator: number;
+        is_active: number | null;
+        created_by: string | null;
+      } | null) ?? undefined
+    );
+  }
+
+  function operators(): string[] {
+    return (
+      db
+        .prepare(
+          "SELECT username FROM users WHERE is_platform_operator = 1 ORDER BY username",
+        )
+        .all() as Array<{ username: string }>
+    ).map((row) => row.username);
+  }
+
+  function reasonOf<T>(result: Result<T, { reason: AccountErrorReason }>) {
+    return result.ok ? null : result.error.reason;
+  }
+
+  describe("creating an account", () => {
+    it("makes an admin of the only tenant, with a membership there", () => {
+      const tenantId = tenant("totem");
+
+      const result = accounts.create({ username: "maria", password: PASSWORD });
+
+      expect(result.ok).toBe(true);
+      const row = user("maria")!;
+      expect(row.role).toBe("admin");
+      expect(row.is_platform_operator).toBe(0);
+      expect(row.created_by).toBeNull();
+      expect(membershipsOn(db).roleFor(tenantId, row.id)).toBe("admin");
+    });
+
+    it("tells the caller which tenant it joined", () => {
+      const tenantId = tenant("totem");
+
+      const result = accounts.create({ username: "maria", password: PASSWORD });
+
+      expect(result.ok && result.value.tenant).toEqual({
+        id: tenantId,
+        slug: "totem",
+      });
+    });
+
+    it("stores a hash of the password, never the password", () => {
+      tenant("totem");
+
+      accounts.create({ username: "maria", password: PASSWORD });
+
+      const { password_hash } = user("maria")!;
+      expect(password_hash).not.toContain(PASSWORD);
+      expect(bcrypt.compareSync(PASSWORD, password_hash)).toBe(true);
+    });
+
+    it("names the account after its username unless given a display name", () => {
+      tenant("totem");
+
+      accounts.create({ username: "maria", password: PASSWORD });
+      accounts.create({
+        username: "juan",
+        password: PASSWORD,
+        name: "Juan Pérez",
+      });
+
+      expect(user("maria")!.name).toBe("maria");
+      expect(user("juan")!.name).toBe("Juan Pérez");
+    });
+
+    it("makes a platform operator with no membership", () => {
+      tenant("totem");
+
+      const result = accounts.create({
+        username: "vendeya-staff",
+        password: PASSWORD,
+        platformOperator: true,
+      });
+
+      expect(result.ok && result.value.isPlatformOperator).toBe(true);
+      expect(result.ok && result.value.tenant).toBeNull();
+      expect(user("vendeya-staff")!.is_platform_operator).toBe(1);
+      expect(
+        db.prepare("SELECT COUNT(*) as count FROM tenant_memberships").get(),
+      ).toEqual({ count: 0 });
+    });
+
+    it("makes a platform operator where there is no tenant at all", () => {
+      const result = accounts.create({
+        username: "vendeya-staff",
+        password: PASSWORD,
+        platformOperator: true,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(operators()).toEqual(["vendeya-staff"]);
+    });
+
+    describe("with several tenants", () => {
+      let alpha: string;
+      let beta: string;
+
+      beforeEach(() => {
+        alpha = tenant("alpha");
+        beta = tenant("beta");
+      });
+
+      it("joins the tenant it is told to", () => {
+        const result = accounts.create({
+          username: "maria",
+          password: PASSWORD,
+          tenantId: beta,
+        });
+
+        expect(result.ok).toBe(true);
+        const { id } = user("maria")!;
+        expect(membershipsOn(db).roleFor(beta, id)).toBe("admin");
+        expect(membershipsOn(db).roleFor(alpha, id)).toBeNull();
+      });
+
+      it("is refused without one, and the refusal lists them", () => {
+        const request = { username: "maria", password: PASSWORD };
+        const result = accounts.create(request);
+
+        expect(reasonOf(result)).toBe("tenant_required");
+        expect(!result.ok && result.error.message).toContain(alpha);
+        expect(!result.ok && result.error.message).toContain(beta);
+        expect(user("maria")).toBeUndefined();
+      });
+    });
+
+    it("refuses a tenant that does not exist", () => {
+      tenant("totem");
+
+      const result = accounts.create({
+        username: "maria",
+        password: PASSWORD,
+        tenantId: "tn-nowhere",
+      });
+
+      expect(reasonOf(result)).toBe("unknown_tenant");
+      expect(userCount()).toBe(0);
+    });
+
+    it("refuses a database with no tenant to join", () => {
+      const result = accounts.create({ username: "maria", password: PASSWORD });
+
+      expect(reasonOf(result)).toBe("no_tenant");
+      expect(userCount()).toBe(0);
+    });
+
+    it("refuses to be both a platform operator and a member of a tenant", () => {
+      const tenantId = tenant("totem");
+
+      const result = accounts.create({
+        username: "maria",
+        password: PASSWORD,
+        platformOperator: true,
+        tenantId,
+      });
+
+      expect(reasonOf(result)).toBe("conflicting_scope");
+      expect(userCount()).toBe(0);
+    });
+
+    describe("the password", () => {
+      it("is refused under 12 characters, and nothing is written", () => {
+        tenant("totem");
+
+        const result = accounts.create({
+          username: "maria",
+          password: "x".repeat(11),
+        });
+
+        expect(reasonOf(result)).toBe("password_too_short");
+        expect(userCount()).toBe(0);
+        expect(
+          db.prepare("SELECT COUNT(*) as count FROM tenant_memberships").get(),
+        ).toEqual({ count: 0 });
+      });
+
+      it("is accepted at exactly 12", () => {
+        tenant("totem");
+
+        const result = accounts.create({
+          username: "maria",
+          password: "x".repeat(12),
+        });
+
+        expect(result.ok).toBe(true);
+      });
+    });
+
+    describe("a username that is taken", () => {
+      beforeEach(() => {
+        tenant("totem");
+        accounts.create({ username: "maria", password: PASSWORD });
+      });
+
+      it("is refused, and the account that holds it is untouched", () => {
+        const before = user("maria")!;
+
+        const result = accounts.create({
+          username: "maria",
+          password: "a-different-password",
+          platformOperator: true,
+        });
+
+        expect(reasonOf(result)).toBe("username_taken");
+        expect(user("maria")).toEqual(before);
+        expect(userCount()).toBe(1);
+      });
+
+      it("is refused by the check made before a password is asked for", () => {
+        expect(reasonOf(accounts.checkNew({ username: "maria" }))).toBe(
+          "username_taken",
+        );
+        expect(accounts.checkNew({ username: "juan" }).ok).toBe(true);
+      });
+    });
+
+    it("refuses an empty username or one wrapped in whitespace", () => {
+      tenant("totem");
+
+      for (const username of ["", "   ", " maria", "maria "]) {
+        expect(
+          reasonOf(accounts.create({ username, password: PASSWORD })),
+        ).toBe("invalid_username");
+      }
+      expect(userCount()).toBe(0);
+    });
+
+    it("checks everything but the password before one exists", () => {
+      const alpha = tenant("alpha");
+      tenant("beta");
+
+      expect(reasonOf(accounts.checkNew({ username: "maria" }))).toBe(
+        "tenant_required",
+      );
+      expect(accounts.checkNew({ username: "maria", tenantId: alpha }).ok).toBe(
+        true,
+      );
+      expect(
+        accounts.checkNew({ username: "maria", platformOperator: true }).ok,
+      ).toBe(true);
+      expect(userCount()).toBe(0);
+    });
+  });
+
+  describe("promoting an account", () => {
+    let tenantId: string;
+
+    beforeEach(() => {
+      tenantId = tenant("totem");
+      accounts.create({ username: "maria", password: PASSWORD });
+      accounts.create({ username: "juan", password: PASSWORD });
+    });
+
+    it("makes an existing account a platform operator", () => {
+      const result = accounts.promote("maria");
+
+      expect(result.ok && result.value).toMatchObject({
+        username: "maria",
+        changed: true,
+      });
+      expect(operators()).toEqual(["maria"]);
+    });
+
+    it("keeps the account's tenant membership", () => {
+      accounts.promote("maria");
+
+      expect(membershipsOn(db).roleFor(tenantId, user("maria")!.id)).toBe(
+        "admin",
+      );
+    });
+
+    it("leaves every other account alone", () => {
+      accounts.promote("maria");
+
+      expect(user("juan")!.is_platform_operator).toBe(0);
+    });
+
+    it("changes nothing the second time, and says so", () => {
+      accounts.promote("maria");
+
+      const again = accounts.promote("maria");
+
+      expect(again.ok && again.value.changed).toBe(false);
+      expect(operators()).toEqual(["maria"]);
+    });
+
+    it("is refused for a username nobody holds", () => {
+      const result = accounts.promote("nobody");
+
+      expect(reasonOf(result)).toBe("not_found");
+      expect(operators()).toEqual([]);
+    });
+
+    it("is refused for a disabled account", () => {
+      db.prepare(
+        "UPDATE users SET is_active = 0 WHERE username = 'maria'",
+      ).run();
+
+      const result = accounts.promote("maria");
+
+      expect(reasonOf(result)).toBe("inactive");
+      expect(operators()).toEqual([]);
+    });
+
+    it("counts an account whose active flag was never set as active", () => {
+      db.prepare(
+        "UPDATE users SET is_active = NULL WHERE username = 'maria'",
+      ).run();
+
+      expect(accounts.promote("maria").ok).toBe(true);
+      expect(operators()).toEqual(["maria"]);
+    });
+  });
+
+  describe("knowing whether anybody holds the platform operator's powers", () => {
+    beforeEach(() => {
+      tenant("totem");
+    });
+
+    it("is no for a database of ordinary accounts", () => {
+      accounts.create({ username: "maria", password: PASSWORD });
+
+      expect(accounts.hasPlatformOperator()).toBe(false);
+    });
+
+    it("is yes once one is created", () => {
+      accounts.create({
+        username: "staff",
+        password: PASSWORD,
+        platformOperator: true,
+      });
+
+      expect(accounts.hasPlatformOperator()).toBe(true);
+    });
+
+    it("is yes once an account is promoted", () => {
+      accounts.create({ username: "maria", password: PASSWORD });
+      accounts.promote("maria");
+
+      expect(accounts.hasPlatformOperator()).toBe(true);
+    });
+
+    it("is no when the only operator is disabled", () => {
+      accounts.create({
+        username: "staff",
+        password: PASSWORD,
+        platformOperator: true,
+      });
+      db.prepare("UPDATE users SET is_active = 0").run();
+
+      expect(accounts.hasPlatformOperator()).toBe(false);
+    });
+  });
+});
