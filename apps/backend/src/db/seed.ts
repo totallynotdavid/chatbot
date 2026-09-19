@@ -2,7 +2,6 @@ import type { Database } from "bun:sqlite";
 import process from "node:process";
 import { db } from "./connection.ts";
 import { initializeDatabase } from "./init.ts";
-import { seedUsers } from "./seeds/users.ts";
 import { seedPeriods } from "./seeds/periods.ts";
 import { seedProducts } from "./seeds/products.ts";
 import { seedBundles } from "./seeds/bundles.ts";
@@ -14,7 +13,6 @@ export async function seedDatabase(database: Database) {
   // Tenancy first: every other seed needs a tenant to belong to.
   const { tenant, channelAccount } = seedTenants(database);
 
-  await seedUsers(database, tenant.id);
   await seedPeriods(database, tenant.id);
   await seedProducts(database, tenant.id);
   await seedBundles(database, tenant.id);

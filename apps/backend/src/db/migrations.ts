@@ -126,7 +126,6 @@ export function migrateToMultiTenant(
       channelAccountId: migrated.channelAccount.id,
       channelAccountStatus: migrated.channelAccount.status,
       uploadsMigrated: migrated.copiedFiles.length,
-      platformOperator: migrated.platformOperator,
     },
     "Migration complete",
   );
@@ -179,150 +178,20 @@ export function migrateToMultiTenant(
         backfillSessionTenants(db);
       }
 
-      // 7. Somebody has to come out of this able to onboard the second tenant.
-      //    After the session backfill, so the person promoted keeps the scope
-      //    their live session was just given.
-      const platformOperator = ensurePlatformOperator(db);
-
-      // 8. Uploaded contracts and recordings become private asset rows before
+      // 7. Uploaded contracts and recordings become private asset rows before
       //    the legacy conversation columns disappear. This copies the files
       //    rather than moving them and throws if a copy fails, so the
       //    transaction below can still roll back onto intact legacy data.
       const copiedFiles = migrateRecordings(db, tenantId, channelAccountId);
 
-      // 9. Drop the originals.
+      // 8. Drop the originals.
       for (const table of present) {
         db.run(`DROP TABLE ${table}_legacy`);
       }
 
-      return { tenant, channelAccount, copiedFiles, platformOperator };
+      return { tenant, channelAccount, copiedFiles };
     })();
   }
-}
-
-/**
- * Make sure the migrated database has somebody who can onboard the next tenant.
- *
- * `is_platform_operator` did not exist before tenancy, so every user copied
- * across lands on the schema default of 0 - and POST /api/tenants is the one
- * route only a platform operator may call. Left alone, migrating a real
- * single-business database produced a deployment with no operator and no way to
- * add the second business - the whole point of the upgrade, reachable only by
- * editing the database by hand.
- *
- * So one existing account is promoted. MIGRATION_PLATFORM_OPERATOR_USERNAME
- * names it when the deployment has an opinion; otherwise it is the oldest admin
- * account, which in a single-business database is the person who set the
- * business up. They keep their membership and their tenant, and gain the
- * cross-tenant powers - this is a privilege grant, so it is logged as one.
- *
- * Nothing is promoted when an operator already exists, or when the legacy
- * database had no users at all. That second case is the one `seedUsers`
- * covers: set BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD and
- * BOOTSTRAP_ADMIN_PLATFORM_OPERATOR=true and run `bun run seed`.
- *
- * Exported so the rule can be tested directly, and so a database migrated by an
- * earlier build can be repaired by calling it.
- */
-export function ensurePlatformOperator(db: Database): string | null {
-  const existing = db
-    .prepare(
-      "SELECT username FROM users WHERE is_platform_operator = 1 LIMIT 1",
-    )
-    .get() as { username: string } | undefined;
-
-  if (existing) {
-    logger.info(
-      { username: existing.username },
-      "A platform operator already exists; promoting nobody",
-    );
-    return existing.username;
-  }
-
-  const named = process.env.MIGRATION_PLATFORM_OPERATOR_USERNAME?.trim();
-  const byName = named ? namedOperatorCandidate(db, named) : undefined;
-
-  // `is_active` was nullable before tenancy, and a disabled account cannot log
-  // in to use the powers being handed out. Ordering is total so two accounts
-  // created in the same millisecond still resolve the same way on every run.
-  const promoted =
-    byName ??
-    (db
-      .prepare(
-        `SELECT id, username FROM users
-         WHERE COALESCE(is_active, 1) = 1
-         ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, created_at, username
-         LIMIT 1`,
-      )
-      .get() as { id: string; username: string } | undefined);
-
-  if (!promoted) {
-    logger.warn(
-      "This database has no account to promote, so it has no platform " +
-        "operator and cannot create a second tenant. Set " +
-        "BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD and " +
-        "BOOTSTRAP_ADMIN_PLATFORM_OPERATOR=true and run `bun run seed` to " +
-        "create one.",
-    );
-    return null;
-  }
-
-  db.prepare("UPDATE users SET is_platform_operator = 1 WHERE id = ?").run(
-    promoted.id,
-  );
-
-  logger.warn(
-    {
-      userId: promoted.id,
-      username: promoted.username,
-      chosenBy: byName
-        ? "MIGRATION_PLATFORM_OPERATOR_USERNAME"
-        : "oldest admin",
-    },
-    "Promoted a migrated account to platform operator: it can now act across " +
-      "every tenant on this deployment",
-  );
-
-  return promoted.username;
-}
-
-/**
- * The account MIGRATION_PLATFORM_OPERATOR_USERNAME names, if it can log in.
- * Otherwise the reason is logged and the caller falls back to the oldest
- * active admin, the same as when no name is given.
- */
-function namedOperatorCandidate(
-  db: Database,
-  username: string,
-): { id: string; username: string } | undefined {
-  const account = db
-    .prepare(
-      "SELECT id, username, COALESCE(is_active, 1) AS is_active FROM users WHERE username = ?",
-    )
-    .get(username) as
-    | { id: string; username: string; is_active: number }
-    | undefined;
-
-  if (!account) {
-    logger.error(
-      { username },
-      "MIGRATION_PLATFORM_OPERATOR_USERNAME names no account in this " +
-        "database; falling back to the oldest active admin",
-    );
-    return undefined;
-  }
-
-  if (account.is_active !== 1) {
-    logger.error(
-      { username },
-      "MIGRATION_PLATFORM_OPERATOR_USERNAME names a disabled account, which " +
-        "cannot log in to use the platform operator's powers; falling back " +
-        "to the oldest active admin",
-    );
-    return undefined;
-  }
-
-  return { id: account.id, username: account.username };
 }
 
 /**
