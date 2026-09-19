@@ -94,6 +94,12 @@ business behaves exactly as before. Nobody is promoted to platform operator; run
 `bun run account promote <username>` for the account that should onboard the
 next tenant. See `apps/backend/src/db/migrations.ts`.
 
+`WHATSAPP_APP_SECRET` is the Meta app secret, shared by every number.
+`POST /api/webhook` accepts a request only when its `X-Hub-Signature-256`
+header is `sha256=` plus the hex HMAC-SHA256 of the raw body under that secret,
+and answers 401 otherwise. While the variable is unset the endpoint answers 503
+and boot logs a warning. The GET verification handshake is unaffected.
+
 `bun run dev` starts the backend, notifier and frontend in parallel. Run them
 individually with `bun run dev:backend`, `dev:notifier`, `dev:frontend`. For
 local WhatsApp webhook testing, `bun run dev:tunnel` exposes the frontend

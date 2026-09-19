@@ -12,6 +12,7 @@ import {
 } from "./helpers/tenancy.ts";
 
 import webhook from "../src/routes/webhook.ts";
+import { signedWebhookRequest } from "./helpers/webhook.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { BundleService } from "../src/domains/catalog/bundles.ts";
@@ -581,11 +582,7 @@ describe("tenant isolation", () => {
     }
 
     async function post(body: unknown) {
-      return webhook.request("/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      return webhook.request("/", signedWebhookRequest(body));
     }
 
     /** What became of each message in the payload, in the order it was sent. */

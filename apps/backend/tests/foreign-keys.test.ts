@@ -36,6 +36,7 @@ import simulatorRoutes from "../src/routes/simulator.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import webhook from "../src/routes/webhook.ts";
+import { signedWebhookRequest } from "./helpers/webhook.ts";
 import type { ConversationRef } from "@totem/types";
 
 describe("foreign key enforcement", () => {
@@ -452,10 +453,9 @@ describe("foreign key enforcement", () => {
       const contact = "51900000003";
       const account = addChannelAccount(tenant);
 
-      const response = await webhook.request("/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await webhook.request(
+        "/",
+        signedWebhookRequest({
           entry: [
             {
               id: "waba-fk",
@@ -478,7 +478,7 @@ describe("foreign key enforcement", () => {
             },
           ],
         }),
-      });
+      );
 
       expect(await response.json()).toEqual({
         results: [{ phoneNumberId: account.phoneNumberId, status: "received" }],

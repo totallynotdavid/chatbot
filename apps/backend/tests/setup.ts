@@ -26,6 +26,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
+import { TEST_APP_SECRET } from "./helpers/webhook.ts";
+
 const dir = mkdtempSync(join(tmpdir(), "totem-test-"));
 
 // The suite mocks Cloud API responses, so NODE_ENV must select the test adapter.
@@ -33,6 +35,7 @@ process.env.NODE_ENV = "test";
 process.env.DB_PATH = join(dir, "test.sqlite");
 process.env.UPLOAD_DIR = join(dir, "uploads");
 process.env.PRIVATE_DIR = join(dir, "private");
+process.env.WHATSAPP_APP_SECRET = TEST_APP_SECRET;
 
 process.on("exit", () => {
   rmSync(dir, { recursive: true, force: true });

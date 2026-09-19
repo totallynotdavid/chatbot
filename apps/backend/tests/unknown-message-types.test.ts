@@ -11,15 +11,15 @@ import {
 } from "./helpers/tenancy.ts";
 
 import webhook from "../src/routes/webhook.ts";
+import { signedWebhookRequest } from "./helpers/webhook.ts";
 import { parseIncomingMessage } from "../src/adapters/whatsapp/parsers/cloud-api-parser.ts";
 
 const CUSTOMER = "51900444555";
 
 function deliver(phoneNumberId: string, message: Record<string, unknown>) {
-  return webhook.request("/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return webhook.request(
+    "/",
+    signedWebhookRequest({
       object: "whatsapp_business_account",
       entry: [
         {
@@ -46,7 +46,7 @@ function deliver(phoneNumberId: string, message: Record<string, unknown>) {
         },
       ],
     }),
-  });
+  );
 }
 
 function count(table: string, tenantId: string): number {

@@ -63,6 +63,13 @@ if (!accountsOn(db).hasPlatformOperator()) {
   );
 }
 
+if (!process.env.WHATSAPP_APP_SECRET) {
+  logger.warn(
+    "WHATSAPP_APP_SECRET is not set, so POST /api/webhook answers 503 and no " +
+      "inbound message is accepted. Set it to the Meta app secret.",
+  );
+}
+
 // event bus, subscribers
 initializeApplication();
 
@@ -196,14 +203,12 @@ app.get(
     const segmentsStr = c.req.query("segments") || "fnb,gaso,none";
     const saleStatusesStr = c.req.query("saleStatuses") || "all";
 
-    // Parse dates
     const startDate = startDateStr ? new Date(startDateStr) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
     const endDate = endDateStr ? new Date(endDateStr) : new Date();
     endDate.setHours(23, 59, 59, 999);
 
-    // Parse arrays
     const segments = segmentsStr.split(",").filter(Boolean);
     const saleStatuses = saleStatusesStr.split(",").filter(Boolean);
 

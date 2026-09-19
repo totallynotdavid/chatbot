@@ -18,6 +18,7 @@ import {
 } from "./helpers/tenancy.ts";
 
 import webhook from "../src/routes/webhook.ts";
+import { signedWebhookRequest } from "./helpers/webhook.ts";
 import {
   countHeldMessages,
   holdMessage,
@@ -66,11 +67,10 @@ function inbound(phoneNumberId: string, messageId: string) {
 }
 
 async function deliver(phoneNumberId: string, messageId: string) {
-  const response = await webhook.request("/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(inbound(phoneNumberId, messageId)),
-  });
+  const response = await webhook.request(
+    "/",
+    signedWebhookRequest(inbound(phoneNumberId, messageId)),
+  );
   const body = (await response.json()) as {
     results: Array<{ status: string }>;
   };

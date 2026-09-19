@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import process from "node:process";
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
   ChannelAccount,
   ConversationRef,
@@ -54,6 +54,29 @@ function verifyTokenMatches(token: string): ChannelAccount | "env" | null {
   }
 
   return null;
+}
+
+const SIGNATURE_PREFIX = "sha256=";
+const SIGNATURE_LENGTH = SIGNATURE_PREFIX.length + 64;
+const HEX_DIGEST = /^[0-9a-f]+$/;
+
+/** Why a signature header was refused, or null when it matches the raw body. */
+function signatureFailure(
+  rawBody: string,
+  header: string | null,
+  secret: string,
+): string | null {
+  if (!header) return "missing_header";
+  if (!header.startsWith(SIGNATURE_PREFIX)) return "bad_prefix";
+  if (header.length !== SIGNATURE_LENGTH) return "bad_length";
+  if (!HEX_DIGEST.test(header.slice(SIGNATURE_PREFIX.length))) {
+    return "non_hex";
+  }
+
+  const expected =
+    SIGNATURE_PREFIX +
+    createHmac("sha256", secret).update(rawBody).digest("hex");
+  return constantTimeEquals(header, expected) ? null : "mismatch";
 }
 
 webhook.get("/", (c) => {
@@ -250,10 +273,27 @@ async function handleInbound(
  * failure cannot swallow the rest of the payload.
  */
 webhook.post("/", async (c) => {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) {
+    logger.warn("Webhook POST refused: WHATSAPP_APP_SECRET is not set");
+    return c.json({ error: "webhook_not_configured" }, 503);
+  }
+
+  const rawBody = await c.req.text();
+  const failure = signatureFailure(
+    rawBody,
+    c.req.header("X-Hub-Signature-256") ?? null,
+    appSecret,
+  );
+  if (failure) {
+    logger.warn({ reason: failure }, "Webhook POST rejected: bad signature");
+    return c.json({ error: "invalid_signature" }, 401);
+  }
+
   let changes: ParsedChange[];
 
   try {
-    changes = parseWebhookBody(await c.req.json());
+    changes = parseWebhookBody(JSON.parse(rawBody));
   } catch (error) {
     logger.error({ error }, "Webhook body could not be parsed");
     return c.json({ error: "invalid_payload" }, 400);
