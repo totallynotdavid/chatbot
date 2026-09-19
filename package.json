@@ -8,6 +8,7 @@
     ],
     "scripts": {
         "seed": "cd apps/backend && bun run seed",
+        "account": "cd apps/backend && bun run account",
         "clean": "bun run clean:deps && bun run clean:sessions && bun run clean:logs",
         "clean:deps": "bun x shx rm -rf apps/*/node_modules packages/*/node_modules node_modules",
         "clean:sessions": "bun x shx rm -rf apps/notifier/data",
