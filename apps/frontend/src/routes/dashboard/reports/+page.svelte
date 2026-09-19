@@ -2,13 +2,13 @@
 import PageHeader from "$lib/components/shared/page-header.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 import Button from "$lib/components/ui/button.svelte";
+import { limaDateString } from "$lib/utils/formatters";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-// Form state
-let startDate = $state(new Date().toISOString().split("T")[0]);
-let endDate = $state(new Date().toISOString().split("T")[0]);
+let startDate = $state(limaDateString());
+let endDate = $state(limaDateString());
 let segmentFnb = $state(true);
 let segmentGaso = $state(true);
 let segmentNone = $state(true);
@@ -18,32 +18,29 @@ let saleStatusPending = $state(false);
 let saleStatusRejected = $state(false);
 let generating = $state(false);
 
-// Order report state
 let orderStartDate = $state("");
 let orderEndDate = $state("");
 let orderStatus = $state("");
 let generatingOrders = $state(false);
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function setQuickDate(days: number) {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  startDate = start.toISOString().split("T")[0];
-  endDate = end.toISOString().split("T")[0];
+  const now = Date.now();
+  startDate = limaDateString(now - days * DAY_MS);
+  endDate = limaDateString(now);
 }
 
 function setToday() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = limaDateString();
   startDate = today;
   endDate = today;
 }
 
 function setYesterday() {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const date = yesterday.toISOString().split("T")[0];
-  startDate = date;
-  endDate = date;
+  const yesterday = limaDateString(Date.now() - DAY_MS);
+  startDate = yesterday;
+  endDate = yesterday;
 }
 
 async function generateReport() {
