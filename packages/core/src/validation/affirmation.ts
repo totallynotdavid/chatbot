@@ -1,8 +1,16 @@
+const TRAILING_PUNCTUATION = new Set("¡!¿?.,:;");
+
+/** Drops the run of punctuation at the end of a message, scanning from the end. */
+function stripTrailingPunctuation(text: string): string {
+  let end = text.length;
+  while (end > 0 && TRAILING_PUNCTUATION.has(text[end - 1] as string)) end--;
+  return text.slice(0, end);
+}
+
 export function isAffirmative(message: string): boolean {
   const lower = message.toLowerCase().trim();
 
-  // Remove common trailing punctuation for matching
-  const normalized = lower.replace(/[¡!¿?.,:;]+$/, "");
+  const normalized = stripTrailingPunctuation(lower);
 
   // Tier 1: Single-word exact matches
   const exactWords =
@@ -61,7 +69,7 @@ export function isAffirmative(message: string): boolean {
 
 export function isNegative(message: string): boolean {
   const lower = message.toLowerCase().trim();
-  const normalized = lower.replace(/[¡!¿?.,:;]+$/, "");
+  const normalized = stripTrailingPunctuation(lower);
 
   // Tier 1: Single-word clear rejections
   const exactWords =
