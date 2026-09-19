@@ -79,7 +79,7 @@ function usernameIsTaken(username: string): boolean {
   return (
     getOne<{ id: string }>("SELECT id FROM users WHERE username = ?", [
       username,
-    ]) !== null
+    ]) !== undefined
   );
 }
 

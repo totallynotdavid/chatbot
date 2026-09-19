@@ -1,6 +1,16 @@
 /** Range queries and writes on the millisecond columns: the funnel, the daily report, `last_activity_at`. */
 
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  afterEach,
+  setSystemTime,
+} from "bun:test";
+import process from "node:process";
 import * as XLSX from "xlsx";
 
 import { db } from "../src/db/index.ts";
@@ -50,15 +60,26 @@ function lastActivity(fixture: TenantFixture): unknown {
   ).last_activity_at;
 }
 
-function dailyReportRows(tenantId: string, date: Date): number {
+function dailyReportRows(tenantId: string, date?: string): number {
   const buffer = ReportService.generateDailyReport(tenantId, date);
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const [name] = workbook.SheetNames;
   return XLSX.utils.sheet_to_json(workbook.Sheets[name ?? ""] ?? {}).length;
 }
 
+// The dashboard's day is America/Lima; a server in any other zone must cut it the same.
 describe("date ranges over millisecond columns", () => {
+  const originalTz = process.env.TZ;
   let tenant: TenantFixture;
+
+  beforeAll(() => {
+    process.env.TZ = "UTC";
+  });
+
+  afterAll(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
 
   beforeEach(() => {
     applySchema();
@@ -67,6 +88,7 @@ describe("date ranges over millisecond columns", () => {
   });
 
   afterEach(() => {
+    setSystemTime();
     dropTenantFixture(tenant);
   });
 
@@ -101,20 +123,175 @@ describe("date ranges over millisecond columns", () => {
 
       expect(getFunnelStats(tenant.tenantId).sessions_started).toBe(1);
     });
+
+    describe("a date-only end", () => {
+      it("covers the whole Lima day, including its evening", () => {
+        insertEvent(tenant, Date.parse("2026-03-10T15:00:00.000Z"));
+        insertEvent(tenant, Date.parse("2026-03-10T23:30:00-05:00"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-01",
+          "2026-03-10",
+        );
+
+        expect(stats.sessions_started).toBe(2);
+      });
+
+      it("stops at the next Lima midnight", () => {
+        insertEvent(tenant, Date.parse("2026-03-11T00:00:00-05:00"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-01",
+          "2026-03-10",
+        );
+
+        expect(stats.sessions_started).toBe(0);
+      });
+    });
+
+    describe("a date-only start", () => {
+      it("starts at Lima midnight", () => {
+        insertEvent(tenant, Date.parse("2026-03-10T00:00:00-05:00"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-10",
+          "2026-03-10",
+        );
+
+        expect(stats.sessions_started).toBe(1);
+      });
+
+      it("leaves out the last moment of the day before", () => {
+        insertEvent(tenant, Date.parse("2026-03-09T23:59:59.999-05:00"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-10",
+          "2026-03-10",
+        );
+
+        expect(stats.sessions_started).toBe(0);
+      });
+    });
+
+    describe("a timestamp with a zone", () => {
+      it("keeps its exact instant at the start", () => {
+        insertEvent(tenant, Date.parse("2026-03-10T11:59:59.999Z"));
+        insertEvent(tenant, Date.parse("2026-03-10T12:00:00.000Z"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-10T12:00:00.000Z",
+          "2026-03-10T23:59:59.999Z",
+        );
+
+        expect(stats.sessions_started).toBe(1);
+      });
+
+      it("keeps its exact instant at the end", () => {
+        insertEvent(tenant, Date.parse("2026-03-10T12:00:00.000Z"));
+        insertEvent(tenant, Date.parse("2026-03-10T12:00:00.001Z"));
+
+        const stats = getFunnelStats(
+          tenant.tenantId,
+          "2026-03-10T00:00:00.000Z",
+          "2026-03-10T12:00:00.000Z",
+        );
+
+        expect(stats.sessions_started).toBe(1);
+      });
+    });
+
+    it("refuses a bound that is not a date", () => {
+      expect(() => getFunnelStats(tenant.tenantId, "garbage")).toThrow(
+        "start must be YYYY-MM-DD or an ISO timestamp with a zone",
+      );
+      expect(() =>
+        getFunnelStats(tenant.tenantId, "2026-02-01", "2026-02-30"),
+      ).toThrow("end must be YYYY-MM-DD or an ISO timestamp with a zone");
+    });
   });
 
   describe("the daily report", () => {
     it("lists a conversation active that day", () => {
-      const day = new Date(2026, 2, 10, 12, 0, 0);
-      setLastActivity(tenant, day.getTime());
+      setLastActivity(tenant, Date.parse("2026-03-10T12:00:00-05:00"));
 
-      expect(dailyReportRows(tenant.tenantId, day)).toBe(1);
+      expect(dailyReportRows(tenant.tenantId, "2026-03-10")).toBe(1);
     });
 
     it("leaves out a conversation active on another day", () => {
-      setLastActivity(tenant, new Date(2026, 2, 11, 12, 0, 0).getTime());
+      setLastActivity(tenant, Date.parse("2026-03-11T12:00:00-05:00"));
 
-      expect(dailyReportRows(tenant.tenantId, new Date(2026, 2, 10))).toBe(0);
+      expect(dailyReportRows(tenant.tenantId, "2026-03-10")).toBe(0);
+    });
+
+    it("opens at Lima midnight", () => {
+      setLastActivity(tenant, Date.parse("2026-09-19T00:00:00.000-05:00"));
+
+      expect(dailyReportRows(tenant.tenantId, "2026-09-19")).toBe(1);
+    });
+
+    it("leaves out the last moment of the Lima day before", () => {
+      setLastActivity(tenant, Date.parse("2026-09-18T23:59:59.999-05:00"));
+
+      expect(dailyReportRows(tenant.tenantId, "2026-09-19")).toBe(0);
+    });
+
+    it("closes on the last millisecond of the Lima day", () => {
+      setLastActivity(tenant, Date.parse("2026-09-19T23:59:59.999-05:00"));
+
+      expect(dailyReportRows(tenant.tenantId, "2026-09-19")).toBe(1);
+    });
+
+    it("leaves out Lima midnight of the next day", () => {
+      setLastActivity(tenant, Date.parse("2026-09-20T00:00:00.000-05:00"));
+
+      expect(dailyReportRows(tenant.tenantId, "2026-09-19")).toBe(0);
+    });
+
+    it("is today's Lima day when no date is given", () => {
+      setSystemTime(new Date("2026-09-20T03:00:00.000Z"));
+      setLastActivity(tenant, Date.parse("2026-09-19T08:00:00-05:00"));
+
+      expect(dailyReportRows(tenant.tenantId)).toBe(1);
+    });
+
+    it("names its sheet for the Lima date", () => {
+      const buffer = ReportService.generateDailyReport(
+        tenant.tenantId,
+        "2026-09-19",
+      );
+
+      expect(XLSX.read(buffer, { type: "buffer" }).SheetNames).toEqual([
+        "2026-09-19",
+      ]);
+    });
+
+    it("refuses a date that is not a calendar day", () => {
+      expect(() =>
+        ReportService.generateDailyReport(tenant.tenantId, "garbage"),
+      ).toThrow("date must be YYYY-MM-DD");
+    });
+  });
+
+  describe("today's contact count", () => {
+    it("counts activity since Lima midnight, not UTC midnight", () => {
+      // 22:00 on the 18th in Lima, already the 19th in UTC.
+      setSystemTime(new Date("2026-09-19T03:00:00.000Z"));
+      setLastActivity(tenant, Date.parse("2026-09-18T12:00:00-05:00"));
+
+      expect(ReportService.getTodayContactCount(tenant.tenantId)).toBe(1);
+    });
+
+    it("leaves out activity from the Lima day before", () => {
+      // 00:30 on the 19th in Lima; 20:00 on the 18th in Lima is past UTC midnight.
+      setSystemTime(new Date("2026-09-19T05:30:00.000Z"));
+      setLastActivity(tenant, Date.parse("2026-09-18T20:00:00-05:00"));
+
+      expect(ReportService.getTodayContactCount(tenant.tenantId)).toBe(0);
     });
   });
 
@@ -158,7 +335,7 @@ describe("date ranges over millisecond columns", () => {
     it("lands inside today's daily report", () => {
       updateConversation(tenant.ref(CUSTOMER), { phase: "greeting" }, {});
 
-      expect(dailyReportRows(tenant.tenantId, new Date())).toBe(1);
+      expect(dailyReportRows(tenant.tenantId)).toBe(1);
     });
   });
 });

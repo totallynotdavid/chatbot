@@ -1,4 +1,10 @@
-import { getAll, getOne, tenantPredicate } from "../../db/query.ts";
+import {
+  getAll,
+  getOne,
+  limaDateString,
+  limaDayBounds,
+  tenantPredicate,
+} from "../../db/query.ts";
 import * as XLSX from "xlsx";
 
 type ActivityReportParams = {
@@ -19,11 +25,9 @@ type OrderReportParams = {
 };
 
 export const ReportService = {
-  generateDailyReport: (tenantId: string | null, date: Date = new Date()) => {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
+  /** `date` is `YYYY-MM-DD` in Lima; omitted, it is today there. */
+  generateDailyReport: (tenantId: string | null, date?: string) => {
+    const [start, end] = limaDayBounds(date);
 
     const rows = getAll<Record<string, unknown>>(
       `
@@ -40,18 +44,12 @@ export const ReportService = {
             WHERE last_activity_at BETWEEN ? AND ?
               AND ${tenantPredicate(tenantId)}
         `,
-      tenantId
-        ? [start.getTime(), end.getTime(), tenantId]
-        : [start.getTime(), end.getTime()],
+      tenantId ? [start, end, tenantId] : [start, end],
     );
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      start.toISOString().split("T")[0],
-    );
+    XLSX.utils.book_append_sheet(workbook, worksheet, limaDateString(start));
 
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   },
@@ -59,7 +57,6 @@ export const ReportService = {
   generateActivityReport: (params: ActivityReportParams) => {
     const { tenantId, startDate, endDate, segments, saleStatuses } = params;
 
-    // Build WHERE conditions
     const conditions: string[] = ["is_simulation = 0"];
     const values: any[] = [];
 
@@ -91,7 +88,7 @@ export const ReportService = {
 
     const rows = getAll<Record<string, unknown>>(
       `
-        SELECT 
+        SELECT
           phone_number as "Teléfono",
           client_name as "Nombre",
           dni as "DNI",
@@ -103,16 +100,14 @@ export const ReportService = {
           agent_notes as "Observaciones",
           products_interested as "Productos",
           last_activity_at as "Última Actividad"
-        FROM conversations 
+        FROM conversations
         WHERE ${whereClause}
         ORDER BY last_activity_at DESC
       `,
       values,
     );
 
-    // Transform data for Excel
     const transformedRows = rows.map((row, index) => {
-      // Parse products JSON if present
       let productos = "";
       try {
         const productsArray = JSON.parse((row["Productos"] as string) || "[]");
@@ -123,7 +118,6 @@ export const ReportService = {
         productos = (row["Productos"] as string) || "";
       }
 
-      // Format timestamp
       let fechaActividad = "";
       if (row["Última Actividad"]) {
         const timestamp = Number(row["Última Actividad"]);
@@ -136,7 +130,6 @@ export const ReportService = {
         }
       }
 
-      // Map sale status to Spanish
       const saleStatusMap: Record<string, string> = {
         pending: "Pendiente",
         confirmed: "Confirmado",
@@ -144,7 +137,6 @@ export const ReportService = {
         no_answer: "Sin respuesta",
       };
 
-      // Map segment to Spanish
       const segmentMap: Record<string, string> = {
         fnb: "FNB",
         gaso: "GASO",
@@ -184,16 +176,14 @@ export const ReportService = {
     ];
 
     const workbook = XLSX.utils.book_new();
-    const sheetName = `${startDate.toISOString().split("T")[0]}`;
+    const sheetName = limaDateString(startTimestamp);
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   },
 
   getTodayContactCount: (tenantId: string | null) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startTimestamp = today.getTime();
+    const [startTimestamp] = limaDayBounds();
 
     const result = getOne<{ count: number }>(
       `
@@ -223,10 +213,8 @@ export const ReportService = {
     }
 
     if (endDate) {
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
       conditions.push("created_at <= ?");
-      values.push(endOfDay.getTime());
+      values.push(endDate.getTime());
     }
 
     if (status) {
@@ -277,12 +265,11 @@ export const ReportService = {
     const transformedRows = rows.map((row, index) => {
       const formatTimestamp = (ts: any) => {
         const timestamp = Number(ts);
-        if (!isNaN(timestamp)) {
-          return new Date(timestamp).toLocaleString("es-PE", {
-            timeZone: "America/Lima",
-          });
-        }
-        return "";
+        return !isNaN(timestamp)
+          ? new Date(timestamp).toLocaleString("es-PE", {
+              timeZone: "America/Lima",
+            })
+          : "";
       };
 
       return {
@@ -324,7 +311,7 @@ export const ReportService = {
 
     const workbook = XLSX.utils.book_new();
     const sheetName = startDate
-      ? startDate.toISOString().split("T")[0]
+      ? limaDateString(startDate.getTime())
       : "Ordenes";
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 

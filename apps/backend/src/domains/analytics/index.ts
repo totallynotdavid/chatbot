@@ -1,5 +1,10 @@
 import { db } from "../../db/index.ts";
-import { getAll, getOne, tenantPredicate } from "../../db/query.ts";
+import {
+  getAll,
+  getOne,
+  limaRangeEdge,
+  tenantPredicate,
+} from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
 import type { AnalyticsEvent, ConversationRef } from "@totem/types";
 
@@ -33,7 +38,10 @@ export function trackEvent(
   );
 }
 
-/** `tenantId` null aggregates across tenants (platform operators only). */
+/**
+ * `tenantId` null aggregates across tenants (platform operators only).
+ * A date-only bound covers that Lima day; a timestamp with a zone is exact.
+ */
 export function getFunnelStats(
   tenantId: string | null,
   startDate?: string,
@@ -41,9 +49,9 @@ export function getFunnelStats(
   includeSimulations = false,
 ) {
   const start = startDate
-    ? new Date(startDate).getTime()
+    ? limaRangeEdge(startDate, "start", "start")
     : Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const end = endDate ? new Date(endDate).getTime() : Date.now();
+  const end = endDate ? limaRangeEdge(endDate, "end", "end") : Date.now();
 
   const conditions = ["created_at BETWEEN ? AND ?"];
   const params: SQLQueryBindings[] = [start, end];

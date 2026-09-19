@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import process from "node:process";
 import { createLogger } from "../lib/logger.ts";
+import { InvalidDateError } from "../db/query.ts";
 import { TenantScopeRequiredError } from "../platform/auth/scope.ts";
 import { NO_ACTIVE_TENANT } from "./auth.ts";
 
@@ -16,6 +17,10 @@ export async function errorHandler(err: Error, c: Context) {
       "Route asked for the active tenant without requiring one",
     );
     return c.json(NO_ACTIVE_TENANT, 403);
+  }
+
+  if (err instanceof InvalidDateError) {
+    return c.json({ error: err.message }, 400);
   }
 
   logger.error(

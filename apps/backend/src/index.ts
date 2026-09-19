@@ -18,11 +18,7 @@ import { initializeDatabase } from "./db/init.ts";
 import { seedDatabase } from "./db/seed.ts";
 import { accountsOn } from "./domains/accounts/index.ts";
 
-import {
-  requireAuth,
-  requireRole,
-  requireTenantScope,
-} from "./middleware/auth.ts";
+import { requireAuth, requireRole } from "./middleware/auth.ts";
 import { errorHandler } from "./middleware/error.ts";
 import { securityHeaders } from "./middleware/security.ts";
 
@@ -31,6 +27,7 @@ import auth from "./routes/auth.ts";
 import simulator from "./routes/simulator.ts";
 import conversations from "./routes/conversations.ts";
 import analytics from "./routes/analytics.ts";
+import reports from "./routes/reports.ts";
 import admin from "./routes/admin.ts";
 import catalog from "./routes/catalog.ts";
 import periods from "./routes/periods.ts";
@@ -40,7 +37,6 @@ import tenants from "./routes/tenants.ts";
 import assets from "./routes/assets.ts";
 
 import { getAllStatus } from "./adapters/providers/health.ts";
-import { ReportService } from "./domains/reports/index.ts";
 import { checkNotifierHealth } from "./adapters/notifier/client.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
 import { eligibilityHandler } from "./bootstrap/index.ts";
@@ -161,112 +157,7 @@ app.use("/api/admin/*", requireRole("admin"));
 app.route("/api/admin", admin);
 
 // Reports
-const requireReportsAccess = requireRole("admin", "developer", "supervisor");
-
-app.get("/api/reports/daily", requireTenantScope, requireReportsAccess, (c) => {
-  const dateStr = c.req.query("date");
-  const date = dateStr ? new Date(dateStr) : new Date();
-  const buffer = ReportService.generateDailyReport(
-    c.get("scope").tenantId,
-    date,
-  );
-
-  c.header(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  );
-  c.header(
-    "Content-Disposition",
-    `attachment; filename="report-${date.toISOString().split("T")[0]}.xlsx"`,
-  );
-
-  return c.body(buffer);
-});
-
-app.get(
-  "/api/reports/today-count",
-  requireTenantScope,
-  requireReportsAccess,
-  (c) => {
-    const count = ReportService.getTodayContactCount(c.get("scope").tenantId);
-    return c.json({ count });
-  },
-);
-
-app.get(
-  "/api/reports/activity",
-  requireTenantScope,
-  requireReportsAccess,
-  (c) => {
-    const startDateStr = c.req.query("startDate");
-    const endDateStr = c.req.query("endDate");
-    const segmentsStr = c.req.query("segments") || "fnb,gaso,none";
-    const saleStatusesStr = c.req.query("saleStatuses") || "all";
-
-    const startDate = startDateStr ? new Date(startDateStr) : new Date();
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = endDateStr ? new Date(endDateStr) : new Date();
-    endDate.setHours(23, 59, 59, 999);
-
-    const segments = segmentsStr.split(",").filter(Boolean);
-    const saleStatuses = saleStatusesStr.split(",").filter(Boolean);
-
-    const buffer = ReportService.generateActivityReport({
-      tenantId: c.get("scope").tenantId,
-      startDate,
-      endDate,
-      segments,
-      saleStatuses,
-    });
-
-    const filename = `reporte-actividad-${startDate.toISOString().split("T")[0]}-a-${endDate.toISOString().split("T")[0]}.xlsx`;
-
-    c.header(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    c.header("Content-Disposition", `attachment; filename="${filename}"`);
-
-    return c.body(buffer);
-  },
-);
-
-app.get(
-  "/api/reports/orders",
-  requireTenantScope,
-  requireReportsAccess,
-  (c) => {
-    const startDateStr = c.req.query("startDate");
-    const endDateStr = c.req.query("endDate");
-    const status = c.req.query("status") || "";
-    const assignedAgent = c.req.query("assignedAgent") || "";
-
-    const startDate = startDateStr ? new Date(startDateStr) : undefined;
-    const endDate = endDateStr ? new Date(endDateStr) : undefined;
-
-    const buffer = ReportService.generateOrderReport({
-      tenantId: c.get("scope").tenantId,
-      startDate,
-      endDate,
-      status: status || undefined,
-      assignedAgent: assignedAgent || undefined,
-    });
-
-    const dateRange = startDate
-      ? `${startDate.toISOString().split("T")[0]}-a-${endDate ? endDate.toISOString().split("T")[0] : "hoy"}`
-      : "todas";
-    const filename = `reporte-ordenes-${dateRange}.xlsx`;
-
-    c.header(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    c.header("Content-Disposition", `attachment; filename="${filename}"`);
-
-    return c.body(buffer);
-  },
-);
+app.route("/api/reports", reports);
 
 // Provider check endpoint
 app.get("/api/providers/:dni", requireAuth, async (c) => {
