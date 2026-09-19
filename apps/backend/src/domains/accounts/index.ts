@@ -1,10 +1,11 @@
 import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
+import { MIN_PASSWORD_LENGTH } from "@totem/types";
 import { queriesOn } from "../../db/query.ts";
 import { Err, Ok, type Result } from "../../shared/result/index.ts";
 import { membershipsOn, tenantsOn } from "../tenants/index.ts";
 
-export const MIN_PASSWORD_LENGTH = 12;
+export { MIN_PASSWORD_LENGTH };
 
 export type AccountErrorReason =
   | "invalid_username"
