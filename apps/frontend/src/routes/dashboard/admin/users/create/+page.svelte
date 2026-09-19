@@ -8,6 +8,8 @@ import PageTitle from "$lib/components/shared/page-title.svelte";
 import PermissionMatrix from "$lib/components/admin/permission-matrix.svelte";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
+import { MIN_PASSWORD_LENGTH } from "@totem/types";
+import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
 
 let formData = $state({
   name: "",
@@ -22,6 +24,11 @@ let loading = $state(false);
 async function handleSubmit() {
   if (!formData.name || !formData.username || !formData.password) {
     toast.error("Todos los campos marcados son obligatorios");
+    return;
+  }
+
+  if (formData.password.length < MIN_PASSWORD_LENGTH) {
+    toast.error(PASSWORD_TOO_SHORT_MESSAGE);
     return;
   }
 
@@ -68,7 +75,7 @@ async function handleSubmit() {
 
         <FormField label="Contraseña temporal" for="password">
             <Input id="password" type="password" bind:value={formData.password} />
-            <p class="text-xs text-ink-400 mt-1">El usuario deberá cambiarla en su primer acceso.</p>
+            <p class="text-xs text-ink-400 mt-1">Mínimo {MIN_PASSWORD_LENGTH} caracteres. El usuario deberá cambiarla en su primer acceso.</p>
         </FormField>
     
         <div class="border-t border-cream-200 my-6 pt-6">

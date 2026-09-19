@@ -5,6 +5,8 @@ import Select from "$lib/components/ui/select.svelte";
 import Button from "$lib/components/ui/button.svelte";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
+import { MIN_PASSWORD_LENGTH } from "@totem/types";
+import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
 
 type Props = {
   onSuccess: () => void;
@@ -25,6 +27,11 @@ let message = $state("");
 async function handleSubmit() {
   if (!formData.name || !formData.username || !formData.password) {
     message = "Todos los campos son obligatorios";
+    return;
+  }
+
+  if (formData.password.length < MIN_PASSWORD_LENGTH) {
+    message = `Error: ${PASSWORD_TOO_SHORT_MESSAGE}`;
     return;
   }
 
@@ -62,6 +69,7 @@ async function handleSubmit() {
 
 	<FormField label="Contraseña temporal" for="password">
 		<Input id="password" type="password" bind:value={formData.password} />
+		<p class="text-xs text-ink-400 mt-1">Mínimo {MIN_PASSWORD_LENGTH} caracteres.</p>
 	</FormField>
 
 	<FormField label="Teléfono (WhatsApp)" for="phoneNumber">
