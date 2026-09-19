@@ -58,22 +58,41 @@ Prereqs are pinned in `mise.toml` (bun, cloudflared, biome). Install them with
 ```sh
 bun install
 cp .env.example .env
-# edit .env - SECRETS_KEY and the BOOTSTRAP_ADMIN_* pair are new, see below
-cd apps/backend && bun run seed
-cd ../.. && bun run dev
+# edit .env - SECRETS_KEY is new, see below
+bun run seed
+bun run account create <username>   # or --platform-operator, see below
+bun run dev
 ```
 
-The seed ships **no credentials**. It creates the first account only when
-`BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` are set; set them
-once, run the seed, then unset them. `SECRETS_KEY` (32 bytes, hex or base64)
-encrypts WhatsApp tokens at rest - without it a channel account is created in
-`pending` state with no credentials and cannot send.
+The seed ships **no credentials** and creates no accounts, and neither does boot
+or a migration. Accounts are created and promoted only by the operator command
+`bun run account`:
+
+- `bun run account create <username> [--platform-operator | --tenant <tenantId>] [--name <display name>]`
+  creates an account: an admin of the tenant given by `--tenant` (optional when
+  exactly one tenant exists), or with `--platform-operator` VendeYa staff, who
+  belong to no tenant and can act across all of them. The two flags exclude each
+  other.
+- `bun run account promote <username>` makes an existing, active account a
+  platform operator. It keeps its tenant memberships, and promoting an account
+  that already is one changes nothing.
+
+The password is read from a hidden prompt, asked twice, or from stdin when stdin
+is not a terminal (`cat password.txt | bun run account create <username>`). It
+is never taken from arguments or the environment, and must be at least 12
+characters. Boot logs a warning while the database has no platform operator.
+
+`SECRETS_KEY` (32 bytes, hex or base64) encrypts WhatsApp tokens at rest -
+without it a channel account is created in `pending` state with no credentials
+and cannot send.
 
 An existing single-business database migrates itself on first boot: the tenant
 and channel account are created from the `WHATSAPP_*` variables - through the
 same seed a fresh database runs, so the token is imported and encrypted exactly
 as it would be there - and every existing row is stamped with them, so that
-business behaves exactly as before. See `apps/backend/src/db/migrations.ts`.
+business behaves exactly as before. Nobody is promoted to platform operator; run
+`bun run account promote <username>` for the account that should onboard the
+next tenant. See `apps/backend/src/db/migrations.ts`.
 
 `bun run dev` starts the backend, notifier and frontend in parallel. Run them
 individually with `bun run dev:backend`, `dev:notifier`, `dev:frontend`. For
