@@ -1,6 +1,6 @@
 import process from "node:process";
 import type { ChannelAccount, ConversationRef } from "@totem/types";
-import type { ConversationMessage, MessageType } from "./types.ts";
+import type { ConversationMessage, StoredMessageType } from "./types.ts";
 import { CloudApiAdapter } from "./cloud-api.ts";
 import { DevAdapter } from "./dev-adapter.ts";
 import { MessageStore } from "./message-store.ts";
@@ -209,7 +209,7 @@ export const WhatsAppService = {
   logMessage(
     ref: ConversationRef,
     direction: "inbound" | "outbound",
-    type: MessageType,
+    type: StoredMessageType,
     content: string,
     status: string = "sent",
   ): void {

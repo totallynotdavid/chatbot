@@ -1,4 +1,4 @@
-import type { MessageType } from "./whatsapp.ts";
+import type { StoredMessageType } from "./whatsapp.ts";
 
 export type Segment = "fnb" | "gaso";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
@@ -127,7 +127,7 @@ export type Conversation = {
   nse: number | null;
   current_state: ConversationState;
   status: ConversationStatus;
-  last_activity_at: string;
+  last_activity_at: number;
   context_data: string;
   handover_reason: string | null;
   is_simulation: number;
@@ -163,7 +163,7 @@ export type ConversationMessage = {
   channel_account_id: string;
   phone_number: string;
   direction: "inbound" | "outbound";
-  type: MessageType;
+  type: StoredMessageType;
   content: string;
   status: string;
   created_at: string;
@@ -264,7 +264,8 @@ export type ReplayData = {
 
 // WhatsApp message types
 export type {
-  MessageType,
+  StoredMessageType,
+  InboundMessageType,
   QuotedMessageContext,
   IncomingMessage,
 } from "./whatsapp.ts";

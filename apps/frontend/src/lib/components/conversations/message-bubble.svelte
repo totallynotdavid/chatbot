@@ -1,11 +1,11 @@
 <script lang="ts">
   import { formatTime } from "$lib/utils/formatters";
   import type { Snippet } from "svelte";
-  import type { MessageType } from "@totem/types";
+  import type { StoredMessageType } from "@totem/types";
 
   type Props = {
     direction: "inbound" | "outbound";
-    type: MessageType;
+    type: StoredMessageType;
     content: string;
     status?: string;
     createdAt: string;

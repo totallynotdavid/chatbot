@@ -1,7 +1,7 @@
 import type { Message } from "whatsapp-web.js";
 import type {
   IncomingMessage,
-  MessageType,
+  InboundMessageType,
   QuotedMessageContext,
 } from "@totem/types";
 import { extractPhoneNumber } from "../lib/whatsapp-formatters.ts";
@@ -9,7 +9,7 @@ import { createLogger } from "../logger.ts";
 
 const logger = createLogger("webjs-parser");
 
-function mapWebjsType(webjsType: string): MessageType {
+function mapWebjsType(webjsType: string): InboundMessageType {
   switch (webjsType) {
     case "chat":
       return "text";

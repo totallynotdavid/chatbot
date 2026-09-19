@@ -1,7 +1,7 @@
 import type {
   ChannelAccount,
   ConversationMessage,
-  MessageType,
+  StoredMessageType,
 } from "@totem/types";
 
 /**
@@ -25,4 +25,4 @@ export interface WhatsAppAdapter {
 
 export type MessageDirection = "inbound" | "outbound";
 
-export type { ChannelAccount, ConversationMessage, MessageType };
+export type { ChannelAccount, ConversationMessage, StoredMessageType };

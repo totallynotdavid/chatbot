@@ -4,7 +4,7 @@ import type { ConversationRef } from "@totem/types";
 import type {
   ConversationMessage,
   MessageDirection,
-  MessageType,
+  StoredMessageType,
 } from "./types.ts";
 
 /**
@@ -15,7 +15,7 @@ export const MessageStore = {
   log(
     ref: ConversationRef,
     direction: MessageDirection,
-    type: MessageType,
+    type: StoredMessageType,
     content: string,
     status: string = "sent",
     whatsappMessageId?: string,

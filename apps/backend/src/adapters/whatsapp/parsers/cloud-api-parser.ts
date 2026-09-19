@@ -1,10 +1,10 @@
 import type {
   IncomingMessage,
-  MessageType,
+  InboundMessageType,
   QuotedMessageContext,
 } from "@totem/types";
 
-function mapCloudApiType(cloudApiType: string): MessageType {
+function mapCloudApiType(cloudApiType: string): InboundMessageType {
   switch (cloudApiType) {
     case "text":
       return "text";
@@ -22,15 +22,14 @@ function mapCloudApiType(cloudApiType: string): MessageType {
 }
 
 export function parseIncomingMessage(webhookMessage: any): IncomingMessage {
-  // Format: { "context": { "from": "sender_id", "id": "quoted_message_id" } }
   let quotedContext: QuotedMessageContext | undefined;
 
   if (webhookMessage.context?.id) {
     quotedContext = {
       id: webhookMessage.context.id,
-      body: "", // Will be populated by looking up the message in our store
-      type: "text", // Default to text since Business API doesn't provide original type
-      timestamp: 0, // Will be populated by looking up the message in our store
+      body: "",
+      type: "text",
+      timestamp: 0,
     };
   }
 
