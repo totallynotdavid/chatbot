@@ -27,20 +27,20 @@ import { db as appDb } from "../src/db/index.ts";
 import { initializeDatabase } from "../src/db/init.ts";
 import {
   backfillSessionTenants,
-  ensurePlatformOperator,
   needsTenantMigration,
   resolveLegacyUpload,
 } from "../src/db/migrations.ts";
 import { seedDatabase } from "../src/db/seed.ts";
-import { seedUsers } from "../src/db/seeds/users.ts";
 import {
   ensureChannelAccountFromEnv,
   seedTenants,
 } from "../src/db/seeds/tenants.ts";
+import { accountsOn } from "../src/domains/accounts/index.ts";
 import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
 import { PRIVATE_DIR } from "../src/lib/storage-paths.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import type { ChannelAccount, Tenant } from "@totem/types";
+import { setAccountEnv } from "./helpers/account-env.ts";
 
 /** The schema as it stood before tenancy, trimmed to what the test asserts on. */
 const LEGACY_SCHEMA = `
@@ -521,41 +521,16 @@ describe("legacy database migration", () => {
       ]);
     });
 
-    /**
-     * `is_platform_operator` did not exist before tenancy, so the column copy
-     * left every migrated account at the schema default of 0 - and creating a
-     * tenant is the one thing only a platform operator may do. A real
-     * deployment upgraded this way had nobody able to onboard the second
-     * business, and no way to make somebody: `seedUsers` refused to run
-     * because the database was full of users. The migration path this branch
-     * exists for ended in a manual database edit.
-     */
-    it("leaves the deployment with a platform operator", () => {
-      const operators = db
-        .prepare("SELECT username FROM users WHERE is_platform_operator = 1")
-        .all() as Array<{ username: string }>;
-
-      // The oldest admin: in a single-business database, whoever set it up.
-      expect(operators).toEqual([{ username: "admin" }]);
-    });
-
-    it("promotes one account, not everybody who happened to be an admin", () => {
+    it("promotes nobody to platform operator", () => {
       expect(
         db
-          .prepare(
-            "SELECT is_platform_operator FROM users WHERE id = 'agent-001'",
-          )
-          .get(),
-      ).toEqual({ is_platform_operator: 0 });
+          .prepare("SELECT username FROM users WHERE is_platform_operator = 1")
+          .all(),
+      ).toEqual([]);
     });
 
-    /**
-     * The promotion runs after the session backfill for this reason. Reversed,
-     * the one person handed the new powers would have been the one person
-     * logged out of their own business by the deployment, because
-     * `backfillSessionTenants` deliberately skips platform operators.
-     */
-    it("keeps that operator's live session pinned to their business", () => {
+    it("leaves the admin an ordinary member of their business, session pinned", () => {
+      expect(membershipsOn(db).get(tenantId, "admin-001")?.role).toBe("admin");
       expect(
         db
           .prepare(
@@ -563,9 +538,6 @@ describe("legacy database migration", () => {
           )
           .get(),
       ).toEqual({ active_tenant_id: tenantId });
-
-      // And their membership survives, so the powers are additional, not a swap.
-      expect(membershipsOn(db).get(tenantId, "admin-001")?.role).toBe("admin");
     });
 
     it("turns uploaded contracts into private assets on the conversation", () => {
@@ -793,58 +765,33 @@ describe("migrating a database with WhatsApp credentials configured", () => {
  * the application connection.
  */
 describe("seeding a database the seed was handed", () => {
-  const ENV_KEYS = [
-    "BOOTSTRAP_ADMIN_USERNAME",
-    "BOOTSTRAP_ADMIN_PASSWORD",
-  ] as const;
-
-  const USERNAME = "seed-target-admin";
-  const saved: Record<string, string | undefined> = {};
+  let restoreEnv: () => void;
   let dir: string;
   let db: Database;
 
   beforeEach(() => {
-    for (const key of ENV_KEYS) saved[key] = process.env[key];
-    process.env.BOOTSTRAP_ADMIN_USERNAME = USERNAME;
-    process.env.BOOTSTRAP_ADMIN_PASSWORD = "a-long-enough-password";
+    restoreEnv = setAccountEnv();
 
     dir = mkdtempSync(join(tmpdir(), "totem-seed-"));
     db = new Database(join(dir, "fresh.sqlite"), { create: true });
     initializeDatabase(db);
 
-    // The assertions below read the application connection to show the seeds
-    // did not touch it, so it has to have a schema to read. It only ever had
-    // one here because some earlier file in the suite happened to apply it,
-    // which made this file fail whenever it was run on its own.
+    // The assertions read the application connection, so it needs a schema too.
     initializeDatabase(appDb);
   });
 
   afterEach(() => {
     db.close();
     rmSync(dir, { recursive: true, force: true });
-
-    for (const key of ENV_KEYS) {
-      if (saved[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = saved[key];
-      }
-    }
+    restoreEnv();
   });
 
-  it("writes the tenant, its channel account and the bootstrap membership there", async () => {
+  it("writes the tenant, its channel account and the catalog there", async () => {
     await seedDatabase(db);
 
     const tenant = found(tenantsOn(db).getBySlug("totem"), "the seeded tenant");
 
     expect(channelAccountsOn(db).getDefaultForTenant(tenant.id)).not.toBeNull();
-
-    const user = db
-      .prepare("SELECT id FROM users WHERE username = ?")
-      .get(USERNAME) as { id: string };
-    expect(membershipsOn(db).get(tenant.id, user.id)?.role).toBe("admin");
-
-    // The catalog seed lands there too, keyed to that tenant.
     expect(
       db
         .prepare("SELECT COUNT(*) as c FROM products WHERE tenant_id = ?")
@@ -855,19 +802,20 @@ describe("seeding a database the seed was handed", () => {
   it("leaves the application connection alone", async () => {
     await seedDatabase(db);
 
-    // Compared by id rather than by slug: a developer's own database may well
-    // have a seeded tenant of its own, and the point is that these rows are not
-    // in it.
+    // By id, not slug: the application database may hold a seeded tenant of its own.
     const tenant = found(tenantsOn(db).getBySlug("totem"), "the seeded tenant");
-    const user = db
-      .prepare("SELECT id FROM users WHERE username = ?")
-      .get(USERNAME) as { id: string };
 
     expect(tenantsOn(appDb).getById(tenant.id)).toBeNull();
+  });
+
+  it("creates no account, whatever the environment holds", async () => {
+    await seedDatabase(db);
+
+    expect(db.prepare("SELECT COUNT(*) as c FROM users").get()).toEqual({
+      c: 0,
+    });
     expect(
-      appDb
-        .prepare("SELECT COUNT(*) as c FROM users WHERE id = ?")
-        .get(user.id),
+      db.prepare("SELECT COUNT(*) as c FROM tenant_memberships").get(),
     ).toEqual({ c: 0 });
   });
 });
@@ -1558,20 +1506,12 @@ describe("the scope a carried-over session is given", () => {
   });
 });
 
-/**
- * Which account the migration hands the platform operator's powers to.
- *
- * It is a privilege grant made without anybody present to approve it, so the
- * rule is written out here in full rather than left to the one case a seeded
- * legacy database happens to produce.
- */
-describe("choosing the migrated platform operator", () => {
-  const ENV_KEY = "MIGRATION_PLATFORM_OPERATOR_USERNAME";
-  let savedEnv: string | undefined;
+/** Migrating promotes nobody; the environment asks for a promotion throughout, to show it is not read. */
+describe("migrating a legacy database", () => {
+  let restoreEnv: () => void;
   let dir: string;
   let db: Database;
 
-  /** The usernames holding the powers after a migration. */
   function operators(): string[] {
     return (
       db
@@ -1582,9 +1522,14 @@ describe("choosing the migrated platform operator", () => {
     ).map((row) => row.username);
   }
 
+  function userCount(): number {
+    return (
+      db.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number }
+    ).c;
+  }
+
   beforeEach(() => {
-    savedEnv = process.env[ENV_KEY];
-    delete process.env[ENV_KEY];
+    restoreEnv = setAccountEnv();
 
     dir = mkdtempSync(join(tmpdir(), "totem-operator-"));
     db = new Database(join(dir, "legacy.sqlite"), { create: true });
@@ -1595,47 +1540,24 @@ describe("choosing the migrated platform operator", () => {
   afterEach(() => {
     db.close();
     rmSync(dir, { recursive: true, force: true });
-
-    if (savedEnv === undefined) delete process.env[ENV_KEY];
-    else process.env[ENV_KEY] = savedEnv;
+    restoreEnv();
   });
 
-  it("is the account the deployment names", () => {
-    process.env[ENV_KEY] = "agent1";
-
+  it("promotes nobody, not the oldest admin and not an account the environment names", () => {
     initializeDatabase(db);
 
-    expect(operators()).toEqual(["agent1"]);
+    expect(operators()).toEqual([]);
   });
 
-  it("falls back to the oldest admin when that name matches nobody", () => {
-    process.env[ENV_KEY] = "somebody-who-left";
-
-    initializeDatabase(db);
-
-    // Loud in the log, but a migration is not abandoned over a stale variable.
-    expect(operators()).toEqual(["admin"]);
-  });
-
-  it("falls back to the oldest active admin when the named account is switched off", () => {
-    process.env[ENV_KEY] = "agent1";
-    db.prepare("UPDATE users SET is_active = 0 WHERE id = 'agent-001'").run();
-
-    initializeDatabase(db);
-
-    expect(operators()).toEqual(["admin"]);
-  });
-
-  it("skips an admin whose account was switched off", () => {
+  it("promotes nobody when the admin is switched off", () => {
     db.prepare("UPDATE users SET is_active = 0 WHERE id = 'admin-001'").run();
 
     initializeDatabase(db);
 
-    // Powers nobody can log in to use are no powers at all.
-    expect(operators()).toEqual(["agent1"]);
+    expect(operators()).toEqual([]);
   });
 
-  it("takes the oldest account of any role when there is no admin left", () => {
+  it("promotes nobody when there is no admin left", () => {
     db.prepare("DELETE FROM session").run();
     db.prepare("DELETE FROM users WHERE id = 'admin-001'").run();
     db.prepare(
@@ -1645,53 +1567,44 @@ describe("choosing the migrated platform operator", () => {
 
     initializeDatabase(db);
 
-    expect(operators()).toEqual(["supervisor1"]);
+    expect(operators()).toEqual([]);
   });
 
-  it("migrates a database with no accounts at all, and promotes nobody", () => {
+  it("migrates a database with no accounts at all, and creates none", () => {
     db.prepare("DELETE FROM session").run();
     db.prepare("DELETE FROM users").run();
 
     initializeDatabase(db);
 
     expect(needsTenantMigration(db)).toBe(false);
-    expect(operators()).toEqual([]);
+    expect(userCount()).toBe(0);
   });
 
-  it("leaves an existing platform operator in place when run again", () => {
-    initializeDatabase(db);
-    expect(operators()).toEqual(["admin"]);
+  it("creates no account of its own", () => {
+    const before = userCount();
 
-    // The rule is idempotent: a second call promotes nobody new, whatever the
-    // environment now says.
-    process.env[ENV_KEY] = "agent1";
-    expect(ensurePlatformOperator(db)).toBe("admin");
-    expect(operators()).toEqual(["admin"]);
+    initializeDatabase(db);
+
+    expect(userCount()).toBe(before);
+  });
+
+  it("leaves the accounts there to be promoted by name afterwards", () => {
+    initializeDatabase(db);
+
+    const promoted = accountsOn(db).promote("agent1");
+
+    expect(promoted.ok && promoted.value.changed).toBe(true);
+    expect(operators()).toEqual(["agent1"]);
   });
 });
 
-/**
- * The way back for a deployment that has no platform operator at all: a legacy
- * database with no accounts in it, or one migrated by a build that predates the
- * promotion above.
- *
- * `seedUsers` guarded on "does this database have any users", which is true of
- * every migrated database the moment it is migrated - so the one account that
- * was actually missing was the one account it refused to create. The guard is
- * now the invariant the flag asks for.
- */
-describe("adding a platform operator to a database that already has users", () => {
-  const ENV_KEYS = [
-    "BOOTSTRAP_ADMIN_USERNAME",
-    "BOOTSTRAP_ADMIN_PASSWORD",
-    "BOOTSTRAP_ADMIN_PLATFORM_OPERATOR",
-    "MIGRATION_PLATFORM_OPERATOR_USERNAME",
-  ] as const;
-
-  const saved: Record<string, string | undefined> = {};
+/** A migrated database has users and no platform operator; the operator command supplies one. */
+describe("giving a database that already has users a platform operator", () => {
+  const PASSWORD = "a-long-enough-password";
   let dir: string;
   let db: Database;
   let tenantId: string;
+  let accounts: ReturnType<typeof accountsOn>;
 
   function operators(): string[] {
     return (
@@ -1703,10 +1616,13 @@ describe("adding a platform operator to a database that already has users", () =
     ).map((row) => row.username);
   }
 
-  beforeEach(() => {
-    for (const key of ENV_KEYS) saved[key] = process.env[key];
-    delete process.env.MIGRATION_PLATFORM_OPERATOR_USERNAME;
+  function userCount(): number {
+    return (
+      db.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number }
+    ).c;
+  }
 
+  beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "totem-operator-seed-"));
     db = new Database(join(dir, "legacy.sqlite"), { create: true });
     db.run(LEGACY_SCHEMA);
@@ -1717,72 +1633,65 @@ describe("adding a platform operator to a database that already has users", () =
       tenantsOn(db).getBySlug("totem"),
       "the migrated tenant",
     ).id;
-
-    // A database migrated by a build that predates the promotion: full of
-    // users, and not one of them a platform operator.
-    db.prepare("UPDATE users SET is_platform_operator = 0").run();
-
-    process.env.BOOTSTRAP_ADMIN_USERNAME = "vendeya-staff";
-    process.env.BOOTSTRAP_ADMIN_PASSWORD = "a-long-enough-password";
+    accounts = accountsOn(db);
   });
 
   afterEach(() => {
     db.close();
     rmSync(dir, { recursive: true, force: true });
-
-    for (const key of ENV_KEYS) {
-      if (saved[key] === undefined) delete process.env[key];
-      else process.env[key] = saved[key];
-    }
   });
 
-  it("creates one when the environment asks for a platform operator", async () => {
-    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
+  it("creates one beside the accounts it has", () => {
+    const created = accounts.create({
+      username: "vendeya-staff",
+      password: PASSWORD,
+      platformOperator: true,
+    });
 
-    await seedUsers(db, tenantId);
-
+    expect(created.ok).toBe(true);
     expect(operators()).toEqual(["vendeya-staff"]);
+    expect(userCount()).toBe(3);
 
     // Platform staff belong to no tenant; they select one when they need it.
-    const user = db
+    const staff = db
       .prepare("SELECT id FROM users WHERE username = 'vendeya-staff'")
       .get() as { id: string };
-    expect(membershipsOn(db).get(tenantId, user.id)).toBeNull();
+    expect(membershipsOn(db).get(tenantId, staff.id)).toBeNull();
   });
 
-  it("still creates nothing when it is an ordinary admin being asked for", async () => {
-    delete process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR;
+  it("creates an admin of the one tenant it has", () => {
+    const created = accounts.create({ username: "nueva", password: PASSWORD });
 
-    await seedUsers(db, tenantId);
-
-    // Unchanged: the bootstrap admin is the first account of an empty
-    // database, and this one is not empty.
-    expect(db.prepare("SELECT COUNT(*) as c FROM users").get()).toEqual({
-      c: 2,
-    });
-  });
-
-  it("says so rather than crashing when the username is already taken", async () => {
-    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
-    process.env.BOOTSTRAP_ADMIN_USERNAME = "admin";
-
-    // `username` is UNIQUE: before the guard changed, this row could never be
-    // reached; now it can, and an insert would take the boot down with it.
-    await seedUsers(db, tenantId);
-
+    expect(created.ok && created.value.tenant?.id).toBe(tenantId);
     expect(operators()).toEqual([]);
-    expect(db.prepare("SELECT COUNT(*) as c FROM users").get()).toEqual({
-      c: 2,
-    });
   });
 
-  it("stops creating operators once there is one", async () => {
-    process.env.BOOTSTRAP_ADMIN_PLATFORM_OPERATOR = "true";
+  it("promotes one of the accounts it has, and keeps its membership", () => {
+    const promoted = accounts.promote("admin");
 
-    await seedUsers(db, tenantId);
-    process.env.BOOTSTRAP_ADMIN_USERNAME = "vendeya-staff-2";
-    await seedUsers(db, tenantId);
+    expect(promoted.ok && promoted.value.changed).toBe(true);
+    expect(operators()).toEqual(["admin"]);
+    expect(membershipsOn(db).get(tenantId, "admin-001")?.role).toBe("admin");
+  });
 
-    expect(operators()).toEqual(["vendeya-staff"]);
+  it("refuses a username one of them already holds", () => {
+    const created = accounts.create({
+      username: "admin",
+      password: PASSWORD,
+      platformOperator: true,
+    });
+
+    expect(!created.ok && created.error.reason).toBe("username_taken");
+    expect(operators()).toEqual([]);
+    expect(userCount()).toBe(2);
+  });
+
+  it("refuses to promote one that was switched off", () => {
+    db.prepare("UPDATE users SET is_active = 0 WHERE id = 'admin-001'").run();
+
+    const promoted = accounts.promote("admin");
+
+    expect(!promoted.ok && promoted.error.reason).toBe("inactive");
+    expect(operators()).toEqual([]);
   });
 });
