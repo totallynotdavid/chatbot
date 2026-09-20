@@ -1,0 +1,5 @@
+{
+    "extends": "@totem/tsconfig/backend.json",
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

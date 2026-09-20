@@ -1,0 +1,11 @@
+{
+    "extends": "@totem/tsconfig/backend.json",
+    "compilerOptions": {
+        "paths": {
+            "@totem/core": ["../core/src"],
+            "@totem/types": ["../types/src"]
+        }
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { Message } from "whatsapp-web.js";
 import { parseIncomingMessage } from "./adapters/webjs-parser.ts";
 import { createLogger } from "./logger.ts";

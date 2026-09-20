@@ -1,0 +1,12 @@
+{
+    "extends": "@totem/tsconfig/backend.json",
+    "compilerOptions": {
+        "paths": {
+            "@totem/logger": ["../../packages/logger/src"],
+            "@totem/types": ["../../packages/types/src"],
+            "@totem/utils": ["../../packages/utils/src"]
+        }
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

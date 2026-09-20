@@ -50,6 +50,15 @@ jobs:
           - name: types
             directory: packages/types
             command: bunx tsc --noEmit
+          - name: notifier
+            directory: apps/notifier
+            command: bunx tsc --noEmit
+          - name: utils
+            directory: packages/utils
+            command: bunx tsc --noEmit
+          - name: intelligence
+            directory: packages/intelligence
+            command: bunx tsc --noEmit
           - name: frontend
             directory: apps/frontend
             command: bun run check
