@@ -178,11 +178,14 @@ describe("booting the server", () => {
         stopWhenServing: true,
         prepare: (db) => {
           initializeDatabase(db);
-          accountsOn(db).create({
-            username: "vendeya-staff",
-            password: "a-long-enough-password",
-            platformOperator: true,
-          });
+          accountsOn(db).create(
+            {
+              username: "vendeya-staff",
+              password: "a-long-enough-password",
+              platformOperator: true,
+            },
+            { name: "operator", uid: 1000 },
+          );
         },
       },
     );

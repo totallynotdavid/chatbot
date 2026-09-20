@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { db } from "../db/connection.ts";
 import { initializeDatabase } from "../db/init.ts";
 import { accountsOn, type AccountError } from "../domains/accounts/index.ts";
+import { currentOperator } from "./os-user.ts";
 import { readPassword } from "./read-password.ts";
 
 const USAGE = `Usage:
@@ -59,13 +60,14 @@ async function run(argv: string[]): Promise<number> {
 
   initializeDatabase(db);
   const accounts = accountsOn(db);
+  const operator = currentOperator();
 
   if (command === "promote") {
     if (Object.keys(options).length > 0) {
       return usage("promote takes a username and nothing else.");
     }
 
-    const promoted = accounts.promote(username);
+    const promoted = accounts.promote(username, operator);
     if (!promoted.ok) return refuse(promoted.error);
 
     console.log(
@@ -87,10 +89,10 @@ async function run(argv: string[]): Promise<number> {
   const checked = accounts.checkNew(request);
   if (!checked.ok) return refuse(checked.error);
 
-  const created = accounts.create({
-    ...request,
-    password: await readPassword(),
-  });
+  const created = accounts.create(
+    { ...request, password: await readPassword() },
+    operator,
+  );
   if (!created.ok) return refuse(created.error);
 
   const { value } = created;

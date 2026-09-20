@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
 import { MIN_PASSWORD_LENGTH } from "@totem/types";
 import { queriesOn } from "../../db/query.ts";
+import { auditOn, type CliOperator } from "../../platform/audit/logger.ts";
 import { Err, Ok, type Result } from "../../shared/result/index.ts";
 import { membershipsOn, tenantsOn } from "../tenants/index.ts";
 
@@ -63,10 +64,13 @@ const USER_COLUMNS =
 /**
  * Account creation and promotion bound to one connection. Only the operator
  * command calls `create` and `promote`: not boot, the seeds or the migration.
+ * Each writes its audit row in the transaction that changes the account, naming
+ * the operator who ran the command.
  */
 export function accountsOn(database: Database) {
   const { getOne } = queriesOn(database);
   const tenants = tenantsOn(database);
+  const audit = auditOn(database);
 
   function listTenants(): string {
     return tenants
@@ -164,6 +168,7 @@ export function accountsOn(database: Database) {
     /** A platform operator gets no membership; anyone else administers one tenant. */
     create: (
       input: NewAccount & { password: string },
+      operator: CliOperator,
     ): Result<CreatedAccount, AccountError> => {
       if (input.password.length < MIN_PASSWORD_LENGTH) {
         return Err(
@@ -210,6 +215,19 @@ export function accountsOn(database: Database) {
             [id],
           )!;
 
+          audit.logCliAction(
+            operator,
+            tenantId.value,
+            "create_user",
+            "user",
+            id,
+            {
+              username: created.username,
+              ...(tenantId.value !== null && { role: "admin" }),
+              platformOperator: created.is_platform_operator === 1,
+            },
+          );
+
           return Ok({
             id: created.id,
             username: created.username,
@@ -228,38 +246,55 @@ export function accountsOn(database: Database) {
     },
 
     /** Memberships are kept; the cross-tenant powers are added to them. */
-    promote: (username: string): Result<PromotedAccount, AccountError> => {
-      const account = getOne<UserRow>(
-        `SELECT ${USER_COLUMNS} FROM users WHERE username = ?`,
-        [username],
-      );
+    promote: (
+      username: string,
+      operator: CliOperator,
+    ): Result<PromotedAccount, AccountError> =>
+      database
+        .transaction((): Result<PromotedAccount, AccountError> => {
+          const account = getOne<UserRow>(
+            `SELECT ${USER_COLUMNS} FROM users WHERE username = ?`,
+            [username],
+          );
 
-      if (!account) {
-        return Err(
-          new AccountError("not_found", "No account has that username."),
-        );
-      }
+          if (!account) {
+            return Err(
+              new AccountError("not_found", "No account has that username."),
+            );
+          }
 
-      if (account.is_active !== 1) {
-        return Err(
-          new AccountError(
-            "inactive",
-            "That account is disabled, and a disabled account cannot use the platform operator's powers.",
-          ),
-        );
-      }
+          if (account.is_active !== 1) {
+            return Err(
+              new AccountError(
+                "inactive",
+                "That account is disabled, and a disabled account cannot use the platform operator's powers.",
+              ),
+            );
+          }
 
-      const { changes } = database
-        .prepare(
-          "UPDATE users SET is_platform_operator = 1 WHERE id = ? AND is_platform_operator = 0",
-        )
-        .run(account.id);
+          const { changes } = database
+            .prepare(
+              "UPDATE users SET is_platform_operator = 1 WHERE id = ? AND is_platform_operator = 0",
+            )
+            .run(account.id);
 
-      return Ok({
-        id: account.id,
-        username: account.username,
-        changed: changes > 0,
-      });
-    },
+          if (changes > 0) {
+            audit.logCliAction(
+              operator,
+              null,
+              "promote_platform_operator",
+              "user",
+              account.id,
+              { username: account.username, platformOperator: true },
+            );
+          }
+
+          return Ok({
+            id: account.id,
+            username: account.username,
+            changed: changes > 0,
+          });
+        })
+        .immediate(),
   };
 }

@@ -4,10 +4,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { initializeDatabase } from "../src/db/init.ts";
+import { currentOperator } from "../src/cli/os-user.ts";
 import { ensureDefaultTenant } from "../src/db/seeds/tenants.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import { ACCOUNT_ENV } from "./helpers/account-env.ts";
@@ -29,6 +30,7 @@ describe("the account command", () => {
     return {
       PATH: process.env.PATH ?? "",
       HOME: process.env.HOME ?? "",
+      USER: process.env.USER ?? "",
       NODE_ENV: "test",
       DB_PATH: dbPath,
       UPLOAD_DIR: join(dir, "uploads"),
@@ -126,6 +128,27 @@ describe("the account command", () => {
           count: number;
         }
       ).count;
+    } finally {
+      db.close();
+    }
+  }
+
+  function auditRows() {
+    const db = open();
+    try {
+      return db
+        .prepare(
+          "SELECT tenant_id, user_id, actor, action, resource_type, resource_id, metadata FROM audit_log ORDER BY rowid",
+        )
+        .all() as Array<{
+        tenant_id: string | null;
+        user_id: string | null;
+        actor: string;
+        action: string;
+        resource_type: string;
+        resource_id: string | null;
+        metadata: string;
+      }>;
     } finally {
       db.close();
     }
@@ -265,6 +288,74 @@ describe("the account command", () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("single line");
       expect(userCount()).toBe(0);
+    });
+  });
+
+  describe("the audit trail", () => {
+    const uid = process.getuid?.() ?? userInfo().uid;
+    const actor = `cli:${currentOperator().name}`;
+
+    it("records a creation under the operator, and does not print it", async () => {
+      const result = await run(["create", "maria"], { stdin: PASSWORD });
+
+      const [row, ...rest] = auditRows();
+      expect(rest).toEqual([]);
+      expect(row).toMatchObject({
+        user_id: null,
+        actor,
+        action: "create_user",
+        resource_type: "user",
+        resource_id: user("maria")!.id,
+      });
+      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+      expect(result.stdout).not.toContain(actor);
+      expect(result.stderr).not.toContain(actor);
+    });
+
+    it("records a promotion under the operator, and does not print it", async () => {
+      await run(["create", "maria"], { stdin: PASSWORD });
+
+      const result = await run(["promote", "maria"]);
+
+      const rows = auditRows();
+      expect(rows.map((row) => [row.actor, row.action])).toEqual([
+        [actor, "create_user"],
+        [actor, "promote_platform_operator"],
+      ]);
+      expect(rows.map((row) => JSON.parse(row.metadata).uid)).toEqual([
+        uid,
+        uid,
+      ]);
+      expect(result.stdout).not.toContain(actor);
+      expect(result.stderr).not.toContain(actor);
+    });
+
+    it("names the uid when the environment names no user", async () => {
+      await run(["create", "maria"], {
+        stdin: PASSWORD,
+        env: { USER: "" },
+      });
+
+      const [row] = auditRows();
+      expect(row!.actor).toBe(`cli:uid=${uid}`);
+      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+    });
+
+    it("keeps the real uid when $USER names somebody else", async () => {
+      await run(["create", "maria"], {
+        stdin: PASSWORD,
+        env: { USER: "alice" },
+      });
+
+      const [row] = auditRows();
+      expect(row!.actor).toBe("cli:alice");
+      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+    });
+
+    it("writes nothing for a refused creation", async () => {
+      await run(["create", "maria"], { stdin: "short\n" });
+
+      expect(auditRows()).toEqual([]);
     });
   });
 

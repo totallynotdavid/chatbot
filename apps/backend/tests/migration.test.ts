@@ -452,6 +452,14 @@ describe("legacy database migration", () => {
       expect(conv.current_state).toBe("offering_products");
     });
 
+    it("gives the audit row the actor of the user it named", () => {
+      const row = db
+        .prepare("SELECT user_id, actor FROM audit_log WHERE id = 'au1'")
+        .get();
+
+      expect(row).toEqual({ user_id: "admin-001", actor: "user:admin-001" });
+    });
+
     it("keeps every child row, stamped with the tenant", () => {
       const counts = Object.fromEntries(
         [
@@ -1571,7 +1579,10 @@ describe("migrating a legacy database", () => {
   it("leaves the accounts there to be promoted by name afterwards", () => {
     initializeDatabase(db);
 
-    const promoted = accountsOn(db).promote("agent1");
+    const promoted = accountsOn(db).promote("agent1", {
+      name: "operator",
+      uid: 1000,
+    });
 
     expect(promoted.ok && promoted.value.changed).toBe(true);
     expect(operators()).toEqual(["agent1"]);
@@ -1622,11 +1633,14 @@ describe("giving a database that already has users a platform operator", () => {
   });
 
   it("creates one beside the accounts it has", () => {
-    const created = accounts.create({
-      username: "vendeya-staff",
-      password: PASSWORD,
-      platformOperator: true,
-    });
+    const created = accounts.create(
+      {
+        username: "vendeya-staff",
+        password: PASSWORD,
+        platformOperator: true,
+      },
+      { name: "operator", uid: 1000 },
+    );
 
     expect(created.ok).toBe(true);
     expect(operators()).toEqual(["vendeya-staff"]);
@@ -1640,14 +1654,17 @@ describe("giving a database that already has users a platform operator", () => {
   });
 
   it("creates an admin of the one tenant it has", () => {
-    const created = accounts.create({ username: "nueva", password: PASSWORD });
+    const created = accounts.create(
+      { username: "nueva", password: PASSWORD },
+      { name: "operator", uid: 1000 },
+    );
 
     expect(created.ok && created.value.tenant?.id).toBe(tenantId);
     expect(operators()).toEqual([]);
   });
 
   it("promotes one of the accounts it has, and keeps its membership", () => {
-    const promoted = accounts.promote("admin");
+    const promoted = accounts.promote("admin", { name: "operator", uid: 1000 });
 
     expect(promoted.ok && promoted.value.changed).toBe(true);
     expect(operators()).toEqual(["admin"]);
@@ -1655,11 +1672,14 @@ describe("giving a database that already has users a platform operator", () => {
   });
 
   it("refuses a username one of them already holds", () => {
-    const created = accounts.create({
-      username: "admin",
-      password: PASSWORD,
-      platformOperator: true,
-    });
+    const created = accounts.create(
+      {
+        username: "admin",
+        password: PASSWORD,
+        platformOperator: true,
+      },
+      { name: "operator", uid: 1000 },
+    );
 
     expect(!created.ok && created.error.reason).toBe("username_taken");
     expect(operators()).toEqual([]);
@@ -1669,7 +1689,7 @@ describe("giving a database that already has users a platform operator", () => {
   it("refuses to promote one that was switched off", () => {
     db.prepare("UPDATE users SET is_active = 0 WHERE id = 'admin-001'").run();
 
-    const promoted = accounts.promote("admin");
+    const promoted = accounts.promote("admin", { name: "operator", uid: 1000 });
 
     expect(!promoted.ok && promoted.error.reason).toBe("inactive");
     expect(operators()).toEqual([]);
