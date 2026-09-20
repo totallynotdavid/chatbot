@@ -53,41 +53,40 @@ describe("the Lima day", () => {
     else process.env.TZ = originalTz;
   });
 
-  describe.each([
-    "UTC",
-    "America/Lima",
-    "Asia/Tokyo",
-  ])("on a server in %s", (zone) => {
-    beforeAll(() => {
-      process.env.TZ = zone;
-    });
+  describe.each(["UTC", "America/Lima", "Asia/Tokyo"])(
+    "on a server in %s",
+    (zone) => {
+      beforeAll(() => {
+        process.env.TZ = zone;
+      });
 
-    it("runs from Lima midnight to the last millisecond before the next", () => {
-      expect(limaDayBounds("2026-09-19")).toEqual([
-        Date.parse("2026-09-19T05:00:00.000Z"),
-        Date.parse("2026-09-20T04:59:59.999Z"),
-      ]);
-    });
+      it("runs from Lima midnight to the last millisecond before the next", () => {
+        expect(limaDayBounds("2026-09-19")).toEqual([
+          Date.parse("2026-09-19T05:00:00.000Z"),
+          Date.parse("2026-09-20T04:59:59.999Z"),
+        ]);
+      });
 
-    it("is the Lima day containing now when no date is given", () => {
-      const late = Date.parse("2026-09-20T03:00:00.000Z");
+      it("is the Lima day containing now when no date is given", () => {
+        const late = Date.parse("2026-09-20T03:00:00.000Z");
 
-      expect(limaDayBounds(undefined, late)).toEqual([
-        Date.parse("2026-09-19T05:00:00.000Z"),
-        Date.parse("2026-09-20T04:59:59.999Z"),
-      ]);
-    });
+        expect(limaDayBounds(undefined, late)).toEqual([
+          Date.parse("2026-09-19T05:00:00.000Z"),
+          Date.parse("2026-09-20T04:59:59.999Z"),
+        ]);
+      });
 
-    it("rolls over at Lima midnight, not UTC midnight", () => {
-      const justBefore = Date.parse("2026-09-19T04:59:59.999Z");
-      const atMidnight = Date.parse("2026-09-19T05:00:00.000Z");
+      it("rolls over at Lima midnight, not UTC midnight", () => {
+        const justBefore = Date.parse("2026-09-19T04:59:59.999Z");
+        const atMidnight = Date.parse("2026-09-19T05:00:00.000Z");
 
-      expect(limaDayBounds(undefined, justBefore)[0]).toBe(
-        Date.parse("2026-09-18T05:00:00.000Z"),
-      );
-      expect(limaDayBounds(undefined, atMidnight)[0]).toBe(atMidnight);
-    });
-  });
+        expect(limaDayBounds(undefined, justBefore)[0]).toBe(
+          Date.parse("2026-09-18T05:00:00.000Z"),
+        );
+        expect(limaDayBounds(undefined, atMidnight)[0]).toBe(atMidnight);
+      });
+    },
+  );
 
   describe("a date that is not a calendar day", () => {
     it.each([

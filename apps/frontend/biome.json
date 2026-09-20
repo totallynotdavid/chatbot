@@ -2,18 +2,17 @@
     "root": false,
     "extends": "//",
     "files": {
-        "includes": [
-            "!src/lib/components/ui/data-table.svelte"
-        ]
+        "includes": ["!src/lib/components/ui/data-table.svelte"]
     },
     "linter": {
         "rules": {
             "correctness": {
-                "recommended": true,
+                "preset": "recommended",
                 "noUnusedImports": "off"
             },
             "complexity": {
                 "noExcessiveCognitiveComplexity": {
+                    "level": "on",
                     "options": {
                         "maxAllowedComplexity": 17
                     }
