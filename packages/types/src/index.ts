@@ -196,7 +196,10 @@ export type AnalyticsEvent = {
 export type AuditLog = {
   id: string;
   tenant_id: string | null;
-  user_id: string;
+  /** Null for an action no user took, such as one from the account command. */
+  user_id: string | null;
+  /** `user:<user id>` or `cli:<operating-system user>`. */
+  actor: string;
   action: string;
   resource_type: string;
   resource_id: string | null;

@@ -45,7 +45,7 @@ export class SystemLogService {
     const auditLogs = getAll<any>(
       `SELECT
          a.id, a.created_at, a.action, a.resource_type, a.resource_id, a.metadata,
-         u.username as actor_name, a.user_id
+         u.username as actor_name, a.user_id, a.actor
        FROM audit_log a
        LEFT JOIN users u ON a.user_id = u.id
        WHERE ${tenantOrPlatformPredicate(tenantId, "a.tenant_id")}
@@ -72,7 +72,7 @@ export class SystemLogService {
         source: "audit" as const,
         event: a.action,
         status: "info" as const,
-        actor: a.actor_name || "Unknown User",
+        actor: a.actor_name || a.actor,
         summary: `${a.resource_type} ${a.resource_id || ""}`.trim(),
         metadata:
           a.metadata && a.metadata !== "{}" ? JSON.parse(a.metadata) : {},

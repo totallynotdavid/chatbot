@@ -85,8 +85,9 @@ system.get("/audit", (c) => {
 
   const logs = getAuditTrail(scope.tenantId, userIdFilter, limit);
 
-  // Resolve user names
-  const userIds = [...new Set(logs.map((l) => l.user_id))];
+  const userIds = [
+    ...new Set(logs.flatMap((l) => (l.user_id === null ? [] : [l.user_id]))),
+  ];
   const dbUsers = userIds.length
     ? getAll<{ id: string; username: string; name: string }>(
         `SELECT id, username, name FROM users WHERE id IN (${userIds.map(() => "?").join(",")})`,
@@ -96,11 +97,17 @@ system.get("/audit", (c) => {
 
   const userMap = new Map(dbUsers.map((u) => [u.id, u]));
 
-  const logsWithNames = logs.map((log) => ({
-    ...log,
-    user_name: userMap.get(log.user_id)?.name || "Usuario eliminado",
-    user_username: userMap.get(log.user_id)?.username || log.user_id,
-  }));
+  const logsWithNames = logs.map((log) => {
+    if (log.user_id === null) {
+      return { ...log, user_name: log.actor, user_username: null };
+    }
+
+    return {
+      ...log,
+      user_name: userMap.get(log.user_id)?.name || "Usuario eliminado",
+      user_username: userMap.get(log.user_id)?.username || log.user_id,
+    };
+  });
 
   return c.json({ logs: logsWithNames });
 });

@@ -9,13 +9,14 @@ import Button from "$lib/components/ui/button.svelte";
 
 type AuditLogWithName = AuditLog & {
   user_name?: string;
-  user_username?: string;
+  user_username?: string | null;
 };
 let logs = $state<AuditLogWithName[]>([]);
 let loading = $state(true);
 
 const actionLabels: Record<string, string> = {
   create_user: "Creó usuario",
+  promote_platform_operator: "Promovió a operador de plataforma",
   toggle_user_status: "Cambió estado",
   update_user_role: "Cambió rol",
   reset_password: "Reseteó password",
@@ -43,7 +44,15 @@ async function loadLogs() {
 
 onMount(loadLogs);
 
-// Column Definitions
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 const columns = [
   {
     header: "Fecha",
@@ -53,9 +62,9 @@ const columns = [
   {
     header: "Usuario",
     render: (item: AuditLogWithName) => {
-      const name = item.user_name || item.user_id;
+      const name = escapeHtml(item.user_name || item.actor);
       const sub = item.user_username
-        ? `<br><span class="text-xs text-ink-400 font-mono">@${item.user_username}</span>`
+        ? `<br><span class="text-xs text-ink-400 font-mono">@${escapeHtml(item.user_username)}</span>`
         : "";
       return `<div class="leading-tight">${name}${sub}</div>`;
     },
