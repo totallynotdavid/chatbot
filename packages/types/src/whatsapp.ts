@@ -1,7 +1,7 @@
 /** The types `messages.type` can hold. */
 export type StoredMessageType = "text" | "image";
 
-/** What a channel can deliver; only the stored types are kept in `messages`. */
+/** What a channel can deliver. Only the stored types are kept in `messages`. */
 export type InboundMessageType =
   | StoredMessageType
   | "document"

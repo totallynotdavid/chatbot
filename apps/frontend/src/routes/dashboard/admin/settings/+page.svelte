@@ -18,22 +18,19 @@
     JSON.stringify(settings) !== JSON.stringify(initialSettings),
   );
 
-  // `maintenance_mode` is this tenant's OWN stored setting - what the toggle
-  // below writes and what a save persists. The platform-wide freeze is a
-  // separate, read-only value, and the bot is held when either says so.
-  //
-  // These are kept apart on purpose. They used to arrive combined in
-  // `maintenance_mode`, and since every save posts the whole settings object
-  // back, a platform-wide freeze was written into the tenant's own row the next
-  // time anyone saved anything on this page - and stayed there after the
-  // platform freeze was lifted.
+  // For a tenant admin, `maintenance_mode` is the tenant's own stored setting.
+  // The platform-wide freeze is a separate read-only value, and the bot is held
+  // when either one says so. Keep them apart, because a save posts every key
+  // without an underscore prefix and a combined value would write the platform
+  // freeze into the tenant's own row.
   let platformFrozen = $derived(
     settings["_platform_maintenance_mode"] === "true",
   );
 
   // Derived from the two raw values rather than read from the server's
   // `_effective_maintenance_mode`, so it follows the toggle as it moves instead
-  // of lagging a save behind.
+  // of lagging a save behind. An operator with no tenant selected gets the
+  // platform value under `maintenance_mode`, and `platformFrozen` stays false.
   let effectivelyFrozen = $derived(
     settings["maintenance_mode"] === "true" || platformFrozen,
   );
@@ -44,9 +41,9 @@
   let canEditPlatformSettings = $derived(settings["_scope"] === "platform");
 
   // Where a platform switch's value is. An operator with no tenant selected
-  // owns these and edits them under their own names; a tenant admin is shown
-  // them as `_platform_<key>`, which a save never posts back - under the raw
-  // names they were resubmitted, and refused, on every save of this page.
+  // owns these and edits them under their own names. A tenant admin sees them
+  // as `_platform_<key>`, which a save never posts back. Under the raw names, a
+  // save would resubmit them and the server would refuse the write.
   function platformSwitchOn(key: string): boolean {
     return (
       settings[canEditPlatformSettings ? key : `_platform_${key}`] === "true"
@@ -121,9 +118,9 @@
         wasInMaintenance && settings["maintenance_mode"] === "false";
 
       // Only the writable keys go back. The underscore-prefixed ones are the
-      // server's read-only commentary on this tenant's state (the platform
-      // freeze, the effective freeze, the scope); POST ignores them, and not
-      // sending them keeps a save to what this page actually owns.
+      // server's read-only commentary: the platform freeze, the effective freeze
+      // and the scope. The POST ignores them, and leaving them out keeps a save
+      // to what this page owns.
       const payload = Object.fromEntries(
         Object.entries(settings).filter(([key]) => !key.startsWith("_")),
       );
@@ -194,9 +191,9 @@
 
         <!--
           A platform-wide freeze holds this business's messages whatever the
-          toggle above says. It is shown rather than folded into the toggle:
-          folding it in is what used to write VendeYa's freeze into this
-          tenant's own setting on the next save.
+          toggle above says. It is shown apart from the toggle, because folding
+          it in would write VendeYa's freeze into this tenant's own setting on
+          the next save.
         -->
         {#if platformFrozen}
           <div

@@ -4,7 +4,7 @@ import { formatPhone } from "$lib/utils/formatters";
 
 type Props = {
   conversation: Conversation;
-  /** Only the simulator has an open thread to mark; the inbox has none. */
+  /** Only the simulator has an open thread to mark. The inbox has none. */
   isSelected?: boolean;
   onclick?: () => void;
   href?: string;

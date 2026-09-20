@@ -13,9 +13,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     redirect(303, "/dashboard");
   }
 
-  // Pass load query params to page. `channel` names the number the conversation
-  // being replayed happened on; a business with one number can leave it off.
   const loadPhone = url.searchParams.get("load");
+  // `channel` names the number the conversation being replayed happened on.
+  // A business with one number can leave it off.
   const loadChannel = url.searchParams.get("channel");
 
   return {

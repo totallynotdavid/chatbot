@@ -151,15 +151,9 @@ export type EnrichmentResult =
       categoryDisplayNames?: string[];
       groupDisplayNames?: string[];
       /**
-       * Whether a catalog was consulted at all, on the one status that has
-       * affordable* fields to explain. False means no tenant owned the check -
-       * the admin DNI lookup has no conversation behind it - so those fields
-       * are absent because nothing was asked, not because nothing was
-       * affordable; a conversation always has a tenant, so it reads true there.
-       *
-       * Undefined on every other status. `not_eligible`, `needs_human` and
-       * `system_outage` carry no affordable* fields either way, so there is no
-       * ambiguity for this flag to resolve (see mapper.ts).
+       * Set on `eligible` only. False means no tenant owned the check, so the
+       * affordable* fields are absent because no catalog was consulted.
+       * A conversation always has a tenant and reads true.
        */
       catalogChecked?: boolean;
     }

@@ -4,14 +4,21 @@ import { showTenantSelector } from "$lib/state/tenant-switching";
 
 type User = {
   username: string;
-  /** Role in the active tenant; null until one is selected. */
+  /**
+   * The role the session acts with. A platform operator is admin in every
+   * scope. Anyone else has their role in the active tenant, null until one is
+   * selected.
+   */
   role: string | null;
   name: string;
-  /** Taking new conversations in the active tenant; false while unpinned. */
+  /** Whether the user takes new conversations in the active tenant. False while unpinned. */
   isAvailable?: boolean;
   /** VendeYa staff, who may act across tenants rather than inside one. */
   isPlatformOperator?: boolean;
-  /** Tenant the session is scoped to; null means unscoped. */
+  /**
+   * Tenant the session is pinned to. Null means none is pinned: an operator
+   * sees across tenants and a member has no scope yet.
+   */
   activeTenantId?: string | null;
 };
 
@@ -83,7 +90,6 @@ function createAuthState() {
     get tenants() {
       return state.tenants;
     },
-    /** Whether the nav shows the tenant selector; see showTenantSelector. */
     get canSwitchTenant() {
       return showTenantSelector({
         tenantCount: state.tenants.length,
@@ -99,7 +105,7 @@ function createAuthState() {
       state.isAuthenticated = Boolean(user);
       state.isLoading = false;
 
-      // The tenant list is not part of the SSR payload; fetch it once the
+      // The SSR payload does not carry the tenant list. Fetch it once the
       // client has a session so the scope indicator can render.
       if (user && browser) {
         void this.loadTenants();

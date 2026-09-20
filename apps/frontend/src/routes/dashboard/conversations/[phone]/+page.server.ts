@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, fetch }) => {
   }
 
   // A conversation is (tenant, channel account, phone number). The inbox links
-  // carry the channel account; without it the API refuses to guess between two
+  // carry the channel account. Without it the API refuses to guess between two
   // threads from the same contact on different business numbers.
   const channel = url.searchParams.get("channel");
   const channelQuery = channel ? `?channel=${encodeURIComponent(channel)}` : "";

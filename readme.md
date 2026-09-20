@@ -58,7 +58,7 @@ Prereqs are pinned in `mise.toml` (bun, cloudflared, biome). Install them with
 ```sh
 bun install
 cp .env.example .env
-# edit .env - SECRETS_KEY is new, see below
+# edit .env and set SECRETS_KEY (see below)
 bun run seed
 bun run account create <username>   # or --platform-operator, see below
 bun run dev
