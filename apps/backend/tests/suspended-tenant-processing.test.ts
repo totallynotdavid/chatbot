@@ -334,7 +334,10 @@ describe("the dev adapter", () => {
   });
 
   it("sends for an active account", async () => {
-    expect(await DevAdapter.sendMessage(account, CUSTOMER, "hola")).toBe("m-1");
+    expect(await DevAdapter.sendMessage(account, CUSTOMER, "hola")).toEqual({
+      ok: true,
+      messageId: "m-1",
+    });
     expect(calls).toBe(1);
   });
 
@@ -342,12 +345,17 @@ describe("the dev adapter", () => {
     it(`refuses to send for a ${status} account`, async () => {
       const inactive = { ...account, status };
 
-      expect(
-        await DevAdapter.sendMessage(inactive, CUSTOMER, "hola"),
-      ).toBeNull();
+      const refused = {
+        ok: false as const,
+        kind: "permanent" as const,
+        reason: "account_not_active",
+      };
+      expect(await DevAdapter.sendMessage(inactive, CUSTOMER, "hola")).toEqual(
+        refused,
+      );
       expect(
         await DevAdapter.sendImage(inactive, CUSTOMER, "images/x.jpg"),
-      ).toBeNull();
+      ).toEqual(refused);
 
       // The refusal happens before any request. The send did not fail on the
       // wire.

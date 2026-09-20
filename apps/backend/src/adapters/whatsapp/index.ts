@@ -1,6 +1,10 @@
 import process from "node:process";
 import type { ChannelAccount, ConversationRef } from "@totem/types";
-import type { ConversationMessage, StoredMessageType } from "./types.ts";
+import type {
+  ConversationMessage,
+  SendOutcome,
+  StoredMessageType,
+} from "./types.ts";
 import { CloudApiAdapter } from "./cloud-api.ts";
 import { DevAdapter } from "./dev-adapter.ts";
 import { MessageStore } from "./message-store.ts";
@@ -43,11 +47,11 @@ export class ChannelUnavailableError extends Error {
  * `unsendable` holds the account when its tenant is open and the ref matches it,
  * but the account is not active. The caller turns that into a throw. It is null
  * for a permanent refusal (suspended tenant, missing account, ref built from two
- * tenants), which is logged and not thrown.
+ * tenants), which is logged and returned as a `permanent` outcome with `reason`.
  */
 type SendTarget =
   | { account: ChannelAccount }
-  | { unsendable: ChannelAccount | null };
+  | { unsendable: ChannelAccount | null; reason: string };
 
 function resolveAccount(ref: ConversationRef): SendTarget {
   const account = ChannelAccountService.getById(ref.channelAccountId);
@@ -57,7 +61,7 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       { channelAccountId: ref.channelAccountId, tenantId: ref.tenantId },
       "Channel account not found for conversation",
     );
-    return { unsendable: null };
+    return { unsendable: null, reason: "account_not_found" };
   }
 
   if (!TenantService.isOpen(account.tenant_id)) {
@@ -67,7 +71,7 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       { channelAccountId: account.id, tenantId: account.tenant_id },
       "Refusing to send for a tenant that is not active",
     );
-    return { unsendable: null };
+    return { unsendable: null, reason: "tenant_not_active" };
   }
 
   if (account.tenant_id !== ref.tenantId) {
@@ -81,7 +85,7 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       },
       "Channel account does not belong to the conversation's tenant",
     );
-    return { unsendable: null };
+    return { unsendable: null, reason: "tenant_mismatch" };
   }
 
   // This check runs after the tenant check. A suspended business whose number
@@ -95,38 +99,65 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       },
       "Refusing to send on a channel account that is not active",
     );
-    return { unsendable: account };
+    return { unsendable: account, reason: "account_not_active" };
   }
 
   return { account };
 }
 
+function logFailure(
+  ref: ConversationRef,
+  outcome: Extract<SendOutcome, { ok: false }>,
+  what: "message" | "image",
+): void {
+  logger.warn(
+    {
+      tenantId: ref.tenantId,
+      channelAccountId: ref.channelAccountId,
+      kind: outcome.kind,
+      reason: outcome.reason,
+      status: outcome.status,
+    },
+    `WhatsApp ${what} send failed`,
+  );
+}
+
 export const WhatsAppService = {
-  async sendMessage(ref: ConversationRef, content: string): Promise<void> {
+  /**
+   * Returns what the send did. A refusal `resolveAccount` reports as
+   * `unsendable: null` comes back as a `permanent` outcome after its `failed`
+   * row is written. An inactive account of an open tenant still throws
+   * `ChannelUnavailableError`.
+   */
+  async sendMessage(
+    ref: ConversationRef,
+    content: string,
+  ): Promise<SendOutcome> {
     const target = resolveAccount(ref);
     if (!("account" in target)) {
       MessageStore.log(ref, "outbound", "text", content, "failed");
       if (target.unsendable) {
         throw new ChannelUnavailableError(ref, target.unsendable.status);
       }
-      return;
+      return { ok: false, kind: "permanent", reason: target.reason };
     }
     const { account } = target;
 
-    const messageId = await adapter.sendMessage(
+    const outcome = await adapter.sendMessage(
       account,
       ref.phoneNumber,
       content,
     );
-    const status = messageId ? "sent" : "failed";
     MessageStore.log(
       ref,
       "outbound",
       "text",
       content,
-      status,
-      messageId ?? undefined,
+      outcome.ok ? "sent" : "failed",
+      outcome.ok ? outcome.messageId : undefined,
     );
+    if (!outcome.ok) logFailure(ref, outcome, "message");
+    return outcome;
   },
 
   async sendImage(
@@ -134,7 +165,7 @@ export const WhatsAppService = {
     imagePath: string,
     caption?: string,
     productId?: string,
-  ): Promise<void> {
+  ): Promise<SendOutcome> {
     const target = resolveAccount(ref);
     if (!("account" in target)) {
       MessageStore.log(
@@ -149,26 +180,27 @@ export const WhatsAppService = {
       if (target.unsendable) {
         throw new ChannelUnavailableError(ref, target.unsendable.status);
       }
-      return;
+      return { ok: false, kind: "permanent", reason: target.reason };
     }
     const { account } = target;
 
-    const messageId = await adapter.sendImage(
+    const outcome = await adapter.sendImage(
       account,
       ref.phoneNumber,
       imagePath,
       caption,
     );
-    const status = messageId ? "sent" : "failed";
     MessageStore.log(
       ref,
       "outbound",
       "image",
       imagePath,
-      status,
-      messageId ?? undefined,
+      outcome.ok ? "sent" : "failed",
+      outcome.ok ? outcome.messageId : undefined,
       productId,
     );
+    if (!outcome.ok) logFailure(ref, outcome, "image");
+    return outcome;
   },
 
   /**
@@ -182,8 +214,19 @@ export const WhatsAppService = {
     to: string,
     content: string,
   ): Promise<boolean> {
-    const messageId = await adapter.sendMessage(account, to, content);
-    return messageId !== null;
+    const outcome = await adapter.sendMessage(account, to, content);
+    if (!outcome.ok) {
+      logger.warn(
+        {
+          channelAccountId: account.id,
+          kind: outcome.kind,
+          reason: outcome.reason,
+          status: outcome.status,
+        },
+        "WhatsApp direct send failed",
+      );
+    }
+    return outcome.ok;
   },
 
   /**

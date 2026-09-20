@@ -1,4 +1,5 @@
-import type { ChannelAccount, WhatsAppAdapter } from "./types.ts";
+import type { ChannelAccount, SendOutcome, WhatsAppAdapter } from "./types.ts";
+import { classifyHttpFailure, classifyThrown } from "./cloud-api.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { getNotifierUrl, getPublicUrl } from "@totem/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
@@ -23,132 +24,81 @@ function maySend(account: ChannelAccount): boolean {
   return false;
 }
 
+/**
+ * Posts to the notifier. The notifier is not Meta, so a failure is classified
+ * by status or thrown error only.
+ */
+async function postToNotifier(
+  account: ChannelAccount,
+  path: "/send" | "/send-image",
+  payload: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<SendOutcome> {
+  if (!maySend(account)) {
+    return { ok: false, kind: "permanent", reason: "account_not_active" };
+  }
+
+  const { signal, cleanup } = createAbortTimeout(timeoutMs);
+
+  try {
+    const response = await fetch(`${notifierUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    const body = await response.text().catch(() => "");
+    if (!response.ok) return classifyHttpFailure(response.status, body);
+
+    let messageId: unknown;
+    try {
+      messageId = (JSON.parse(body) as { messageId?: unknown }).messageId;
+    } catch {
+      messageId = undefined;
+    }
+    if (typeof messageId === "string" && messageId) {
+      return { ok: true, messageId };
+    }
+    return {
+      ok: false,
+      kind: "ambiguous",
+      reason: "no_message_id",
+      status: response.status,
+    };
+  } catch (error) {
+    return classifyThrown(error);
+  } finally {
+    cleanup();
+  }
+}
+
 export const DevAdapter: WhatsAppAdapter = {
-  async sendMessage(
+  sendMessage(
     account: ChannelAccount,
     to: string,
     content: string,
-  ): Promise<string | null> {
-    if (!maySend(account)) return null;
-
-    const { signal, cleanup } = createAbortTimeout(TIMEOUTS.WHATSAPP_SEND);
-
-    try {
-      const response = await fetch(`${notifierUrl}/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: to, content }),
-        signal,
-      });
-
-      cleanup();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error(
-          {
-            to,
-            channelAccountId: account.id,
-            status: response.status,
-            error: errorText,
-          },
-          "Dev adapter send failed",
-        );
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        status: string;
-        messageId?: string;
-      };
-
-      return data.messageId ?? null;
-    } catch (error) {
-      cleanup();
-
-      if (error instanceof Error) {
-        if (error.name === "AbortError") {
-          logger.error(
-            {
-              to,
-              channelAccountId: account.id,
-              timeoutMs: TIMEOUTS.WHATSAPP_SEND,
-            },
-            "Dev adapter send timeout",
-          );
-        } else {
-          logger.error(
-            { error, to, channelAccountId: account.id },
-            "Dev adapter send error",
-          );
-        }
-      }
-
-      return null;
-    }
+  ): Promise<SendOutcome> {
+    return postToNotifier(
+      account,
+      "/send",
+      { phoneNumber: to, content },
+      TIMEOUTS.WHATSAPP_SEND,
+    );
   },
 
-  async sendImage(
+  sendImage(
     account: ChannelAccount,
     to: string,
     imagePath: string,
     caption?: string,
-  ): Promise<string | null> {
-    if (!maySend(account)) return null;
-
-    const imageUrl = `${publicUrl}/media/${imagePath}`;
-
-    const { signal, cleanup } = createAbortTimeout(TIMEOUTS.WHATSAPP_IMAGE);
-
-    try {
-      const response = await fetch(`${notifierUrl}/send-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: to, imageUrl, caption }),
-        signal,
-      });
-
-      cleanup();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error(
-          { to, imagePath, channelAccountId: account.id, error: errorText },
-          "Dev adapter image send failed",
-        );
-        return null;
-      }
-
-      const data = (await response.json()) as {
-        status: string;
-        messageId?: string;
-      };
-
-      return data.messageId ?? null;
-    } catch (error) {
-      cleanup();
-
-      if (error instanceof Error) {
-        if (error.name === "AbortError") {
-          logger.error(
-            {
-              to,
-              imagePath,
-              channelAccountId: account.id,
-              timeoutMs: TIMEOUTS.WHATSAPP_IMAGE,
-            },
-            "Dev adapter image send timeout",
-          );
-        } else {
-          logger.error(
-            { error, to, imagePath, channelAccountId: account.id },
-            "Dev adapter image send error",
-          );
-        }
-      }
-
-      return null;
-    }
+  ): Promise<SendOutcome> {
+    return postToNotifier(
+      account,
+      "/send-image",
+      { phoneNumber: to, imageUrl: `${publicUrl}/media/${imagePath}`, caption },
+      TIMEOUTS.WHATSAPP_IMAGE,
+    );
   },
 
   async markAsRead(
