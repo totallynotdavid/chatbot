@@ -18,13 +18,11 @@ function applySchema(db: Database) {
 }
 
 export function initializeDatabase(db: Database) {
-  // A legacy database is rebuilt before the schema is applied over it. A fresh
-  // or already migrated database gets the CREATE TABLE IF NOT EXISTS pass, then
-  // the `audit_log` rebuild and the timestamp backfill where they are needed.
+  // A legacy database is rebuilt before the schema is applied over it. Every
+  // process then runs the same idempotent pass, including one that waited for
+  // another process to finish the migration.
   if (needsTenantMigration(db)) {
     migrateToMultiTenant(db, applySchema);
-    backfillTextActivityTimestamps(db);
-    return;
   }
 
   applySchema(db);

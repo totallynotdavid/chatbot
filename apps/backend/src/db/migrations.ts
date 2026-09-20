@@ -85,10 +85,6 @@ export function migrateToMultiTenant(
   db: Database,
   runSchema: (db: Database) => void,
 ): void {
-  logger.info("Migrating single-business database to multi-tenant schema");
-
-  const present = REBUILT_TABLES.filter((t) => tableExists(db, t));
-
   // Foreign keys must be off for the rebuild: renaming a table aside rewrites
   // the references pointing at it, and the legacy tables are dropped in an
   // order that would trip enforcement. The pragma is a no-op inside a
@@ -110,6 +106,8 @@ export function migrateToMultiTenant(
     }
   }
 
+  if (migrated === null) return;
+
   // This runs after the commit. Removing the originals any earlier would
   // destroy the copy source that makes a failed migration retryable.
   removeLegacyOriginals(migrated.copiedFiles);
@@ -125,7 +123,16 @@ export function migrateToMultiTenant(
   );
 
   function runMigration() {
-    return db.transaction(() => {
+    const migrate = db.transaction(() => {
+      // The transaction is immediate, so a process that waited for the write
+      // lock reads the shape only after the other migration has committed. It
+      // must return before it copies or removes any file.
+      if (!needsTenantMigration(db)) return null;
+
+      logger.info("Migrating single-business database to multi-tenant schema");
+
+      const present = REBUILT_TABLES.filter((t) => tableExists(db, t));
+
       // Drop the indexes and move the legacy tables aside, so schema.sql can
       // create the new shape and its indexes under the original names.
       const indexes = db
@@ -174,7 +181,8 @@ export function migrateToMultiTenant(
       }
 
       return { tenant, channelAccount, copiedFiles };
-    })();
+    });
+    return migrate.immediate();
   }
 }
 
@@ -319,24 +327,55 @@ export function migrateAuditLogActor(
 }
 
 /**
- * Converts text `last_activity_at` values that SQLite can parse to epoch ms.
- * Any other value stays, because the column is NOT NULL and boot must not fail.
+ * Turns every text `last_activity_at` into epoch milliseconds. A value SQLite
+ * can parse is converted. Any other takes the time of the conversation's newest
+ * message, or 0 when it has none. SQLite orders text above every integer, so a
+ * text value left in the column would sort as the most recent contact.
  */
 export function backfillTextActivityTimestamps(db: Database): void {
-  const converted = db
-    .prepare(
-      `UPDATE conversations
-       SET last_activity_at =
-         CAST(ROUND(unixepoch(last_activity_at, 'subsec') * 1000) AS INTEGER)
-       WHERE typeof(last_activity_at) = 'text'
-         AND strftime('%s', last_activity_at) IS NOT NULL`,
-    )
-    .run();
+  const backfill = db.transaction(() => {
+    const converted = db
+      .prepare(
+        `UPDATE conversations
+         SET last_activity_at =
+           CAST(ROUND(unixepoch(last_activity_at, 'subsec') * 1000) AS INTEGER)
+         WHERE typeof(last_activity_at) = 'text'
+           AND strftime('%s', last_activity_at) IS NOT NULL`,
+      )
+      .run().changes;
 
-  if (converted.changes > 0) {
+    // A message time that is not a number is skipped, so the result is always
+    // an integer.
+    const replaced = db
+      .prepare(
+        `UPDATE conversations
+         SET last_activity_at = COALESCE(
+           (SELECT CAST(ROUND(MAX(m.created_at)) AS INTEGER)
+            FROM messages m
+            WHERE m.tenant_id = conversations.tenant_id
+              AND m.channel_account_id = conversations.channel_account_id
+              AND m.phone_number = conversations.phone_number
+              AND typeof(m.created_at) IN ('integer', 'real')),
+           0)
+         WHERE typeof(last_activity_at) = 'text'`,
+      )
+      .run().changes;
+
+    return { converted, replaced };
+  });
+  const { converted, replaced } = backfill.immediate();
+
+  if (converted > 0) {
     logger.info(
-      { conversations: converted.changes },
+      { conversations: converted },
       "Converted text activity timestamps to epoch milliseconds",
+    );
+  }
+
+  if (replaced > 0) {
+    logger.warn(
+      { conversations: replaced },
+      "Replaced unparseable activity timestamps with the time of the newest message, or 0",
     );
   }
 }

@@ -3,14 +3,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";
 import fs from "node:fs";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import process from "node:process";
 import { db as applicationDb } from "../src/db/index.ts";
 import { initializeDatabase } from "../src/db/init.ts";
 import { migrateAuditLogActor } from "../src/db/migrations.ts";
 import { createTestDatabase } from "./helpers/database.ts";
+import { startTogether } from "./helpers/start-together.ts";
 
 const SCHEMA = fs.readFileSync(
   join(import.meta.dir, "..", "src", "db", "schema.sql"),
@@ -290,55 +290,8 @@ describe("two processes booting on a database with the old audit_log", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  async function boot(mode: "init" | "migrate") {
-    const barrier = join(dir, "go");
-    const children = [0, 1].map(() =>
-      Bun.spawn(["bun", "run", CHILD, mode, barrier], {
-        stdout: "pipe",
-        stderr: "pipe",
-        env: {
-          PATH: process.env.PATH ?? "",
-          HOME: process.env.HOME ?? "",
-          NODE_ENV: "test",
-          DB_PATH: dbPath,
-          UPLOAD_DIR: join(dir, "uploads"),
-          PRIVATE_DIR: join(dir, "private"),
-        },
-      }),
-    );
-
-    const watched = children.map((child) => {
-      const decoder = new TextDecoder();
-      let text = "";
-      let markReady = () => {};
-      const ready = new Promise<void>((resolve) => {
-        markReady = resolve;
-      });
-      const stdout = (async () => {
-        for await (const chunk of child.stdout) {
-          text += decoder.decode(chunk, { stream: true });
-          if (text.includes("ready")) markReady();
-        }
-        return text;
-      })();
-
-      return { child, ready, stdout };
-    });
-
-    await Promise.all(watched.map((w) => w.ready));
-    writeFileSync(barrier, "");
-
-    return Promise.all(
-      watched.map(async ({ child, stdout }) => {
-        const [out, stderr, code] = await Promise.all([
-          stdout,
-          new Response(child.stderr).text(),
-          child.exited,
-        ]);
-        return { stdout: out, stderr, code };
-      }),
-    );
-  }
+  const boot = (mode: "init" | "migrate") =>
+    startTogether({ dir, dbPath, script: CHILD, args: [mode] });
 
   function migrated() {
     const db = createTestDatabase(dbPath);
