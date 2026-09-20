@@ -4,6 +4,10 @@ import type { Context } from "hono";
 import type { Conversation } from "@totem/types";
 import * as ConversationRead from "../domains/conversations/read.ts";
 import { isValidRole } from "../domains/conversations/read.ts";
+import {
+  ConversationBusyError,
+  LockTimeoutError,
+} from "../conversation/locks.ts";
 import { refOf } from "../conversation/store.ts";
 import * as ConversationWrite from "../domains/conversations/write.ts";
 import * as ConversationMedia from "../domains/conversations/media.ts";
@@ -58,6 +62,23 @@ function resolve(
   return { error: c.json({ error: "Conversation not found" }, 404) };
 }
 
+/**
+ * A lock wait that runs out is answered as busy. After `LockTimeoutError` the
+ * change may still land, and repeating a takeover or a release is harmless.
+ */
+function refuseIfBusy(c: Context, error: unknown): Response {
+  if (
+    error instanceof ConversationBusyError ||
+    error instanceof LockTimeoutError
+  ) {
+    return c.json(
+      { error: "The conversation is busy. Try again in a moment." },
+      409,
+    );
+  }
+  throw error;
+}
+
 conversations.get("/", (c) => {
   const user = c.get("user");
   const scope = c.get("scope");
@@ -78,14 +99,22 @@ conversations.get("/:phone", (c) => {
   return c.json(ConversationRead.getConversationDetail(found.conversation));
 });
 
-conversations.post("/:phone/takeover", requireActiveTenant, (c) => {
+conversations.post("/:phone/takeover", requireActiveTenant, async (c) => {
   const found = resolve(c);
   if ("error" in found) return found.error;
   const conv = found.conversation;
 
   const user = c.get("user");
-  const result = ConversationWrite.takeoverConversation(refOf(conv), user.id);
-  return c.json(result);
+
+  try {
+    const result = await ConversationWrite.takeoverConversation(
+      refOf(conv),
+      user.id,
+    );
+    return c.json(result);
+  } catch (error) {
+    return refuseIfBusy(c, error);
+  }
 });
 
 conversations.post("/:phone/message", requireActiveTenant, async (c) => {
@@ -109,14 +138,22 @@ conversations.post("/:phone/message", requireActiveTenant, async (c) => {
   return c.json(result);
 });
 
-conversations.post("/:phone/release", requireActiveTenant, (c) => {
+conversations.post("/:phone/release", requireActiveTenant, async (c) => {
   const found = resolve(c);
   if ("error" in found) return found.error;
   const conv = found.conversation;
 
   const user = c.get("user");
-  const result = ConversationWrite.releaseConversation(refOf(conv), user.id);
-  return c.json(result);
+
+  try {
+    const result = await ConversationWrite.releaseConversation(
+      refOf(conv),
+      user.id,
+    );
+    return c.json(result);
+  } catch (error) {
+    return refuseIfBusy(c, error);
+  }
 });
 
 conversations.post(

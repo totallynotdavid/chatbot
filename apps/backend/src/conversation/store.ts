@@ -138,6 +138,22 @@ export function escalateConversation(
   updateConversation(ref, { phase: "escalated", reason }, {});
 }
 
+/**
+ * Writes neither the phase nor the status, so it needs no lock. A row without
+ * valid JSON in `context_data` is left as it is, because `json_set` on NULL
+ * returns NULL and would wipe the column.
+ */
+export function refreshLastActivity(ref: ConversationRef): void {
+  const now = Date.now();
+
+  db.prepare(
+    `UPDATE conversations
+     SET context_data = json_set(context_data, '$.metadata.lastActivityAt', ?),
+         last_activity_at = ?
+     WHERE ${IDENTITY_WHERE} AND json_valid(context_data)`,
+  ).run(now, now, ...identityParams(ref));
+}
+
 export function isSessionTimedOut(metadata: ConversationMetadata): boolean {
   const hoursSince = (Date.now() - metadata.lastActivityAt) / (1000 * 60 * 60);
   return hoursSince >= 3;

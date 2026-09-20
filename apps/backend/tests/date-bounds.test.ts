@@ -315,7 +315,7 @@ describe("date ranges over millisecond columns", () => {
       expect(stored as number).toBeGreaterThanOrEqual(before);
     });
 
-    it("is an integer after an agent takes the conversation over", () => {
+    it("is an integer after an agent takes the conversation over", async () => {
       const agent = `u-${crypto.randomUUID()}`;
       db.prepare(
         `INSERT INTO users (id, username, password_hash, role, name)
@@ -323,7 +323,7 @@ describe("date ranges over millisecond columns", () => {
       ).run(agent, `agent-${agent.slice(2, 10)}`);
 
       const before = Date.now();
-      takeoverConversation(tenant.ref(CUSTOMER), agent);
+      await takeoverConversation(tenant.ref(CUSTOMER), agent);
 
       const stored = lastActivity(tenant);
       expect(typeof stored).toBe("number");

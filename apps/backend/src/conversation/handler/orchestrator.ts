@@ -39,7 +39,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
       "Processing message",
     );
 
-    const conversation = getOrCreateConversation(ref);
+    let conversation = getOrCreateConversation(ref);
 
     if (isSessionTimedOut(conversation.metadata)) {
       logger.info(
@@ -51,6 +51,9 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         "Session timeout reset",
       );
       resetSession(ref, conversation.metadata.lastCategory);
+      // This turn answers from the reset conversation. The old phase would
+      // be written back over the reset when the turn ends.
+      conversation = getOrCreateConversation(ref);
     }
 
     const traceId = crypto.randomUUID();

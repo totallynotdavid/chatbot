@@ -6,6 +6,14 @@ import {
   WhatsAppService,
 } from "../../adapters/whatsapp/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
+import { withLock } from "../../conversation/locks.ts";
+import {
+  findConversation,
+  getOrCreateConversation,
+  refreshLastActivity,
+  resetSession,
+  updateConversation,
+} from "../../conversation/store.ts";
 
 const ALLOWED_AGENT_DATA_FIELDS = [
   "agent_notes",
@@ -17,6 +25,8 @@ const ALLOWED_AGENT_DATA_FIELDS = [
 
 const VALID_SALE_STATUSES = ["pending", "confirmed", "rejected", "no_answer"];
 
+const MANUAL_TAKEOVER_REASON = "Manual takeover by agent";
+
 const IDENTITY_WHERE =
   "tenant_id = ? AND channel_account_id = ? AND phone_number = ?";
 
@@ -24,40 +34,56 @@ function identityParams(ref: ConversationRef): [string, string, string] {
   return [ref.tenantId, ref.channelAccountId, ref.phoneNumber];
 }
 
-export function takeoverConversation(ref: ConversationRef, userId: string) {
-  db.prepare(
-    `UPDATE conversations
-     SET status = 'human_takeover',
-       handover_reason = 'Manual takeover by agent',
-       last_activity_at = ?
-     WHERE ${IDENTITY_WHERE}`,
-  ).run(Date.now(), ...identityParams(ref));
+export async function takeoverConversation(
+  ref: ConversationRef,
+  userId: string,
+) {
+  // A bot turn reads the phase when it starts and writes it when it ends.
+  // Without the lock a takeover that lands mid-turn is overwritten and the bot
+  // resumes. A turn already in flight may still send the replies it had ready.
+  await withLock(ref, async () => {
+    updateConversation(
+      ref,
+      { phase: "escalated", reason: MANUAL_TAKEOVER_REASON },
+      {},
+    );
 
-  logAction(
-    { userId, tenantId: ref.tenantId },
-    "takeover",
-    "conversation",
-    ref.phoneNumber,
-    {},
-  );
+    logAction(
+      { userId, tenantId: ref.tenantId },
+      "takeover",
+      "conversation",
+      ref.phoneNumber,
+      {},
+    );
+  });
 
   return { success: true };
 }
 
-export function releaseConversation(ref: ConversationRef, userId: string) {
-  db.prepare(
-    `UPDATE conversations
-     SET status = 'active',
-       handover_reason = NULL
-     WHERE ${IDENTITY_WHERE}`,
-  ).run(...identityParams(ref));
+export async function releaseConversation(
+  ref: ConversationRef,
+  userId: string,
+) {
+  // The lock keeps a bot turn from writing its phase over the reset. The state
+  // is read again inside it, because the row the route resolved may be stale.
+  await withLock(ref, async () => {
+    const row = findConversation(ref);
+    if (!row) return;
+    const { phase, metadata } = getOrCreateConversation(ref);
 
-  logAction(
-    { userId, tenantId: ref.tenantId },
-    "release",
-    "conversation",
-    ref.phoneNumber,
-  );
+    // A conversation the bot owns is left alone, so a repeated release cannot
+    // restart it.
+    if (row.status !== "human_takeover" && phase.phase !== "escalated") return;
+
+    resetSession(ref, metadata.lastCategory);
+
+    logAction(
+      { userId, tenantId: ref.tenantId },
+      "release",
+      "conversation",
+      ref.phoneNumber,
+    );
+  });
 
   return { success: true };
 }
@@ -85,6 +111,9 @@ export async function sendManualMessage(
     }
     throw error;
   }
+
+  // Keeps the idle reset away from a conversation an agent is answering.
+  refreshLastActivity(ref);
 
   logAction(
     { userId, tenantId: ref.tenantId },
