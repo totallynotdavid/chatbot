@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getAll, tenantOrPlatformPredicate } from "../../db/query.ts";
-import type { SQLQueryBindings } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type { AuditLog } from "@totem/types";
 
 /**
@@ -12,6 +12,81 @@ export type AuditActor = {
   tenantId: string | null;
 };
 
+/**
+ * Who ran a command in a terminal. The environment can change `name` but not
+ * `uid`, so a row records both.
+ */
+export type CliOperator = {
+  name: string;
+  uid: number;
+};
+
+/** Writes audit rows through one connection. */
+export function auditOn(database: Database) {
+  function insert(
+    actor: string,
+    userId: string | null,
+    tenantId: string | null,
+    action: string,
+    resourceType: string,
+    resourceId: string | null,
+    metadata: Record<string, any>,
+  ): void {
+    database
+      .prepare(
+        `INSERT INTO audit_log (id, tenant_id, user_id, actor, action, resource_type, resource_id, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        crypto.randomUUID(),
+        tenantId,
+        userId,
+        actor,
+        action,
+        resourceType,
+        resourceId,
+        JSON.stringify(metadata),
+      );
+  }
+
+  return {
+    logAction: (
+      actor: AuditActor,
+      action: string,
+      resourceType: string,
+      resourceId: string | null = null,
+      metadata: Record<string, any> = {},
+    ): void =>
+      insert(
+        `user:${actor.userId}`,
+        actor.userId,
+        actor.tenantId,
+        action,
+        resourceType,
+        resourceId,
+        metadata,
+      ),
+
+    logCliAction: (
+      operator: CliOperator,
+      tenantId: string | null,
+      action: string,
+      resourceType: string,
+      resourceId: string | null,
+      metadata: Record<string, any> = {},
+    ): void =>
+      insert(
+        `cli:${operator.name}`,
+        null,
+        tenantId,
+        action,
+        resourceType,
+        resourceId,
+        { ...metadata, uid: operator.uid },
+      ),
+  };
+}
+
 export function logAction(
   actor: AuditActor,
   action: string,
@@ -19,21 +94,7 @@ export function logAction(
   resourceId: string | null = null,
   metadata: Record<string, any> = {},
 ): void {
-  const id = crypto.randomUUID();
-  const metadataJson = JSON.stringify(metadata);
-
-  db.prepare(
-    `INSERT INTO audit_log (id, tenant_id, user_id, action, resource_type, resource_id, metadata)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    actor.tenantId,
-    actor.userId,
-    action,
-    resourceType,
-    resourceId,
-    metadataJson,
-  );
+  auditOn(db).logAction(actor, action, resourceType, resourceId, metadata);
 }
 
 /**

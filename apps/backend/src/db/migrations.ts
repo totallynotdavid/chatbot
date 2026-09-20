@@ -38,6 +38,13 @@ function tableExists(db: Database, name: string): boolean {
   return row !== null && row !== undefined;
 }
 
+function indexExists(db: Database, name: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .get(name);
+  return row !== null && row !== undefined;
+}
+
 function columnExists(db: Database, table: string, column: string): boolean {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
     name: string;
@@ -254,6 +261,90 @@ export function backfillSessionTenants(db: Database): void {
     { sessions: updated.changes },
     "Pinned carried-over sessions to the tenant their user belongs to",
   );
+}
+
+/**
+ * `audit_log` has two shapes. The legacy shape has no `actor` column and a NOT
+ * NULL `user_id`. The current shape has `actor` and a nullable `user_id`. A
+ * database from before tenancy reaches the current shape through
+ * `migrateToMultiTenant`. A database from after tenancy reaches it here. Nothing
+ * moves a table back. SQLite cannot drop NOT NULL in place, so the table is
+ * rebuilt from schema.sql with its rows copied across.
+ *
+ * Every process runs this at boot, so the rebuild takes the write lock first and
+ * checks the shape again inside it. A process that waited for the lock finds the
+ * work done and returns. The rebuild is one transaction, so a failure leaves the
+ * legacy table as it was.
+ *
+ * Every insert must supply `actor` once the shape is current. A build that omits
+ * it fails on the NOT NULL constraint, so it cannot run against a migrated file.
+ */
+export function migrateAuditLogActor(
+  db: Database,
+  runSchema: (db: Database) => void,
+): void {
+  if (!tableExists(db, "audit_log") || columnExists(db, "audit_log", "actor")) {
+    return;
+  }
+
+  const foreignKeysWereOn =
+    (
+      db.prepare("PRAGMA foreign_keys").get() as
+        | { foreign_keys: number }
+        | undefined
+    )?.foreign_keys === 1;
+  // The pragma is a no-op inside a transaction, so it is set around it.
+  db.run("PRAGMA foreign_keys = OFF;");
+
+  let rebuilt = false;
+
+  try {
+    rebuilt = db
+      .transaction(() => {
+        // A process that waited for the lock finds the rebuild already done.
+        if (columnExists(db, "audit_log", "actor")) return false;
+
+        const indexes = db
+          .prepare(
+            `SELECT name, sql FROM sqlite_master
+           WHERE type = 'index' AND tbl_name = 'audit_log' AND sql IS NOT NULL`,
+          )
+          .all() as Array<{ name: string; sql: string }>;
+        // An index keeps its name when its table is renamed, which would make
+        // the schema's CREATE INDEX IF NOT EXISTS skip it on the new table.
+        for (const index of indexes) {
+          db.run(`DROP INDEX "${index.name.replaceAll('"', '""')}"`);
+        }
+
+        db.run("ALTER TABLE audit_log RENAME TO audit_log_legacy");
+        runSchema(db);
+
+        // The schema recreates its own indexes. Any other one was added by hand
+        // and moves to the new table with its definition.
+        for (const index of indexes) {
+          if (!indexExists(db, index.name)) db.run(index.sql);
+        }
+
+        db.run(
+          `INSERT INTO audit_log (id, tenant_id, user_id, actor, action, resource_type, resource_id, metadata, created_at)
+         SELECT id, tenant_id, user_id, 'user:' || user_id, action, resource_type, resource_id, metadata, created_at
+         FROM audit_log_legacy`,
+        );
+        db.run("DROP TABLE audit_log_legacy");
+        return true;
+      })
+      .immediate();
+  } finally {
+    if (foreignKeysWereOn) {
+      db.run("PRAGMA foreign_keys = ON;");
+    }
+  }
+
+  if (rebuilt) {
+    logger.info(
+      "Rebuilt audit_log with a nullable user_id and an actor column",
+    );
+  }
 }
 
 /** Converts text `last_activity_at` values SQLite can parse to epoch ms; any other value stays, since the column is NOT NULL and boot must not fail. */
@@ -559,6 +650,12 @@ function copyTable(
     targets.push("channel_account_id");
     sources.push("?");
     params.push(channelAccountId);
+  }
+
+  // Every legacy audit row was written by a user, so that user is its actor.
+  if (table === "audit_log" && !shared.includes("actor")) {
+    targets.push("actor");
+    sources.push("'user:' || l.user_id");
   }
 
   // `orders.conversation_phone` and `messages.phone_number` keep their names,

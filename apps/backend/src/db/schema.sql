@@ -428,10 +428,13 @@ CREATE INDEX IF NOT EXISTS idx_notification_traces_created_at ON notification_tr
 
 -- AUDIT & SYSTEM CONFIGURATION
 -- `tenant_id` is nullable: platform operators also act outside any tenant.
+-- `user_id` is null for an action no user took. `actor` always says who did it:
+-- `user:<user id>` for a person, `cli:<operating-system user>` for the terminal.
 CREATE TABLE IF NOT EXISTS audit_log (
     id TEXT PRIMARY KEY,
     tenant_id TEXT REFERENCES tenants(id) ON DELETE CASCADE,
-    user_id TEXT NOT NULL REFERENCES users(id),
+    user_id TEXT REFERENCES users(id),
+    actor TEXT NOT NULL,
     action TEXT NOT NULL,
     resource_type TEXT NOT NULL,
     resource_id TEXT,

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   backfillTextActivityTimestamps,
+  migrateAuditLogActor,
   migrateToMultiTenant,
   needsTenantMigration,
 } from "./migrations.ts";
@@ -27,6 +28,7 @@ export function initializeDatabase(db: Database) {
   }
 
   applySchema(db);
+  migrateAuditLogActor(db, applySchema);
   backfillTextActivityTimestamps(db);
   warnIfChannelPairUnenforced(db);
 }
@@ -55,9 +57,8 @@ function warnIfChannelPairUnenforced(db: Database): void {
   if (enforced) return;
 
   logger.error(
-    "This database predates the composite (channel_account_id, tenant_id) " +
-      "foreign key: a row may pair one tenant with another tenant's WhatsApp " +
-      "number and SQLite will accept it. Delete the database file and let it " +
-      "be recreated - the schema change cannot be applied in place.",
+    "Database predates composite (channel_account_id, tenant_id) foreign key. " +
+      "A row may pair one tenant with another's WhatsApp number without error. " +
+      "Delete and recreate the database - the schema change cannot be applied in place.",
   );
 }

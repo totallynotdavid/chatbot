@@ -11,6 +11,8 @@ fs.mkdirSync(DB_PATH.substring(0, DB_PATH.lastIndexOf("/")), {
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH, { create: true });
+// Set first, so that a second process waits for a lock instead of failing, even while WAL is switched on.
+db.run("PRAGMA busy_timeout = 10000;");
 db.run("PRAGMA journal_mode = WAL;");
 db.run("PRAGMA synchronous = NORMAL;");
 db.run("PRAGMA cache_size = 10000;");
