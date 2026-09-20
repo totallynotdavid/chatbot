@@ -134,8 +134,21 @@ async function sendMessage(
 ): Promise<void> {
   if (isSimulation) {
     WhatsAppService.logMessage(ref, "outbound", "text", content, "sent");
-  } else {
-    await WhatsAppService.sendMessage(ref, content);
+    return;
+  }
+
+  // The phase is persisted whatever this returns.
+  const outcome = await WhatsAppService.sendMessage(ref, content);
+  if (!outcome.ok) {
+    logger.warn(
+      {
+        tenantId: ref.tenantId,
+        channelAccountId: ref.channelAccountId,
+        kind: outcome.kind,
+        reason: outcome.reason,
+      },
+      "Text command was not sent",
+    );
   }
 }
 
@@ -203,7 +216,10 @@ async function executeImages(
   return null;
 }
 
-/** One bundle's image, and the phase recording it as shown. See `executeImages`. */
+/**
+ * One bundle's image, and the phase recording it as shown. Returns null when the
+ * image was not accepted. See `executeImages`.
+ */
 async function executeSingleBundle(
   command: Extract<Command, { type: "SEND_BUNDLE" }>,
   ref: ConversationRef,
@@ -250,12 +266,25 @@ async function executeSingleBundle(
   if (isSimulation) {
     WhatsAppService.logMessage(ref, "outbound", "image", caption, "sent");
   } else {
-    await WhatsAppService.sendImage(
+    const outcome = await WhatsAppService.sendImage(
       ref,
       `images/${bundle.image_id}.jpg`,
       caption,
       bundle.id,
     );
+    if (!outcome.ok) {
+      logger.warn(
+        {
+          tenantId: ref.tenantId,
+          channelAccountId: ref.channelAccountId,
+          bundleId: bundle.id,
+          kind: outcome.kind,
+          reason: outcome.reason,
+        },
+        "Bundle image was not sent, so it is not recorded as shown",
+      );
+      return null;
+    }
   }
 
   return {

@@ -24,7 +24,8 @@ export type SendBundleResult = {
 
 /**
  * Send bundle images to customer with installment details
- * @returns result with success flag and products sent
+ * @returns `success` when at least one image went out, and only the products
+ * whose image was accepted, at the position they had among the bundles
  */
 export async function sendBundleImages(
   params: SendBundleParams,
@@ -62,12 +63,13 @@ export async function sendBundleImages(
     if (isSimulation) {
       WhatsAppService.logMessage(ref, "outbound", "image", caption, "sent");
     } else {
-      await WhatsAppService.sendImage(
+      const outcome = await WhatsAppService.sendImage(
         ref,
         `images/${bundle.image_id}.jpg`,
         caption,
         bundle.id, // Pass product ID for tracking
       );
+      if (!outcome.ok) continue;
     }
 
     sentProducts.push({
@@ -76,6 +78,10 @@ export async function sendBundleImages(
       productId: bundle.id,
       price: bundle.price,
     });
+  }
+
+  if (sentProducts.length === 0) {
+    return { success: false, products: [] };
   }
 
   // Send follow-up message

@@ -1,6 +1,7 @@
 import { db } from "../../db/index.ts";
 import { getOne } from "../../db/query.ts";
 import type { ConversationRef } from "@totem/types";
+import type { SendOutcome } from "../../adapters/whatsapp/types.ts";
 import {
   ChannelUnavailableError,
   WhatsAppService,
@@ -88,6 +89,15 @@ export async function releaseConversation(
   return { success: true };
 }
 
+const SEND_FAILURE_MESSAGES = {
+  permanent:
+    "The message could not be sent, so the customer did not receive it",
+  transient:
+    "WhatsApp is not accepting messages right now, so the customer did not receive it. Try again in a moment",
+  ambiguous:
+    "WhatsApp did not confirm the message, so it may not have reached the customer",
+} as const;
+
 export async function sendManualMessage(
   ref: ConversationRef,
   content: string,
@@ -97,8 +107,9 @@ export async function sendManualMessage(
     return { success: false, error: "Message content required" };
   }
 
+  let outcome: SendOutcome;
   try {
-    await WhatsAppService.sendMessage(ref, content);
+    outcome = await WhatsAppService.sendMessage(ref, content);
   } catch (error) {
     // The number this conversation happens on is switched off. Nothing went
     // out, so the agent is told rather than shown a message that looks sent.
@@ -110,6 +121,10 @@ export async function sendManualMessage(
       };
     }
     throw error;
+  }
+
+  if (!outcome.ok) {
+    return { success: false, error: SEND_FAILURE_MESSAGES[outcome.kind] };
   }
 
   // Keeps the idle reset away from a conversation an agent is answering.
