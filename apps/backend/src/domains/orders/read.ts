@@ -3,8 +3,6 @@ import type { SQLQueryBindings } from "bun:sqlite";
 import type { ConversationRef, Order } from "@totem/types";
 import type { OrderFilters, OrderMetrics } from "./types.ts";
 
-const MS_PER_DAY = 86400000;
-
 /**
  * A null `tenantId` reads across open tenants. Route handlers pass the caller's
  * scope, so only an unpinned platform operator reaches that case.
@@ -24,16 +22,14 @@ export function getOrders(
     params.push(filters.status);
   }
 
-  if (filters.startDate) {
-    const startTs = new Date(filters.startDate).getTime();
+  if (filters.startMs !== undefined) {
     query += " AND created_at >= ?";
-    params.push(startTs);
+    params.push(filters.startMs);
   }
 
-  if (filters.endDate) {
-    const endTs = new Date(filters.endDate).getTime() + MS_PER_DAY;
-    query += " AND created_at < ?";
-    params.push(endTs);
+  if (filters.endMs !== undefined) {
+    query += " AND created_at <= ?";
+    params.push(filters.endMs);
   }
 
   if (filters.assignedAgent) {

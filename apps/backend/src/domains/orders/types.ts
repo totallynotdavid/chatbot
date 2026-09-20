@@ -21,8 +21,9 @@ export interface CreateOrderInput {
 
 export interface OrderFilters {
   status?: string;
-  startDate?: string;
-  endDate?: string;
+  /** Inclusive bounds on `created_at`, in ms. */
+  startMs?: number;
+  endMs?: number;
   assignedAgent?: string;
   limit?: number;
   offset?: number;

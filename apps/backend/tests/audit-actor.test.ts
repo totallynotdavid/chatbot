@@ -181,4 +181,80 @@ describe("audit actors", () => {
       expect(person.user_name).toBe("Test User");
     });
   });
+
+  describe("a row whose user does not resolve", () => {
+    type AuditPageRow = AuditRow & {
+      user_name: string;
+      user_username: string | null;
+    };
+
+    async function auditPage(userId: string): Promise<AuditPageRow[]> {
+      const app = new Hono();
+      app.use("/api/*", requireAuth);
+      app.use("/api/admin/*", requireRole("admin"));
+      app.route("/api/admin", adminRoutes);
+
+      const response = await app.request("/api/admin/audit?limit=500", {
+        headers: { Cookie: login(userId, tenant.tenantId) },
+      });
+
+      expect(response.status).toBe(200);
+      const { logs } = (await response.json()) as { logs: AuditPageRow[] };
+      return logs.filter((log) => log.action === action);
+    }
+
+    it("is refused by the application connection, so no user an audit row names can be deleted", () => {
+      const { userId } = createMember(tenant);
+      logAction({ userId, tenantId: tenant.tenantId }, action, "thing");
+
+      expect(() =>
+        db.prepare("DELETE FROM users WHERE id = ?").run(userId),
+      ).toThrow(/FOREIGN KEY constraint failed/);
+    });
+
+    it("gets the same label from the audit page and the system log", async () => {
+      const { userId: viewer } = createMember(tenant);
+      const ghost = `u-${crypto.randomUUID()}`;
+
+      db.run("PRAGMA foreign_keys = OFF");
+      try {
+        db.prepare(
+          `INSERT INTO audit_log (id, tenant_id, user_id, actor, action, resource_type)
+           VALUES (?, ?, ?, ?, ?, 'thing')`,
+        ).run(
+          crypto.randomUUID(),
+          tenant.tenantId,
+          ghost,
+          `user:${ghost}`,
+          action,
+        );
+      } finally {
+        db.run("PRAGMA foreign_keys = ON");
+      }
+
+      const row = (await auditPage(viewer)).find(
+        (log) => log.user_id === ghost,
+      )!;
+      const entry = SystemLogService.getRecentLogs(tenant.tenantId).find(
+        (log) => log.id === row.id,
+      )!;
+
+      expect(row.user_name).toBe(`user:${ghost}`);
+      expect(row.user_username).toBeNull();
+      expect(entry.actor).toBe(row.user_name);
+    });
+
+    it("does not call a living user with an empty name deleted", async () => {
+      const { userId } = createMember(tenant);
+      db.prepare("UPDATE users SET name = '' WHERE id = ?").run(userId);
+      logAction({ userId, tenantId: tenant.tenantId }, action, "thing");
+
+      const row = (await auditPage(userId)).find(
+        (log) => log.user_id === userId,
+      )!;
+
+      expect(row.user_name).toBe(`user:${userId}`);
+      expect(row.user_username).toStartWith("user-");
+    });
+  });
 });

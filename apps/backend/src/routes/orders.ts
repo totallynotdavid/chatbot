@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { pathParam } from "../lib/http.ts";
+import { limaRangeEdge } from "../db/query.ts";
+import { pathParam, queryLimit, queryOffset } from "../lib/http.ts";
 import * as ordersModule from "../domains/orders/orders.ts";
 import { logAction } from "../platform/audit/logger.ts";
 import {
@@ -112,16 +113,18 @@ app.get("/", async (c) => {
   const status = c.req.query("status");
   const startDate = c.req.query("startDate");
   const endDate = c.req.query("endDate");
-  const assignedAgent = c.req.query("assignedAgent");
-  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
-  const offset = c.req.query("offset")
-    ? Number(c.req.query("offset"))
+  const startMs = startDate
+    ? limaRangeEdge(startDate, "start", "startDate")
     : undefined;
+  const endMs = endDate ? limaRangeEdge(endDate, "end", "endDate") : undefined;
+  const assignedAgent = c.req.query("assignedAgent");
+  const limit = queryLimit(c, 50);
+  const offset = queryOffset(c);
 
   const ordersData = ordersModule.getOrders(c.get("scope").tenantId, {
     status,
-    startDate,
-    endDate,
+    startMs,
+    endMs,
     assignedAgent,
     limit,
     offset,

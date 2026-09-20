@@ -21,6 +21,19 @@ export type CliOperator = {
   uid: number;
 };
 
+/**
+ * What a reader shows for an audit row. `resolvedName` is the name the reader
+ * looked up for `user_id`, and it is absent for a terminal command, a missing
+ * user or an empty name. The stored `actor` (`user:<id>` or `cli:<name>`) covers
+ * those.
+ */
+export function auditActorLabel(
+  resolvedName: string | null | undefined,
+  actor: string,
+): string {
+  return resolvedName || actor;
+}
+
 /** Writes audit rows through one connection. */
 export function auditOn(database: Database) {
   function insert(

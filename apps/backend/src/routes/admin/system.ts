@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { getAll, tenantPredicate } from "../../db/query.ts";
-import { logAction, getAuditTrail } from "../../platform/audit/logger.ts";
+import {
+  auditActorLabel,
+  logAction,
+  getAuditTrail,
+} from "../../platform/audit/logger.ts";
 import {
   SystemSettings,
   TenantSettings,
@@ -10,6 +14,7 @@ import {
   TENANT_VISIBLE_PLATFORM_KEYS,
 } from "../../domains/settings/system.ts";
 import { getRecentLLMCalls } from "../../intelligence/tracker.ts";
+import { queryLimit } from "../../lib/http.ts";
 import { requireTenantScope } from "../../middleware/auth.ts";
 
 const system = new Hono();
@@ -20,8 +25,7 @@ system.get("/llm-errors", (c) => {
   const scope = c.get("scope");
   const phoneFilter = c.req.query("phone");
   const operationFilter = c.req.query("operation");
-  const limitStr = c.req.query("limit");
-  const limit = limitStr ? parseInt(limitStr, 10) : 100;
+  const limit = queryLimit(c, 100);
 
   const conditions = ["status = 'error'"];
   const params: (string | number)[] = [];
@@ -67,16 +71,14 @@ system.get("/llm-errors", (c) => {
 });
 
 system.get("/llm-calls", (c) => {
-  const limitStr = c.req.query("limit");
-  const limit = limitStr ? parseInt(limitStr, 10) : 50;
+  const limit = queryLimit(c, 50);
   return c.json({ calls: getRecentLLMCalls(c.get("scope").tenantId, limit) });
 });
 
 system.get("/audit", (c) => {
   const scope = c.get("scope");
   const userIdFilter = c.req.query("user_id");
-  const limitStr = c.req.query("limit");
-  const limit = limitStr ? parseInt(limitStr, 10) : 100;
+  const limit = queryLimit(c, 100);
 
   const logs = getAuditTrail(scope.tenantId, userIdFilter, limit);
 
@@ -93,14 +95,12 @@ system.get("/audit", (c) => {
   const userMap = new Map(dbUsers.map((u) => [u.id, u]));
 
   const logsWithNames = logs.map((log) => {
-    if (log.user_id === null) {
-      return { ...log, user_name: log.actor, user_username: null };
-    }
+    const user = log.user_id === null ? undefined : userMap.get(log.user_id);
 
     return {
       ...log,
-      user_name: userMap.get(log.user_id)?.name || "Usuario eliminado",
-      user_username: userMap.get(log.user_id)?.username || log.user_id,
+      user_name: auditActorLabel(user?.name, log.actor),
+      user_username: user?.username || null,
     };
   });
 

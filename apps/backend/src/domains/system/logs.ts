@@ -4,6 +4,7 @@ import {
   tenantPredicate,
 } from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
+import { auditActorLabel } from "../../platform/audit/logger.ts";
 
 export type SystemLogSource = "llm" | "audit";
 export type SystemLogStatus = "success" | "error" | "info";
@@ -76,7 +77,7 @@ export class SystemLogService {
         source: "audit" as const,
         event: a.action,
         status: "info" as const,
-        actor: a.actor_name || a.actor,
+        actor: auditActorLabel(a.actor_name, a.actor),
         summary: `${a.resource_type} ${a.resource_id || ""}`.trim(),
         metadata:
           a.metadata && a.metadata !== "{}" ? JSON.parse(a.metadata) : {},

@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import process from "node:process";
+import { InvalidPagingError } from "../lib/http.ts";
 import { createLogger } from "../lib/logger.ts";
 import { InvalidDateError } from "../db/query.ts";
 import { TenantScopeRequiredError } from "../platform/auth/scope.ts";
@@ -19,7 +20,7 @@ export async function errorHandler(err: Error, c: Context) {
     return c.json(NO_ACTIVE_TENANT, 403);
   }
 
-  if (err instanceof InvalidDateError) {
+  if (err instanceof InvalidDateError || err instanceof InvalidPagingError) {
     return c.json({ error: err.message }, 400);
   }
 

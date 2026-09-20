@@ -2,6 +2,7 @@
 
 import { Hono } from "hono";
 import { getFunnelStats, getRecentEvents } from "../domains/analytics/index.ts";
+import { queryLimit } from "../lib/http.ts";
 import { requireTenantScope } from "../middleware/auth.ts";
 
 const analytics = new Hono();
@@ -32,8 +33,7 @@ analytics.get("/funnel", (c) => {
 
 // Get recent events
 analytics.get("/events", (c) => {
-  const limitStr = c.req.query("limit");
-  const limit = limitStr ? parseInt(limitStr, 10) : 50;
+  const limit = queryLimit(c, 50);
   const includeSimulations = c.req.query("includeSimulations") === "true";
 
   const events = getRecentEvents(
