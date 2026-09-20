@@ -8,7 +8,7 @@
     type: StoredMessageType;
     content: string;
     status?: string;
-    createdAt: string;
+    createdAt: number;
     actions?: Snippet;
     currentUserSide?: "inbound" | "outbound";
   };

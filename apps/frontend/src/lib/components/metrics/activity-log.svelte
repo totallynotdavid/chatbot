@@ -7,7 +7,7 @@ type Event = {
   phone_number: string;
   event_type: string;
   metadata: string | null;
-  created_at: string;
+  created_at: number;
 };
 
 type Props = {

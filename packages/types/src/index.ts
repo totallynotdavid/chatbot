@@ -142,8 +142,8 @@ export type Conversation = {
   // Contract recording fields
   recording_contract_asset_id: string | null;
   recording_audio_asset_id: string | null;
-  recording_uploaded_at: string | null;
-  assignment_notified_at: string | null;
+  recording_uploaded_at: number | null;
+  assignment_notified_at: number | null;
 };
 
 export type CatalogPeriod = {
@@ -152,9 +152,9 @@ export type CatalogPeriod = {
   name: string;
   year_month: string;
   status: PeriodStatus;
-  published_at: string | null;
+  published_at: number | null;
   created_by: string | null;
-  created_at: string;
+  created_at: number;
 };
 
 export type ConversationMessage = {
@@ -166,7 +166,7 @@ export type ConversationMessage = {
   type: StoredMessageType;
   content: string;
   status: string;
-  created_at: string;
+  created_at: number;
 };
 
 export type User = {
@@ -178,7 +178,7 @@ export type User = {
   phone_number: string | null;
   is_platform_operator: number;
   is_active: number;
-  created_at: string;
+  created_at: number;
   created_by: string | null;
 };
 
@@ -190,7 +190,7 @@ export type AnalyticsEvent = {
   event_type: string;
   metadata: string;
   is_simulation: number;
-  created_at: string;
+  created_at: number;
 };
 
 export type AuditLog = {
@@ -204,7 +204,7 @@ export type AuditLog = {
   resource_type: string;
   resource_id: string | null;
   metadata: string;
-  created_at: string;
+  created_at: number;
 };
 
 export type Order = {
@@ -223,8 +223,8 @@ export type Order = {
   assigned_agent: string | null;
   supervisor_notes: string | null;
   calidda_notes: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
 };
 
 export type ProviderCheckResult = {

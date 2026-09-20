@@ -12,7 +12,7 @@ type User = {
   name: string;
   role: string;
   is_active: number;
-  created_at: string;
+  created_at: number;
 };
 
 let users = $state<User[]>([]);

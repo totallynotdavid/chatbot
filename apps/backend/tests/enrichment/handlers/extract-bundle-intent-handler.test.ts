@@ -25,8 +25,8 @@ const mockBundle: Bundle = {
   is_active: 1,
   stock_status: "in_stock" as const,
   created_by: null,
-  created_at: "2026-01-01T00:00:00.000Z",
-  updated_at: "2026-01-01T00:00:00.000Z",
+  created_at: Date.parse("2026-01-01T00:00:00.000Z"),
+  updated_at: Date.parse("2026-01-01T00:00:00.000Z"),
 };
 
 describe("ExtractBundleIntentHandler", () => {

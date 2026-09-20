@@ -152,7 +152,7 @@ export type Product = {
   brand: string | null;
   model: string | null;
   specs_json: string | null;
-  created_at: string;
+  created_at: number;
 };
 
 /** Parsed product specs */
@@ -211,8 +211,8 @@ export type Bundle = {
   is_active: number;
   stock_status: StockStatus;
   created_by: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
 };
 
 /** Snapshot of active catalog state for context projection */
