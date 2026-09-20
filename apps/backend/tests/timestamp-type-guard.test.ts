@@ -211,20 +211,59 @@ function timestampMismatches(
 
 type FrontendProperty = DeclaredField & { line: number };
 
+/** The index of `tag` in `lower` where the next character ends the tag name, or -1. */
+function indexOfTag(lower: string, tag: string, from: number): number {
+  for (
+    let at = lower.indexOf(tag, from);
+    at !== -1;
+    at = lower.indexOf(tag, at + 1)
+  ) {
+    const next = lower[at + tag.length];
+    if (next === ">" || next === "/" || next?.trim() === "") return at;
+  }
+  return -1;
+}
+
+/**
+ * The text of each `<script>` block, with the 0-based line where it starts.
+ * A `<script` inside an HTML comment or a string is read as a block. The
+ * sources scanned here do not contain one.
+ */
+function scriptBlocks(
+  source: string,
+): Array<{ code: string; firstLine: number }> {
+  // Lower-cases ASCII only. `toLowerCase` can change a string's length, and the
+  // offsets found in `lower` must index `source`.
+  const lower = Array.from(source, (char) =>
+    char >= "A" && char <= "Z" ? char.toLowerCase() : char,
+  ).join("");
+
+  const blocks: Array<{ code: string; firstLine: number }> = [];
+  let open = indexOfTag(lower, "<script", 0);
+  while (open !== -1) {
+    const openEnd = lower.indexOf(">", open);
+    if (openEnd === -1) break;
+    const close = indexOfTag(lower, "</script", openEnd + 1);
+    if (close === -1) break;
+    const closeEnd = lower.indexOf(">", close);
+    if (closeEnd === -1) break;
+
+    blocks.push({
+      code: source.slice(openEnd + 1, close),
+      firstLine: source.slice(0, openEnd + 1).split("\n").length - 1,
+    });
+    open = indexOfTag(lower, "<script", closeEnd + 1);
+  }
+  return blocks;
+}
+
 /** Every `*_at` property with a type annotation, in a .ts file or in the `<script>` blocks of a .svelte file. */
 function timestampProperties(
   source: string,
   fileName: string,
 ): FrontendProperty[] {
   const scripts = fileName.endsWith(".svelte")
-    ? [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(
-        (match) => ({
-          code: match[1]!,
-          firstLine:
-            source.slice(0, match.index + match[0].indexOf(">") + 1).split("\n")
-              .length - 1,
-        }),
-      )
+    ? scriptBlocks(source)
     : [{ code: source, firstLine: 0 }];
 
   const found: FrontendProperty[] = [];
@@ -552,6 +591,47 @@ describe("frontend timestamp declarations", () => {
         message("a.ts", 1, "seen_at", "string"),
         message("b.ts", 1, "sent_at", "string"),
       ]);
+    });
+
+    it("finds a script block written in upper case", () => {
+      expect(
+        check({
+          "a.svelte":
+            '<SCRIPT lang="ts">type Row = { created_at: string };</SCRIPT>',
+        }),
+      ).toEqual([message("a.svelte", 1, "created_at", "string")]);
+    });
+
+    it("finds a script block whose closing tag has a space before the >", () => {
+      expect(
+        check({
+          "a.svelte": "<script>type Row = { created_at: string };</script >",
+        }),
+      ).toEqual([message("a.svelte", 1, "created_at", "string")]);
+    });
+
+    it("reads a module block and an instance block in one file", () => {
+      const source = [
+        '<script context="module">',
+        "  type A = { created_at: string };",
+        "</script>",
+        "",
+        '<script lang="ts">',
+        "  type B = { updated_at: string | null };",
+        "</script>",
+      ].join("\n");
+      expect(check({ "a.svelte": source })).toEqual([
+        message("a.svelte", 2, "created_at", "string"),
+        message("a.svelte", 6, "updated_at", "string | null"),
+      ]);
+    });
+
+    it("does not read a tag whose name only starts with script", () => {
+      expect(
+        check({
+          "a.svelte": "<scripts>type Row = { created_at: string };</scripts>",
+        }),
+      ).toEqual([]);
     });
 
     it("accepts number, number | null, and properties that are not timestamps", () => {
