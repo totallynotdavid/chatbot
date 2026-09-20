@@ -96,12 +96,22 @@
 			category="Inventario"
 			title="Catálogo"
 		/>
-		<DashboardGridItem
-			href="/dashboard/providers"
-			number="03"
-			category="Riesgo & Crédito"
-			title="Proveedores"
-		/>
+		{#if auth.canAccessProviders}
+			<DashboardGridItem
+				href="/dashboard/providers"
+				number="03"
+				category="Riesgo & Crédito"
+				title="Proveedores"
+			/>
+		{:else}
+			<div
+				class="bg-cream-100 p-12 border-b border-r border-ink-900/10 flex items-center justify-center opacity-50 cursor-not-allowed"
+			>
+				<span class="font-mono text-xs text-ink-400"
+					>ACCESO RESTRINGIDO</span
+				>
+			</div>
+		{/if}
 
 		{#if auth.canAccessSimulator}
 			<DashboardGridItem

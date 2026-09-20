@@ -78,6 +78,9 @@ function createAuthState() {
     get canAccessSimulator() {
       return this.isAdmin || this.isDeveloper;
     },
+    get canAccessProviders() {
+      return this.isPlatformOperator;
+    },
     get isSalesAgent() {
       return state.user?.role === "sales_agent";
     },

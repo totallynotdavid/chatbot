@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { fetchApi } from "$lib/utils/api";
+import { ApiError, fetchApi } from "$lib/utils/api";
 import { validateDni } from "$lib/utils/validation";
 import { formatPrice, formatDate, formatTime } from "$lib/utils/formatters";
 import Input from "$lib/components/ui/input.svelte";
@@ -40,7 +40,11 @@ async function handleQuery() {
     result = data.result;
     provider = data.provider;
   } catch (err) {
-    error = err instanceof Error ? err.message : "Error de conexión";
+    if (err instanceof ApiError && err.status === 403) {
+      error = "Esta consulta está reservada al personal de VendeYa.";
+    } else {
+      error = err instanceof Error ? err.message : "Error de conexión";
+    }
   } finally {
     loading = false;
     await loadHealth();

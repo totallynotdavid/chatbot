@@ -2,6 +2,15 @@ type FetchOptions = RequestInit & {
   params?: Record<string, string>;
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options: FetchOptions = {},
@@ -20,7 +29,7 @@ export async function fetchApi<T>(
     const error = await response
       .json()
       .catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+    throw new ApiError(error.error || `HTTP ${response.status}`, response.status);
   }
 
   return response.json();

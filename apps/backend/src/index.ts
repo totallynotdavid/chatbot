@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { pathParam } from "./lib/http.ts";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import process from "node:process";
@@ -35,13 +34,12 @@ import orders from "./routes/orders.ts";
 import systemLogs from "./routes/system-logs.ts";
 import tenants from "./routes/tenants.ts";
 import assets from "./routes/assets.ts";
+import providerRoutes from "./routes/providers.ts";
 
 import { getAllStatus } from "./adapters/providers/health.ts";
 import { checkNotifierHealth } from "./adapters/notifier/client.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
-import { eligibilityHandler } from "./bootstrap/index.ts";
 import { initializeApplication } from "./bootstrap/index.ts";
-import { isOk } from "./shared/result/index.ts";
 import { IMAGES_DIR } from "./lib/storage-paths.ts";
 
 const app = new Hono();
@@ -155,40 +153,7 @@ app.route("/api/admin", admin);
 // Reports
 app.route("/api/reports", reports);
 
-// Provider check endpoint
-app.get("/api/providers/:dni", requireAuth, async (c) => {
-  const dni = pathParam(c, "dni");
-
-  if (!/^\d{8}$/.test(dni)) {
-    return c.json({ error: "DNI debe tener 8 dígitos" }, 400);
-  }
-
-  try {
-    const result = await eligibilityHandler.execute(dni);
-    const healthStatus = getAllStatus();
-
-    let displayResult: any = result;
-    if (isOk(result)) {
-      displayResult = result.value;
-    } else {
-      displayResult = {
-        error: result.error.message,
-        details: result.error,
-      };
-    }
-
-    return c.json({
-      dni,
-      result: displayResult,
-      providersChecked: [
-        ...(healthStatus.fnb.available ? ["fnb"] : []),
-        ...(healthStatus.gaso.available ? ["gaso"] : []),
-      ],
-    });
-  } catch (error) {
-    return c.json({ error: "Error al consultar proveedor" }, 500);
-  }
-});
+app.route("/api/providers", providerRoutes);
 
 // Error handler
 app.onError(errorHandler);
