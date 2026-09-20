@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import process from "node:process";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
@@ -26,6 +27,19 @@ import { createLogger } from "../lib/logger.ts";
 const logger = createLogger("webhook");
 
 const webhook = new Hono();
+
+// Meta documents webhook payloads of up to 3 MB.
+const MAX_WEBHOOK_BODY_BYTES = 3 * 1024 * 1024;
+
+// `bodyLimit` counts the bytes of a chunked body that has no Content-Length.
+// The route runs it ahead of the signature check because the endpoint is public.
+const limitWebhookBody = bodyLimit({
+  maxSize: MAX_WEBHOOK_BODY_BYTES,
+  onError: (c) => {
+    logger.warn("Webhook POST rejected: body over the size limit");
+    return c.json({ error: "payload_too_large" }, 413);
+  },
+});
 
 function constantTimeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a, "utf8");
@@ -272,7 +286,7 @@ async function handleInbound(
  * account so that a batch spanning two tenants delivers both, and so that one
  * failure cannot swallow the rest of the payload.
  */
-webhook.post("/", async (c) => {
+webhook.post("/", limitWebhookBody, async (c) => {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
   if (!appSecret) {
     logger.warn("Webhook POST refused: WHATSAPP_APP_SECRET is not set");
