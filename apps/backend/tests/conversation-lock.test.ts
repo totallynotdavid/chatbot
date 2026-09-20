@@ -276,14 +276,9 @@ describe("the operation a lock timeout leaves running", () => {
 
 /**
  * Both queues hand a batch to `handleMessage`, which answers under the
- * conversation lock. When the lock times out the answer is still running, and
- * what it will end up doing - replying, or being refused - is not known yet. The
- * queue's record of that batch has to wait for it: settled early one way the
- * message is never answered, settled the other way it is answered twice.
- *
- * Staged by holding the read receipt, which every answer sends first, until the
- * test lets it through. Each answer sends exactly one, so the receipts count how
- * many times a batch was answered.
+ * conversation lock. A lock timeout leaves that answer running with an unknown
+ * outcome, a reply or a refusal. The queue's record of the batch must wait for
+ * it, or the message ends up never answered or answered twice.
  */
 describe("an answer still running when its lock times out", () => {
   const CUSTOMER = "51900777555";
@@ -297,7 +292,11 @@ describe("an answer still running when its lock times out", () => {
   let readReceipts: number;
   let receiptGate: Promise<void>;
 
-  /** Hold every answer at its read receipt until the returned function is called. */
+  /**
+   * Holds every answer at its read receipt until the returned function is
+   * called. Each answer sends exactly one receipt first, so the receipts count
+   * how many times a batch was answered.
+   */
   function holdAnswers(): () => void {
     let letThrough!: () => void;
     receiptGate = new Promise((resolve) => {
@@ -512,8 +511,8 @@ describe("an answer still running when its lock times out", () => {
       ChannelAccountService.updateStatus(ref.channelAccountId, "disabled");
 
       letThrough();
-      // The late refusal has nothing observable to wait on in the table - the
-      // row stays unanswered either way - so wait for the lock to come free.
+      // The late refusal changes nothing observable in the table, because the
+      // row stays unanswered either way. Wait for the lock to come free instead.
       await withLock(ref, async () => {}, 10_000);
       await pause(10);
       expect(unansweredHeld()).toBe(1);

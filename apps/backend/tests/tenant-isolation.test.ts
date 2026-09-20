@@ -47,9 +47,9 @@ import { seedProducts } from "../src/db/seeds/products.ts";
 import { seedBundles } from "../src/db/seeds/bundles.ts";
 
 /**
- * The same customer phone number, messaging two different businesses. Every
- * assertion below is about that collision: the two tenants must never see each
- * other's copy of it.
+ * The same customer phone number, messaging two different businesses. The
+ * conversation tests are about that collision. The later blocks cover the other
+ * places two tenants could collide, from catalog ids to webhook routing.
  */
 const SHARED_PHONE = "51987654321";
 
@@ -299,7 +299,7 @@ describe("tenant isolation", () => {
         });
       }
 
-      // trackLLMCall writes on a detached promise; drain the microtask queue.
+      // trackLLMCall writes on a detached promise. Drain the microtask queue.
       return Promise.resolve().then(() => {
         const alphaCalls = getRecentLLMCalls(alpha.tenantId, 50) as Array<{
           tenant_id: string;
@@ -359,10 +359,8 @@ describe("tenant isolation", () => {
   });
 
   /**
-   * Regression: availability was a single flag on the user record, and the
-   * assignment query read it per tenant. One agent selling for two businesses
-   * who went offline for one was silently pulled out of both rotations. It lives
-   * on the membership now.
+   * Availability lives on the membership, not on the user record. An agent who
+   * goes offline for one business stays in the other's rotation.
    */
   describe("an agent who sells for both", () => {
     let agentId: string;
@@ -401,9 +399,8 @@ describe("tenant isolation", () => {
   });
 
   /**
-   * Regression: the catalog seeds used the base catalog's own ids, which are
-   * global primary keys, so onboarding a second business died on
-   * `UNIQUE constraint failed: products.id`.
+   * `products.id` is a global primary key, so the catalog seeds must give each
+   * tenant ids of its own.
    */
   describe("seeding a second business", () => {
     async function seedCatalog(tenantId: string) {
@@ -446,9 +443,8 @@ describe("tenant isolation", () => {
   });
 
   /**
-   * Regression: `test_personas.id` was a global primary key while the id itself
-   * is typed in by the tenant's own users. The second business to name a
-   * persona "cliente_moroso" got a UNIQUE constraint failure and a 500.
+   * A persona id is typed in by a tenant's own users, so it is unique only
+   * within its tenant.
    */
   describe("simulator personas", () => {
     const PERSONA_ID = "cliente_moroso";
@@ -682,10 +678,9 @@ describe("tenant isolation", () => {
     });
 
     /**
-     * Regression: only `disabled` was rejected, so a number still being set up
-     * accepted messages - stored them, created the conversation, advanced its
-     * state - while the send side refuses anything but `active`. The customer
-     * got silence from a bot that believed it had answered.
+     * Only `active` accepts messages, because the send side refuses every other
+     * status. A number that accepted them anyway would leave the customer with
+     * silence from a bot that believed it had answered.
      */
     it("drops a message for a pending channel account", async () => {
       ChannelAccountService.updateStatus(beta.channelAccountId, "pending");
@@ -721,11 +716,9 @@ describe("tenant isolation", () => {
     });
 
     /**
-     * Regression: the parser read `entry[0].changes[0].messages[0]` and dropped
-     * everything else in the payload while still answering 200, so Meta never
-     * redelivered what was lost. Meta batches because it may: one endpoint now
-     * serves every tenant's every number, so a batch spanning two businesses is
-     * ordinary traffic rather than an edge case.
+     * Reading only the first message would drop the rest while still answering
+     * 200. One endpoint serves every tenant's numbers, so a batch spanning two
+     * businesses is ordinary traffic.
      */
     it("delivers every message of a batch spanning two tenants", async () => {
       const response = await post(
@@ -770,7 +763,7 @@ describe("tenant isolation", () => {
 
     it("ignores a message it has already queued", async () => {
       // Meta redelivers a whole batch after a 5xx, so the same message id can
-      // arrive twice; the second time there is nothing left to do.
+      // arrive twice. The second time there is nothing left to do.
       const body = payload(beta.phoneNumberId, SHARED_PHONE, "hola");
 
       expect(await statuses(await post(body))).toEqual(["received"]);

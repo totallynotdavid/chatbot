@@ -26,7 +26,6 @@ const ENTRYPOINT = join(import.meta.dir, "..", "src", "index.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
 const NO_OPERATOR_WARNING = "No platform operator can log in";
 
-/** A port well away from the development default, per boot under test. */
 function freePort(): number {
   const server = Bun.serve({ port: 0, fetch: () => new Response("probe") });
   const port = server.port ?? 0;
@@ -64,10 +63,10 @@ function countUsers(path: string): number | null {
 }
 
 /**
- * Boot the real entrypoint and poll it until it either serves a request or
- * exits. `stopWhenServing` is for a server that comes up and so stays up: it
- * has to be killed rather than waited on. `prepare` gets the database file
- * before the process starts.
+ * Boot the real entrypoint and poll it until it serves a request, exits or
+ * outlasts a 30 second deadline. `stopWhenServing` is for a server that comes
+ * up and so stays up: it has to be killed rather than waited on. `prepare` gets
+ * the database file before the process starts.
  */
 async function boot(
   env: Record<string, string>,
@@ -106,10 +105,10 @@ async function boot(
   let served = false;
   let exited = false;
 
-  // `/api/conversations` rather than `/health`, which spends seconds waiting on
-  // the notifier and the eligibility providers: an unauthenticated 401 comes
-  // straight back from the middleware and is all the evidence needed that the
-  // port is bound and the app is answering.
+  // `/api/conversations` rather than `/health`, which can spend seconds waiting
+  // on the notifier. An unauthenticated 401 comes straight back from the
+  // middleware and is all the evidence needed that the port is bound and the app
+  // is answering.
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
@@ -134,7 +133,9 @@ async function boot(
     await Bun.sleep(20);
   }
 
-  // A server that came up stays up, and so does one that outlasted the deadline.
+  // Kill a process that is still running. A server that came up is killed only
+  // when the caller expects one to stay up. A process that outlasted the
+  // deadline is always killed.
   if (!exited && (served ? stopWhenServing : true)) child.kill();
 
   await child.exited;
@@ -243,9 +244,9 @@ describe("booting the server", () => {
 
     /**
      * Bun prints this banner when it takes a module's default export and binds
-     * the port. Its absence is the direct evidence that module evaluation was
-     * abandoned at the seed - the poll above could in principle race a very
-     * short-lived server, but the port is never bound at all.
+     * the port. Its absence shows that module evaluation was abandoned at the
+     * seed. The poll above could in principle race a very short-lived server,
+     * but the banner is direct evidence that the port was never bound.
      */
     it("never gets as far as binding the port", () => {
       expect(refused.output).not.toContain("Started development server");

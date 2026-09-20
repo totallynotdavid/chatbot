@@ -1,46 +1,23 @@
 /**
- * A guard against the other mistake this branch keeps making.
+ * Uploaded bytes go where lib/storage-paths.ts says they go.
  *
- * "Uploaded bytes go where lib/storage-paths.ts says they go" is the invariant.
- * In production UPLOAD_DIR is a persistent volume and the working directory is
- * replaced on every restart or redeploy, so a path built from `process.cwd()`
- * or written out as a literal under `data/uploads` puts files where they cannot
- * survive one - while the `assets` rows naming them do survive, leaving the
- * database pointing at bytes that are gone.
+ * In production UPLOAD_DIR is a persistent volume, and the working directory is
+ * replaced on every redeploy. A path built from `process.cwd()`, or
+ * written out as a literal under `data/uploads`, puts files where they cannot
+ * survive. The `assets` rows naming them do survive, so the database would
+ * point at bytes that are gone.
  *
- * Round 12 found it in `adapters/storage/private-files.ts` and centralised the
- * roots. Round 13 found the identical bug still sitting in two sibling files
- * the first sweep had read past: `adapters/storage/images.ts` and the static
- * mount in `index.ts`. Three files, two rounds, one shape - and both rounds
- * found it by reading the diff, which is exactly the method that missed it the
- * first time.
- *
- * So it is checked mechanically here, as part of `bun test`. Three rules:
+ * Three rules, checked over both `src` and `tests`:
  *
  *   1. Nobody joins a storage path onto `process.cwd()`.
  *   2. Nobody writes an uploads or private directory out as a string literal.
  *   3. Nobody reads UPLOAD_DIR or PRIVATE_DIR from the environment except the
- *      module whose job is to resolve them - the fastest way back to two
- *      diverging roots is two files deriving them independently.
+ *      module that resolves them. Two files deriving the roots independently
+ *      lets the two roots diverge.
  *
- * Round 14 then found a fourth and fifth instance in `tests/` - cleanup in
- * `private-assets.test.ts` and `uploads.test.ts` deleting
- * `<cwd>/data/private/<tenant>`, and `migration.test.ts` reading migrated bytes
- * back from the same place - none of which this guard could see, because its
- * first version walked `src` and nothing else. The blind spot was the guard's
- * own scope: written to stop the next instance being found by hand, it excluded
- * the tree the next instance was in.
- *
- * A test is not exempt from the invariant, it is where the invariant is most
- * easily broken unnoticed: those three lines were correct only while
- * PRIVATE_DIR happened to be unset, and setting it - the override this branch
- * documents and supports - turned them into a cleanup that deletes the wrong
- * directory and assertions that read an empty one. So both trees are scanned.
- *
- * The last test in this file checks the checkers. A grep-based guard whose
- * patterns quietly stop matching passes forever while protecting nothing, so
- * the detectors are run against the shapes actually found, in the form they
- * were found in.
+ * Tests are scanned because a test that builds a path from `process.cwd()` is
+ * correct only while PRIVATE_DIR is unset. Once PRIVATE_DIR is set, its cleanup
+ * deletes the wrong directory and its assertions read an empty one.
  */
 
 import { describe, it, expect } from "bun:test";
@@ -53,10 +30,9 @@ const BACKEND = join(import.meta.dir, "..");
 const SCANNED = [join(BACKEND, "src"), join(BACKEND, "tests")];
 
 /**
- * The three files that write the roots out by their very purpose, excluded
- * wholesale rather than line by line. The count is checked below, so renaming
- * one fails loudly instead of quietly turning this into an exclusion of
- * nothing.
+ * These files write the roots out by design, so they are excluded whole rather
+ * than line by line. Renaming one fails the "still finds the files it exempts
+ * wholesale" test.
  */
 const EXCLUDED: Array<{ file: string; reason: string }> = [
   {
@@ -79,11 +55,8 @@ const EXCLUDED: Array<{ file: string; reason: string }> = [
 ];
 
 /**
- * Paths built from the working directory on purpose. An exemption names the
- * *expression*, not the file, so exempting one line leaves every other line in
- * that file checked - reading past the rest of an already-open file is how the
- * first sweep missed two instances, and scoping past a whole tree is how the
- * guard itself missed three more.
+ * Findings that are deliberate. An exemption names a file and an expression on
+ * one of its lines, so every other line in that file is still checked.
  */
 const EXEMPT: Array<{ file: string; snippet: string; reason: string }> = [
   {
@@ -142,24 +115,17 @@ function relative(file: string): string {
 }
 
 /**
- * The file with its comments blanked out.
- *
- * This codebase explains itself at length, and several of those explanations
- * are about this very bug - `index.ts` names the literal it no longer uses, and
- * migrations.ts describes the `data/contracts/<phone>/` layout it migrates
- * away from. Matching prose would make the guard fire on the comment that
- * documents the fix, and the obvious way to quiet it is to delete the comment.
- *
- * String literals are matched *before* comment openers, so a `//` inside a
- * string is consumed as part of that string rather than read as the start of a
- * comment. Newlines inside a stripped comment are kept, so reported line
- * numbers still point at the real line.
+ * The file with its comments blanked out, so the rules match code and not the
+ * comments that name a forbidden path while explaining it.
  */
 function codeOnly(text: string): string {
+  // String literals come before comment openers in the alternation, so a `//`
+  // inside a string is read as part of that string and not as a comment.
   const TOKENS =
     /("(?:[^"\\\n]|\\.)*")|('(?:[^'\\\n]|\\.)*')|(`(?:[^`\\]|\\.)*`)|(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g;
 
   return text.replace(TOKENS, (_match, dq, sq, tpl, comment) => {
+    // Newlines inside a stripped comment are kept so line numbers stay correct.
     if (comment !== undefined) return comment.replace(/[^\n]/g, " ");
     return dq ?? sq ?? tpl;
   });
@@ -169,9 +135,8 @@ type Finding = { file: string; line: number; detail: string };
 
 /**
  * Every match of `pattern` in the file's code, reported as the source line it
- * sits on. The line rather than the match itself: it is what a reader has to
- * look at anyway, and it is stable under a pattern that stops at the first
- * string argument, which an exemption has to be matched against.
+ * sits on. An exemption matches against that line, because the pattern itself
+ * can stop at the first string argument.
  */
 function scan(text: string, file: string, pattern: RegExp): Finding[] {
   const code = codeOnly(text);
@@ -184,37 +149,29 @@ function scan(text: string, file: string, pattern: RegExp): Finding[] {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Rule 1: no storage path joined onto the working directory.
-// ---------------------------------------------------------------------------
 
 /**
- * `path.join(process.cwd(), "data", ...)` and every spelling of it - bare
- * `join`/`resolve` off a named import, or qualified through any import name.
- * The discriminator is a `process.cwd()` first argument followed by a string
- * literal: that is a path being built out of the one directory that does not
- * survive a redeploy. `path.join(process.cwd(), someVariable)` is left alone.
+ * Matches `path.join(process.cwd(), "data", ...)`. It covers bare `join` and
+ * `resolve`, and either one qualified by an identifier such as `path`. Only a
+ * string literal after `process.cwd()` matches, because that builds a path out
+ * of a directory that does not survive a redeploy.
  */
 const CWD_JOIN =
   /(?:\w+\.)?(?:join|resolve)\(\s*process\.cwd\(\)\s*,\s*(["'`])[^"'`]+\1/;
 
-// ---------------------------------------------------------------------------
 // Rule 2: no uploads or private directory written out as a literal.
-// ---------------------------------------------------------------------------
 
 /**
- * A string literal naming one of the storage directories directly -
- * `"./data/uploads/images"`, `'data/private'`, `` `data/contracts/${x}` ``.
- * Anchored on the `data/` segment because that is what makes it a root rather
- * than a key: `"images/abc.jpg"` is a storage key and belongs in the source,
- * `"data/uploads/images"` is a root and belongs in storage-paths.ts.
+ * Matches a string literal that names a storage directory, such as
+ * `"./data/uploads/images"`, `'data/private'` or `` `data/contracts/${x}` ``.
+ * The `data/` segment separates a root from a key: `"images/abc.jpg"` is a
+ * storage key, and a root belongs in storage-paths.ts.
  */
 const LITERAL_ROOT =
   /(["'`])(?:\.{0,2}\/)?data\/(?:uploads|private|contracts)[^"'`]*\1/;
 
-// ---------------------------------------------------------------------------
 // Rule 3: the roots are read from the environment in exactly one place.
-// ---------------------------------------------------------------------------
 
 const ENV_ROOT = /process\.env\.(?:UPLOAD_DIR|PRIVATE_DIR)\b/;
 
@@ -236,16 +193,18 @@ describe("storage path guard", () => {
     (file) => !EXCLUDED.some((excluded) => file.endsWith(excluded.file)),
   );
 
-  /** An exemption covers a finding when it names that file and that line. */
+  /**
+   * An exemption covers a finding when the finding's file ends with the
+   * exemption's file and the finding's source line contains its snippet.
+   */
   const covers = (exempt: (typeof EXEMPT)[number], f: Finding) =>
     f.file.endsWith(exempt.file) && f.detail.includes(exempt.snippet);
 
   /**
-   * Every finding for one rule, split into the exemptions that no longer match
-   * anything and the findings no exemption covers.
-   *
-   * A stale exemption is as bad as a missing one: it reads like a considered
-   * decision while covering nothing, and the next one gets added beside it.
+   * Every finding for one rule, the findings no exemption covers, and the
+   * exemptions that cover at least one finding. An exemption missing from the
+   * last list is stale, and reads like a considered decision while covering
+   * nothing.
    */
   function check(pattern: RegExp) {
     const findings = checked.flatMap((file) =>
@@ -262,15 +221,13 @@ describe("storage path guard", () => {
   it("finds backend sources and tests to check", () => {
     // If the walk breaks, all three rules below pass over nothing at all.
     expect(files.length).toBeGreaterThan(50);
-    // Both trees, which is the scope bug this guard had of its own: it walked
-    // src and missed three instances sitting in tests.
     expect(files.some((f) => f.includes(`${sep}src${sep}`))).toBe(true);
     expect(files.some((f) => f.includes(`${sep}tests${sep}`))).toBe(true);
   });
 
   it("still finds the files it exempts wholesale", () => {
-    // If either is renamed, the rules fail on it rather than passing because
-    // the filter silently stopped excluding anything.
+    // A renamed exclusion fails here instead of leaving the filter excluding
+    // nothing.
     expect(files.length - checked.length).toBe(EXCLUDED.length);
   });
 
@@ -332,11 +289,9 @@ describe("storage path guard", () => {
   });
 
   /**
-   * The guard guards itself. A regex that quietly stops matching - a rename, a
-   * reformat, a stray escape - turns this whole file into a no-op that passes
-   * forever, which is worse than having no guard at all, because it reads like
-   * coverage. These are the three instances the last two review rounds actually
-   * found, in the form they were found in.
+   * Runs each detector against sample code. A regex that quietly stops matching
+   * after a rename, a reformat or a stray escape would let this file pass while
+   * protecting nothing.
    */
   describe("catches the shapes it is meant to catch", () => {
     it("catches the private store's root (round 12)", () => {
@@ -370,7 +325,7 @@ describe("storage path guard", () => {
       const found = scan(sample, "sample.ts", LITERAL_ROOT);
 
       expect(found).toHaveLength(1);
-      // The line, not the match, and the right one of six.
+      // The finding carries the line of the literal, not the `app.use(` line.
       expect(found[0]!.line).toBe(4);
     });
 
@@ -407,7 +362,8 @@ describe("storage path guard", () => {
 
     it("does not flag a storage key, which is not a root", () => {
       // `images/<id>.jpg` and the private prefix are keys recorded on the
-      // `assets` row; they are resolved against a root and must stay.
+      // `assets` row. They are resolved against a root, so they must not be
+      // flagged.
       const sample = [
         "storageKey: 'images/abc123def4567890.jpg',",
         "const key = privateStorageKey(tenantId, 'contracts', name);",

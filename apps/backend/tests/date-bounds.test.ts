@@ -67,7 +67,7 @@ function dailyReportRows(tenantId: string, date?: string): number {
   return XLSX.utils.sheet_to_json(workbook.Sheets[name ?? ""] ?? {}).length;
 }
 
-// The dashboard's day is America/Lima; a server in any other zone must cut it the same.
+// The dashboard's day is America/Lima. A server in any other zone must cut it the same.
 describe("date ranges over millisecond columns", () => {
   const originalTz = process.env.TZ;
   let tenant: TenantFixture;
@@ -287,7 +287,8 @@ describe("date ranges over millisecond columns", () => {
     });
 
     it("leaves out activity from the Lima day before", () => {
-      // 00:30 on the 19th in Lima; 20:00 on the 18th in Lima is past UTC midnight.
+      // Now is 00:30 on the 19th in Lima. The activity at 20:00 on the 18th in
+      // Lima is already past UTC midnight, so a UTC cutoff would count it.
       setSystemTime(new Date("2026-09-19T05:30:00.000Z"));
       setLastActivity(tenant, Date.parse("2026-09-18T20:00:00-05:00"));
 

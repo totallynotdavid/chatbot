@@ -1,32 +1,7 @@
 /**
- * A guard against the mistake this branch keeps making.
- *
- * "Suspension closes a business to everyone, platform operators included" is an
- * invariant that lives in `db/query.ts` as `tenantPredicate` /
- * `tenantOrPlatformPredicate` / `openTenantsOnly`. Three review rounds in a row
- * found code that had reached past those helpers for the obvious idiom instead
- * - `tenantId ? "AND tenant_id = ?" : ""`, or an `if (tenantId)` that pushes
- * the predicate by hand - and each round the instances were found by reading
- * the diff. That does not scale, and it has already missed instances twice.
- *
- * So the invariant is checked mechanically here, over the backend source, as
- * part of `bun test`. Two rules:
- *
- *   1. Nobody builds a conditional tenant filter by hand. The idiom itself is
- *      the bug: written that way, the null branch means "every tenant" instead
- *      of "every tenant still open".
- *   2. Every read of a tenant-owned table names a tenant predicate somewhere in
- *      the function that issues it. This is the other half - the omission
- *      rather than the wrong idiom, which is what the background sweeps
- *      (the aggregator queue, the reassignment cron) got wrong.
- *
- * Rule 2 has exemptions; they are listed below with reasons, in one place, so
- * that adding one is a visible change to this file rather than a quiet comment
- * in a source file. Rule 1 has none.
- *
- * The last test in this file checks the checkers: a grep-based guard whose
- * patterns quietly stop matching passes forever while protecting nothing, so
- * the detectors are run against the shapes they are meant to catch.
+ * Suspension closes a business to platform operators too. The helpers in
+ * `db/query.ts` hold that rule, and this file checks the backend source for
+ * queries that bypass them.
  */
 
 import { describe, it, expect } from "bun:test";
@@ -41,14 +16,9 @@ const HELPER_MODULE = join("db", "query.ts");
 
 /**
  * Reads that are cross-tenant on purpose, each keyed by something globally
- * unique rather than by a tenant. A suspended tenant's rows are reachable
- * through these, and that is correct - none of them serves a tenant's data to
- * a caller acting across tenants.
- *
- * An exemption names the *query*, not the file. Exempting a whole file would
- * blind the rule to every other query in it, which is how the first draft of
- * this guard managed to miss the aggregator's dequeue sitting eight lines
- * below an exempt dedup lookup.
+ * unique. None serves a tenant's data to a caller acting across tenants.
+ * An exemption names the query, not the file. A whole-file exemption would
+ * hide every other query in that file from rule 2.
  */
 const RULE_2_EXEMPT: Array<{ file: string; sql: string; reason: string }> = [
   {
@@ -100,16 +70,14 @@ function relative(file: string): string {
   return file.slice(SRC.length + 1);
 }
 
-// ---------------------------------------------------------------------------
-// Rule 1: no hand-built conditional tenant filter.
-// ---------------------------------------------------------------------------
+// Rule 1: nobody builds a conditional tenant filter by hand. Written that way,
+// the null branch means every tenant instead of every open tenant.
 
 /**
- * `<something>tenantId ? <string mentioning tenant_id> : ...` and its mirror,
- * where the SQL sits in the false branch. The discriminator is
- * `tenant_id` (the column) against `tenantId` (the variable): the parameter
- * lists these queries legitimately build - `tenantId ? [id, tenantId] : [id]` -
- * only ever name the variable.
+ * A `tenantId ? "...tenant_id..." : ...` ternary and its mirror, with the SQL in
+ * the false branch. The patterns key on the column `tenant_id`, not the variable
+ * `tenantId`, because legitimate parameter lists such as
+ * `tenantId ? [id, tenantId] : [id]` only ever name the variable.
  */
 const TERNARY_PATTERNS = [
   /[\w.]*[tT]enant[Ii]d\s*\?\s*(["'`])(?:(?!\1)[\s\S])*\btenant_id\b(?:(?!\1)[\s\S])*\1/,
@@ -160,9 +128,8 @@ function handBuiltFilters(text: string, file: string): Finding[] {
   return found;
 }
 
-// ---------------------------------------------------------------------------
-// Rule 2: every read of a tenant-owned table names a predicate.
-// ---------------------------------------------------------------------------
+// Rule 2: every read of a tenant-owned table names a tenant predicate in the
+// function that issues it. This catches the omission that rule 1 cannot see.
 
 /** Tables carrying a `tenant_id`, read from the schema rather than listed here. */
 function tenantOwnedTables(): Set<string> {
@@ -182,17 +149,18 @@ function tenantOwnedTables(): Set<string> {
 const STRING_LITERAL = /`([^`]*)`|"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
 
 /**
- * A tenant predicate, however it is spelled - written out, interpolated from a
- * helper, or assembled into a `conditions` array a few lines above the SQL.
- * `IDENTITY_WHERE` is the conversations one, which is (tenant, account, phone).
+ * The spellings of a tenant predicate that the backend uses: written out,
+ * interpolated from a helper, or assembled into a `conditions` array above the
+ * SQL. `IDENTITY_WHERE` is the conversations predicate over (tenant, account,
+ * phone).
  */
 const NAMES_A_PREDICATE =
   /\btenant_id\s*(?:=|IN|IS)|tenantPredicate|openTenantsOnly|tenantOrPlatformPredicate|IDENTITY_WHERE/;
 
 /**
- * Where the function issuing this query starts. Crude on purpose: a top-level
- * `function`, an object method, or an assigned arrow. Overshooting backwards
- * only makes the rule more forgiving, never less correct.
+ * Where the function issuing this query starts. The match is deliberately crude
+ * (a top-level function, an object method or an assigned arrow). Overshooting
+ * backwards only makes rule 2 more forgiving.
  */
 function functionStart(text: string, position: number): number {
   const before = text.slice(0, position).split("\n");
@@ -228,8 +196,9 @@ function unscopedReads(
     const tables = named.filter((table) => owned.has(table));
     if (tables.length === 0) continue;
 
-    // The whole function, so a predicate built into a `conditions` array or a
-    // `${scope}` fragment counts as much as one written inline.
+    // The scan runs from the function's start to 400 characters past the query,
+    // so a predicate built into a `conditions` array or a `${scope}` fragment
+    // counts as much as an inline one.
     const body = text.slice(
       functionStart(text, match.index),
       match.index + sql.length + 400,
@@ -288,8 +257,8 @@ describe("tenant scope guard", () => {
       f.file.endsWith(exempt.file) &&
       (f.sql ?? "").includes(exempt.sql.replace(/\s+/g, " "));
 
-    // A stale exemption is as bad as a missing one: it reads like a considered
-    // decision while covering nothing, and the next one gets added beside it.
+    // A stale exemption covers nothing but reads like a considered decision, so
+    // an unused one fails the test.
     const unused = RULE_2_EXEMPT.filter(
       (exempt) => !findings.some((f) => matches(exempt, f)),
     );
@@ -326,11 +295,8 @@ describe("tenant scope guard", () => {
   });
 
   /**
-   * The guard guards itself. A regex that quietly stops matching - a rename, a
-   * reformat, a stray escape - turns this whole file into a no-op that passes
-   * forever, which is a worse position than having no guard at all, because it
-   * reads like coverage. These are the shapes the last three review rounds
-   * actually found, in the form they were found in.
+   * Runs the detectors against the shapes they must catch. A regex that quietly
+   * stops matching would turn this file into a no-op that still reads as coverage.
    */
   describe("catches the shapes it is meant to catch", () => {
     const owned = new Set(["conversations", "message_inbox", "llm_calls"]);

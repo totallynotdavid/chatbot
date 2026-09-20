@@ -1,13 +1,8 @@
 /**
- * What a suspended business must stop doing on its own.
- *
- * The scope-driven reads were closed to suspended tenants in an earlier round,
- * which covers everything a person asks for. This is the other half: the work
- * the system does without being asked. A message queued a minute before
- * suspension is still in the inbox; a conversation that timed out is still due
- * for reassignment; a report is still exportable. None of that goes through a
- * session, so none of it was covered, and a closed business went on answering
- * customers and paging its former agents.
+ * Covers the work that reaches a tenant's rows without a pinned tenant. Inbox
+ * aggregation, customer sends and the reassignment cron run without a session.
+ * A platform operator's exports read across tenants. Each path has to check the
+ * tenant's status itself, because no pinned scope filters it.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -110,11 +105,9 @@ describe("a suspended tenant", () => {
   });
 
   /**
-   * `resolveAccount` is the one gate every customer-facing send passes, so it
-   * is where suspension stops being a login rule and becomes silence. The
-   * account here is given a real token and left `active` on purpose: without
-   * the tenant check the adapter would have everything it needs and would
-   * genuinely call Meta, so "no request was made" is the whole assertion.
+   * `resolveAccount` gates every customer-facing send. The account is `active`
+   * and has a real token, so without the tenant check the adapter would call
+   * Meta. The tests assert that no request is made.
    */
   describe("sends nothing on a customer conversation", () => {
     let sends: number;
@@ -230,15 +223,15 @@ describe("a suspended tenant", () => {
 
       checkAndReassignTimeouts();
 
-      // Untouched: the assignment was never cleared, so no agent of a closed
-      // business is paged about a conversation it can no longer answer.
+      // The assignment is not cleared, so no agent of a closed business is
+      // paged for a conversation it cannot answer.
       expect(assignmentOf(closed)).toEqual({
         assigned_agent: closedAgent.userId,
         assignment_notified_at: staleNotifiedAt,
       });
 
-      // The open tenant's conversation went through the cron as before: it was
-      // handed on and the new agent notified just now.
+      // The cron still processes the open tenant: its agent is notified again
+      // just now.
       expect(assignmentOf(open).assigned_agent).toBe(openAgent.userId);
       expect(assignmentOf(open).assignment_notified_at).toBeGreaterThan(
         staleNotifiedAt!,
@@ -309,11 +302,10 @@ describe("a suspended tenant", () => {
 });
 
 /**
- * The development adapter used to send whatever it was handed. Production
- * refuses anything but an `active` account (adapters/whatsapp/cloud-api.ts),
- * and development is where a half-configured number is most likely to exist -
- * it is the state a number sits in while it is being set up - so skipping the
- * check there is exactly backwards: dev behaves as though it worked.
+ * Production refuses any account that is not `active`
+ * (adapters/whatsapp/cloud-api.ts). The dev adapter applies the same check
+ * because a half-configured number is most likely to exist in development.
+ * Sending for it there would make dev behave as though the number worked.
  */
 describe("the dev adapter", () => {
   let tenant: TenantFixture;
@@ -357,7 +349,8 @@ describe("the dev adapter", () => {
         await DevAdapter.sendImage(inactive, CUSTOMER, "images/x.jpg"),
       ).toBeNull();
 
-      // Not "the send failed" - the send never left the building.
+      // The refusal happens before any request. The send did not fail on the
+      // wire.
       expect(calls).toBe(0);
     });
   }

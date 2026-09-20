@@ -1,11 +1,7 @@
 /**
- * Authorization at the HTTP layer.
- *
- * These drive the real routers behind the real `requireAuth` middleware with a
- * real session cookie, so what is tested is what a request actually meets:
- * session -> tenant scope -> route. `src/index.ts` is not imported because it
- * starts the aggregator worker and reassignment timers on import; the routers
- * and middleware it mounts are the parts under test.
+ * Authorization at the HTTP layer, through the real routers, the real
+ * `requireAuth` and a real session cookie. `src/index.ts` is not imported,
+ * because importing it starts the aggregator worker and reassignment timers.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -64,8 +60,8 @@ const SHARED_PHONE = "51987654321";
 
 function buildApp() {
   const app = new Hono();
-  // Ahead of the global requireAuth, as index.ts mounts it: logging in is the
-  // one thing done without a session.
+  // Mounted before the global requireAuth, as index.ts does. Of the routes
+  // mounted here, only logging in needs no session.
   app.route("/api/auth", authRoutes);
   app.use("/api/*", requireAuth);
   app.route("/api/conversations", conversationRoutes);
@@ -155,7 +151,7 @@ describe("HTTP authorization", () => {
     });
   }
 
-  /** GET a path and read the JSON body, which these tests always know the shape of. */
+  /** GET a path and read the JSON body, typed by the caller. */
   async function getJson<T = any>(
     path: string,
     auth?: { cookie: string },
@@ -284,13 +280,9 @@ describe("HTTP authorization", () => {
   }
 
   /**
-   * Bundle writes take a raw request body. Both routes hand `await
-   * c.req.json()` to the service as `updates`, so the service - not the type -
-   * decides which columns a client may reach. `tenant_id` is the one that
-   * matters: the UPDATE's WHERE matches on the row's current tenant, so
-   * writing a new `tenant_id` in the SET would succeed and move the row to
-   * another business. Off-list keys are dropped, and the allowlisted fields in
-   * the same body still apply.
+   * The bundle PATCH and bulk-update routes pass the request body to the
+   * service as `updates`. The service must drop off-list keys, because a new
+   * `tenant_id` would move the row to another business.
    */
   it("ignores off-list fields in a bundle PATCH instead of moving the row", async () => {
     const bundle = createAlphaBundle(createAlphaPeriod().id, "Alpha Bundle");
@@ -322,7 +314,8 @@ describe("HTTP authorization", () => {
       ),
     ).toEqual([]);
 
-    // Every other off-list column is dropped the same way.
+    // Other off-list columns, here `id` and `period_id`, are dropped the same
+    // way, and an on-list column such as `notes` still lands.
     const second = await patch(
       `/api/catalog/bundles/${bundle.id}`,
       alphaAdmin,
@@ -429,12 +422,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * The way out of that state, for a user who was in two tenants and is now in
-   * one. Dropping the pin is correct, but it leaves them unpinned with a single
-   * membership, and every tenant-scoped page 403s until they pin it. The API
-   * has always allowed exactly that; the dashboard hid the selector unless the
-   * user had *more than one* tenant to choose between, so this was reachable
-   * only by logging out and back in (see the frontend's showTenantSelector).
+   * Dropping the pin leaves a user with one membership and no active tenant,
+   * and every tenant-scoped page answers 403 until they pin it. The API allows
+   * that selection. The dashboard must therefore show the selector for a single
+   * unpinned membership (see the frontend's showTenantSelector).
    */
   it("lets a member whose pin was dropped select the membership they keep", async () => {
     const userId = createUser({ tenantId: alpha.tenantId });
@@ -451,8 +442,8 @@ describe("HTTP authorization", () => {
 
     expect((await get("/api/conversations", session)).status).toBe(403);
 
-    // Unpinned, one membership left - and it is still listed, which is what the
-    // selector is populated from.
+    // Unpinned with one membership left. The membership is still listed, and
+    // the selector is populated from that list.
     const listed = await getJson<{
       tenants: Array<{ id: string }>;
       activeTenantId: string | null;
@@ -470,15 +461,9 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * `users.username` is one namespace across the platform because login is
-   * username + password with no business to pick first. A tenant admin choosing
-   * a name therefore learns whether it is free, and nothing can change that -
-   * it is what a unique constraint is.
-   *
-   * What they must not learn is anything beyond availability. Answering
-   * "Username already exists" told a tenant B admin that an account by that
-   * name existed *somewhere on VendeYa*, which the constraint never had to give
-   * away. Both cases answer identically now, so probing distinguishes nothing.
+   * `users.username` is one namespace across the platform, so a tenant admin
+   * learns whether a name is free. They must learn nothing more. A name taken
+   * in another tenant answers exactly like a name taken in this one.
    */
   describe("taking a username already used in another tenant", () => {
     function createMember(auth: { cookie: string }, username: string) {
@@ -513,7 +498,7 @@ describe("HTTP authorization", () => {
       const takenBody = await taken.json();
       const elsewhereBody = await elsewhere.json();
 
-      // Byte-identical: the response is not an oracle for cross-tenant
+      // Identical bodies: the response is not an oracle for cross-tenant
       // existence, only for availability, which the constraint forces anyway.
       expect(elsewhereBody).toEqual(takenBody);
       expect(JSON.stringify(elsewhereBody)).not.toContain("already exists");
@@ -534,9 +519,9 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: `password_hash` lives on the global user record, so resetting it
-   * for a user who also belongs to another tenant handed the acting admin that
-   * user's access everywhere - a cross-tenant account takeover.
+   * `password_hash` lives on the global user record. Resetting it for a user who
+   * also belongs to another tenant would give the acting admin that user's
+   * access everywhere, which is a cross-tenant account takeover.
    */
   describe("password reset cannot become cross-tenant access", () => {
     function hashOf(userId: string): string {
@@ -628,10 +613,9 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: `is_active` is on the global user record too, so deactivating a
-   * user who also belongs to another tenant locked them out of that other
-   * business as a side effect of an admin acting in this one. Same shape as the
-   * password reset above, same rule.
+   * `is_active` is on the global user record too. Deactivating a user who also
+   * belongs to another tenant would lock them out of that other business. The
+   * rule is the same as for the password reset above.
    */
   describe("deactivation cannot reach another tenant", () => {
     function isActive(userId: string): number {
@@ -744,9 +728,9 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: a conversation is (tenant, channel account, phone number), but
-   * `:phone` alone used to resolve to whichever thread was most recently active,
-   * silently conflating a contact who writes to two of the tenant's numbers.
+   * A conversation is (tenant, channel account, phone number). The `:phone`
+   * parameter alone is ambiguous when a contact writes to two of the tenant's
+   * numbers, so the API must refuse to guess which thread is meant.
    */
   describe("a contact on two of the tenant's numbers", () => {
     let second: ReturnType<typeof addChannelAccount>;
@@ -856,10 +840,9 @@ describe("HTTP authorization", () => {
 
     /**
      * The dashboard's own links have to name the thread, or they land on the
-     * 409 above. The order page linked by phone number alone, so its "Ver
-     * conversación" was dead for any tenant with a second number - and the
-     * order knows which number it came in on. The link is read out of the
-     * template and driven through the API the way a click would drive it.
+     * 409 above. The order records the channel account it came in on, so the
+     * order page links with both values. The test reads the link out of the
+     * template and drives it through the API the way a click would.
      */
     it("the order page links to the thread the order belongs to", async () => {
       const order = createOrder({
@@ -907,10 +890,9 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: membership was re-read on every request but the tenant's own
-   * status never was, so suspending a business only stopped new sessions from
-   * pinning it. Every session pinned beforehand kept full read and write access
-   * for as long as it lived - up to thirty days.
+   * The tenant's own status is re-read on every request, like membership. A
+   * session pinned before the suspension must lose read and write access at
+   * once instead of keeping it for the rest of its lifetime.
    */
   describe("suspending a tenant", () => {
     function suspend(tenantId: string): void {
@@ -958,7 +940,7 @@ describe("HTTP authorization", () => {
 
       const { session, user } = validateSessionToken(alphaAdmin.token);
 
-      // Still logged in, no longer acting anywhere: the user can select another
+      // Still logged in but acting nowhere. The user can select another
       // tenant, exactly as when a membership is revoked.
       expect(session).not.toBeNull();
       expect(user?.activeTenantId).toBeNull();
@@ -971,12 +953,10 @@ describe("HTTP authorization", () => {
     });
 
     /**
-     * Dropping the pin is the whole of the fix only for a member, for whom no
-     * pin means no access at all. For a platform operator, no pin *is* the
-     * unrestricted cross-tenant view - so unpinning a suspended tenant handed
-     * back exactly the access suspension was meant to take away, and the
-     * suspended business stayed just as readable as before. These go through
-     * an operator who never pinned anything.
+     * Dropping the pin is enough only for a member, for whom no pin means no
+     * access. For a platform operator, no pin is the unrestricted cross-tenant
+     * view, so the read paths must exclude suspended tenants themselves. These
+     * tests use an operator who never pinned anything.
      */
     describe("and an unpinned platform operator", () => {
       let operator: { cookie: string; token: string };
@@ -1008,9 +988,9 @@ describe("HTTP authorization", () => {
       });
 
       it("no longer resolves one of its conversations by phone number", async () => {
-        // Both tenants have this contact, so unpinned the lookup is ambiguous.
-        // Once alpha is closed only beta's thread is left to find, and it is
-        // beta's that comes back - not whichever was touched last.
+        // Both tenants have this contact, so the unpinned lookup is ambiguous.
+        // Once alpha is suspended only beta's thread remains, and that thread
+        // must come back rather than whichever was touched last.
         expect(
           (await get(`/api/conversations/${SHARED_PHONE}`, operator)).status,
         ).toBe(409);
@@ -1087,10 +1067,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: a number registered before SECRETS_KEY was configured is
-   * 'pending' - it has no token, so it cannot send. Handing it one through the
-   * admin API stored the credential but left the status alone, so the number
-   * stayed unusable until somebody thought to PATCH the status separately.
+   * A number registered before SECRETS_KEY was configured is 'pending' and has
+   * no token, so it cannot send. Supplying a token through the admin API must
+   * also activate the number. Otherwise it stays unusable until somebody
+   * PATCHes the status separately.
    */
   describe("giving a pending number its credentials", () => {
     const TOKEN = "EAAG-admin-supplied-token";
@@ -1170,11 +1150,10 @@ describe("HTTP authorization", () => {
     });
 
     /**
-     * Regression: the status could be set to 'active' on an account with no
-     * token at all. Webhook intake accepts inbound messages for any active
-     * account, and the outbound adapter refuses to send without credentials -
-     * so the number consumed customer messages it could never answer, silently
-     * and indefinitely. 'pending' is the state that means exactly this.
+     * An account with no token must not become 'active'. Webhook intake accepts
+     * inbound messages for any active account, and the outbound adapter refuses
+     * to send without credentials. Such a number would consume customer
+     * messages it can never answer. 'pending' is the state for exactly this.
      */
     describe("activating a number that cannot send", () => {
       it("refuses the transition when no token is stored", async () => {
@@ -1258,13 +1237,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: the reported role was hardcoded to "admin" whenever no tenant
-   * was pinned - exactly the case for a member of two tenants - so a sales agent
-   * was announced to the dashboard as an admin before picking a business.
-   *
-   * The login handler in index.ts and `validateSessionToken` (which answers
-   * /api/auth/me) both derive the reported role from `sessionRole`, so that
-   * helper and the session payload are what these assert on.
+   * A member with no pinned tenant is reported with a null role, not "admin".
+   * A platform operator is admin in every scope. Login in routes/auth.ts and
+   * `validateSessionToken` both derive the role from `sessionRole`. A member of
+   * two tenants starts unpinned.
    */
   describe("an unpinned member is not reported as an admin", () => {
     let agentId: string;
@@ -1378,23 +1354,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Two regressions on one endpoint, pulling in opposite directions.
-   *
-   * The first: tenant settings were spread over platform settings, so a tenant
-   * row named `maintenance_mode` hid a platform-wide freeze and the endpoint
-   * reported the bot as live while messages were being held. The fix reported
-   * the *effective* state - either level holding - in `maintenance_mode`.
-   *
-   * The second, which that fix caused: the dashboard posts this whole response
-   * back on every save, and `maintenance_mode` is the one platform-shaped key a
-   * tenant is allowed to write. So a platform-wide freeze arrived as
-   * `maintenance_mode: "true"`, and the next save of any unrelated setting
-   * persisted it as that tenant's own freeze - which outlived the platform one
-   * and left the business permanently frozen for no visible reason.
-   *
-   * Both hold now because the two facts have separate names: the writable
-   * `maintenance_mode` is the tenant's own stored value, and the effective
-   * state is informational, under a key the write path skips.
+   * `_effective_maintenance_mode` reports the effective freeze, and the write
+   * path skips it. The writable `maintenance_mode` holds only the tenant's own
+   * value, so a save cannot persist a platform freeze as the tenant's own. A
+   * tenant's row must not hide a platform freeze either.
    */
   describe("a platform freeze and a tenant's own setting stay separate", () => {
     afterEach(() => {
@@ -1412,10 +1375,10 @@ describe("HTTP authorization", () => {
         alphaAdmin,
       );
 
-      // The bot is held, and the endpoint says so - the first regression.
+      // The endpoint reports the platform freeze that holds the bot.
       expect(settings._effective_maintenance_mode).toBe("true");
       expect(settings._platform_maintenance_mode).toBe("true");
-      // ...without claiming the tenant asked for it - the second.
+      // The writable field does not claim the tenant asked for it.
       expect(settings.maintenance_mode).toBe("false");
     });
 
@@ -1459,8 +1422,10 @@ describe("HTTP authorization", () => {
     });
 
     /**
-     * The lockout itself, driven the way the dashboard drives it: load the
-     * page, change something unrelated, save the whole object back.
+     * A platform freeze persisted as the tenant's own outlives the platform one
+     * and leaves the business frozen for no visible reason. The tests drive the
+     * dashboard's flow: load the page, change an unrelated setting, save the
+     * whole object back.
      */
     describe("saving an unrelated setting during a platform freeze", () => {
       async function loadChangeAndSave(change: Record<string, string>) {
@@ -1475,8 +1440,9 @@ describe("HTTP authorization", () => {
             Cookie: alphaAdmin.cookie,
             "Content-Type": "application/json",
           },
-          // Exactly what the page posts: everything it was handed, with the
-          // one field the admin actually touched changed.
+          // The page posts everything it was handed except keys that start with
+          // "_", with the one field the admin touched changed. This helper keeps
+          // those keys too, and the server skips them anyway.
           body: JSON.stringify({ ...loaded, ...change }),
         });
       }
@@ -1493,8 +1459,8 @@ describe("HTTP authorization", () => {
         const response = await loadChangeAndSave({ business_name: "Gas Perú" });
         expect(response.status).toBe(200);
 
-        // The whole bug in one assertion: this used to come back "true", and
-        // stayed "true" after the platform freeze was lifted.
+        // The tenant keeps no maintenance row of its own, so lifting the
+        // platform freeze leaves it unfrozen.
         expect(
           TenantSettings.get(alpha.tenantId, "maintenance_mode"),
         ).toBeNull();
@@ -1534,8 +1500,8 @@ describe("HTTP authorization", () => {
       });
 
       it("still lets the tenant freeze itself on purpose", async () => {
-        // The toggle has to keep working during a platform freeze; what must
-        // not happen is it moving on its own.
+        // The toggle has to keep working during a platform freeze. It must not
+        // change on its own.
         await loadChangeAndSave({ maintenance_mode: "true" });
 
         expect(TenantSettings.get(alpha.tenantId, "maintenance_mode")).toBe(
@@ -1562,13 +1528,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * The platform side of the same endpoint. Its docstring always said a tenant
-   * admin sees platform values so their dashboard can show a freeze, but the
-   * handler spread all of SystemSettings into the response - including
-   * `platform_ops_channel_account_id`, the channel account VendeYa's own
-   * operations alerts go out on, which no tenant UI renders and no tenant is
-   * entitled to. What a tenant sees is now the allowlist their dashboard
-   * actually draws.
+   * A tenant admin sees only the platform values their dashboard draws. The
+   * response must not include VendeYa's own deployment configuration, such as
+   * `platform_ops_channel_account_id`, the channel account VendeYa's operations
+   * alerts go out on.
    */
   describe("the platform values a tenant admin is shown", () => {
     const OPS_ACCOUNT_KEY = "platform_ops_channel_account_id";
@@ -1609,10 +1572,9 @@ describe("HTTP authorization", () => {
     });
 
     /**
-     * Regression: the kill switches came back under their raw names, so the
-     * page posted them back on every save and every save was answered
-     * `rejected: ["force_fnb_down", "force_gaso_down"]` - a refusal of a write
-     * nobody attempted, on the channel meant to report real ones.
+     * The kill switches are reported under prefixed names. Under their raw names
+     * the page would post them back on every save, and every save would answer
+     * `rejected` for a write nobody attempted.
      */
     it("rejects nothing when the page saves back exactly what it loaded", async () => {
       SystemSettings.set("force_fnb_down", "true");
@@ -1651,15 +1613,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * `tenant_settings` is a bare key/value table holding two unrelated things:
-   * settings a human operator owns, and state the application writes and reads
-   * back as its own. The write path guarded only the first distinction - which
-   * level owns a key - so anything not on the platform list went straight in,
-   * `last_agent_index` among them: the round-robin cursor of
-   * domains/conversations/assignment.ts, which parsed it back with no guard.
-   * One admin POST of a non-numeric value made every subsequent index NaN, so
-   * the tenant silently stopped assigning agents and every handoff stalled,
-   * with a warn-level log line as the only sign of it.
+   * `tenant_settings` holds operator-owned settings and application-owned state
+   * such as `last_agent_index`, the round-robin cursor of
+   * domains/conversations/assignment.ts. A tenant admin must not write the
+   * cursor, because the application reads it back as its own state.
    */
   describe("settings the application owns, not the operator", () => {
     const ROUND_ROBIN_KEY = "last_agent_index";
@@ -1718,9 +1675,9 @@ describe("HTTP authorization", () => {
     });
 
     /**
-     * Defence in depth for a row written before the guard existed, or edited
-     * straight in the database: NaN survives the modulo and is written back, so
-     * one bad read would otherwise poison every assignment that followed.
+     * Defence in depth for a row edited straight in the database. NaN survives
+     * the modulo and is written back, so one bad read would otherwise poison
+     * every assignment that followed.
      */
     it("assigns an agent even with a corrupt cursor already stored", async () => {
       TenantSettings.set(alpha.tenantId, ROUND_ROBIN_KEY, "invalid");
@@ -1741,12 +1698,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Regression: `requireTenantScope` lets an unpinned platform operator through
-   * so support can read across tenants, and the write routes below leaned on
-   * that same gate. An operator with no tenant selected could therefore resolve
-   * another business's conversation and mutate it - which is exactly what
-   * `writeTenantId` says must not happen. Writes now take `requireActiveTenant`
-   * as well: pick the tenant you are acting in first.
+   * `requireTenantScope` lets an unpinned platform operator through to read
+   * across tenants. The conversation write routes also take
+   * `requireActiveTenant`, so an operator with no tenant selected cannot write
+   * to another business's conversations.
    */
   describe("an unpinned platform operator cannot write", () => {
     const BETA_ONLY = "51900000002";
@@ -1976,13 +1931,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * Logging in, for somebody whose only business has been suspended.
-   *
-   * The membership check at login counted active tenants only, so this user
-   * was told "Invalid credentials" for the right password - while a session
-   * they already held survived the same suspension (validateSessionToken keeps
-   * it and drops the pin). Login now agrees with that: belonging to a suspended
-   * tenant is still belonging, and the session it hands out is the unpinned one.
+   * Logging in for somebody whose only business is suspended. Belonging to a
+   * suspended tenant is still belonging, so login succeeds and hands out the
+   * unpinned session. That matches a session already held through the
+   * suspension, which `validateSessionToken` keeps and unpins.
    */
   describe("logging in", () => {
     const PASSWORD = "the-right-password";
@@ -2071,13 +2023,10 @@ describe("HTTP authorization", () => {
   });
 
   /**
-   * The end of the migration path: onboarding the second business.
-   *
-   * The account shape here is the one the migration produces - a tenant admin
-   * who keeps the membership they already had and is also platform staff -
-   * because that is the only kind of operator an upgraded single-business
-   * deployment has. If the flag on its own were not enough to reach this
-   * route, promoting somebody during the migration would have bought nothing.
+   * The account is shaped like a migrated admin after `bun run account promote`:
+   * it keeps its membership and is also platform staff. An upgraded
+   * single-business deployment has no operator until one is promoted, so the
+   * flag alone must be enough to create a tenant.
    */
   describe("creating the second tenant", () => {
     const slug = "second-business";

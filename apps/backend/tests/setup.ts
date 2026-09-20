@@ -1,24 +1,7 @@
 /**
- * Test bootstrap. `bunfig.toml` preloads this before any test file, which is
- * the only moment early enough to matter: `src/db/connection.ts` opens DB_PATH
- * the first time anything imports it, and `src/lib/storage-paths.ts` reads
- * UPLOAD_DIR and PRIVATE_DIR once at module load. From then on the whole suite
- * - the fixtures, the routers, the seeds, both file stores - works through
- * whatever those three named.
- *
- * All three default to somewhere real, and `bun test` runs with the
- * repository's own .env, so without this the suite would run against the
- * developer's actual data. DB_PATH defaults to ./data/database.sqlite, where
- * `applySchema` would migrate a pre-tenancy schema in place (rename aside,
- * rebuild, copy, drop) and every fixture would insert and delete real rows.
- * UPLOAD_DIR defaults to ./data/uploads, whose `images/` directory is tracked
- * in git and holds the catalog photos the seeds ship: tests write and delete
- * files there by id, which self-corrects on a clean run and leaves strays in a
- * tracked directory on a crashed or killed one. PRIVATE_DIR is where contracts
- * and call recordings land.
- *
- * A fresh temp directory per run keeps all of it where it belongs, and makes
- * the cleanup in the tests themselves incapable of deleting anything real.
+ * Preloaded by `bunfig.toml`, before any test file loads. `connection.ts` opens
+ * DB_PATH on first import and `storage-paths.ts` reads UPLOAD_DIR and
+ * PRIVATE_DIR once at module load.
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -28,11 +11,17 @@ import process from "node:process";
 
 import { TEST_APP_SECRET } from "./helpers/webhook.ts";
 
+// A temp directory per run keeps the tests' own cleanup away from real files.
 const dir = mkdtempSync(join(tmpdir(), "totem-test-"));
 
-// The suite mocks Cloud API responses, so NODE_ENV must select the test adapter.
+// The suite mocks Cloud API responses. NODE_ENV=development would select the
+// dev adapter instead, so it is set to `test`.
 process.env.NODE_ENV = "test";
+// Left to its default, DB_PATH is the developer's database. `applySchema`
+// would migrate it in place and the fixtures would insert and delete real rows.
 process.env.DB_PATH = join(dir, "test.sqlite");
+// The default upload directory has a git-tracked `images/` directory. A run
+// that is killed mid-test would leave stray files in it.
 process.env.UPLOAD_DIR = join(dir, "uploads");
 process.env.PRIVATE_DIR = join(dir, "private");
 process.env.WHATSAPP_APP_SECRET = TEST_APP_SECRET;

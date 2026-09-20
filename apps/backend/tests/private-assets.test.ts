@@ -1,17 +1,8 @@
 /**
- * How private asset bytes leave the API.
- *
- * `assets.content_type` is the uploading browser's `File.type` - whatever the
- * client put there. GET /api/assets/:id echoed it back verbatim with no
- * disposition, so a tenant user who uploaded an .html or .svg file as a
- * "contract" got it served as text/html from the backend's own origin: opening
- * the asset URL executed it, with the session cookie of whoever opened it.
- * Stored XSS, reachable by any tenant user with upload rights.
- *
- * The bytes are still served - a contract has to be downloadable - but as an
- * attachment, and only ever with a content type on the allowlist for the
- * asset's kind. The upload side records nothing outside that list either, so
- * the column stops carrying a client's claim at all.
+ * `assets.content_type` is the uploading browser's `File.type`, which the
+ * client controls. GET /api/assets/:id therefore serves private assets as
+ * attachments, with a content type from the allowlist for their kind. An
+ * uploaded .html or .svg never runs as a page on the backend's origin.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -76,8 +67,7 @@ describe("serving a private asset", () => {
 
   /**
    * An asset row with bytes behind it, written straight to the store so the
-   * content type can be anything - including one no upload path would record
-   * today, which is what a row written before the allowlist existed looks like.
+   * content type can be anything, including one no upload path would record.
    */
   async function storedAsset(options: {
     kind: "contract" | "recording";
@@ -122,8 +112,7 @@ describe("serving a private asset", () => {
     );
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
 
-    // The bytes are still the ones that were uploaded; only how they are
-    // labelled changed.
+    // The bytes are the ones that were uploaded. Only their labelling differs.
     expect(await response.text()).toContain("<script>");
   });
 

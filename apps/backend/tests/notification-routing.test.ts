@@ -1,18 +1,3 @@
-/**
- * Where an alert points, and whether it was really sent.
- *
- * Two regressions, both from the same blind spot - a conversation is (tenant,
- * channel account, phone number), and a notification is sent from a channel
- * account that may not be able to send:
- *
- *  - the links in these alerts named the contact's phone number alone, so for a
- *    tenant with a second WhatsApp number the dashboard answered them with 409
- *    "ambiguous" instead of the conversation;
- *  - the dispatcher dropped `sendDirect`'s answer, so an alert refused by the
- *    Cloud adapter (a pending or disabled number cannot send) was recorded as
- *    delivered.
- */
-
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import process from "node:process";
 
@@ -48,6 +33,11 @@ function contentFor(event: DomainEvent): string {
   return sent.content;
 }
 
+/**
+ * A conversation is identified by (tenant, channel account, phone number). With
+ * the phone number alone, a tenant with a second WhatsApp number gets 409
+ * "ambiguous" from the dashboard.
+ */
 describe("the link an alert carries", () => {
   const base = {
     traceId: "trace-1",
@@ -142,6 +132,10 @@ describe("the link an alert carries", () => {
   });
 });
 
+/**
+ * The dispatcher must use `sendDirect`'s result. The Cloud adapter refuses a
+ * pending or disabled number, and that alert must be recorded as failed.
+ */
 describe("dispatching an alert on a number that cannot send", () => {
   let tenant: TenantFixture;
   let pendingAccountId: string;
@@ -150,8 +144,8 @@ describe("dispatching an alert on a number that cannot send", () => {
     applySchema();
     tenant = createTenantFixture("notifications");
 
-    // A number registered but not yet able to send: the Cloud adapter refuses
-    // it, which is the case that used to be recorded as a delivery.
+    // A number registered but not yet able to send. The Cloud adapter refuses
+    // it.
     pendingAccountId = ChannelAccountService.create({
       tenantId: tenant.tenantId,
       phoneNumberId: `pnid-${crypto.randomUUID().slice(0, 8)}`,
@@ -207,18 +201,10 @@ describe("dispatching an alert on a number that cannot send", () => {
 });
 
 /**
- * Alerts that belong to no tenant.
- *
- * `notification_traces.tenant_id` is nullable because a few events really are
- * the platform's: both eligibility providers being down is one deployment-wide
- * outage, and GET /api/providers/:dni raises it with no conversation - and so
- * no tenant and no channel account - behind it. Requiring a tenant account
- * before sending turned that alert into a `no_channel_account` trace and
- * nothing delivered, which is the dev team not being told the bot is blind.
- *
- * They go out on the platform's own operations account now: the
- * `platform_ops_channel_account_id` setting, else PLATFORM_OPS_PHONE_NUMBER_ID,
- * else WHATSAPP_PHONE_ID - the number they were sent from before tenancy.
+ * `notification_traces.tenant_id` is nullable because some events belong to the
+ * platform, such as both eligibility providers being down. GET /api/providers/:dni
+ * raises it with no tenant or channel account. Requiring a tenant account would
+ * record `no_channel_account` and deliver nothing.
  */
 describe("a platform-wide alert with no tenant", () => {
   const SECRETS_KEY = "d4".repeat(32);
@@ -322,6 +308,8 @@ describe("a platform-wide alert with no tenant", () => {
     dropTenantFixture(tenant);
   });
 
+  // The operations account resolves from the `platform_ops_channel_account_id`
+  // setting, else PLATFORM_OPS_PHONE_NUMBER_ID, else WHATSAPP_PHONE_ID.
   it("goes out on the designated platform operations account", async () => {
     SystemSettings.set("platform_ops_channel_account_id", opsAccountId);
 
@@ -341,8 +329,7 @@ describe("a platform-wide alert with no tenant", () => {
   });
 
   it("falls back to the number the alert used before tenancy", async () => {
-    // No designation stored: WHATSAPP_PHONE_ID is where these went out from
-    // when there was one global token, and it still resolves.
+    // No designation is stored, so WHATSAPP_PHONE_ID resolves the account.
     setEnv("WHATSAPP_PHONE_ID", opsPhoneNumberId);
 
     const traceId = `trace-${crypto.randomUUID()}`;

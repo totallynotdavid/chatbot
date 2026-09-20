@@ -1,18 +1,8 @@
 /**
- * Turning a provider verdict into an enrichment result.
- *
- * The catalog half of that answer belongs to a tenant: which bundles somebody's
- * credit line reaches is a question about one business's stock. Only one caller
- * has no tenant - GET /api/providers/:dni, the operator's provider diagnostic,
- * which has no conversation behind it - and it used to be handed down as the
- * empty string.
- *
- * That string reached `WHERE b.tenant_id = ?`, matched no tenant, and came back
- * empty. So an eligible DNI checked through that endpoint reported "eligible,
- * and nothing is affordable" no matter what the catalog actually held, and
- * nothing distinguished that from a business whose catalog really was empty.
- * No tenant is null here, as everywhere else in this codebase, and the absence
- * of a catalog answer is stated rather than faked.
+ * The catalog half of an enrichment result belongs to a tenant, because which
+ * bundles a credit line reaches depends on one business's stock. Only
+ * GET /api/providers/:dni, the operator's provider diagnostic, has no tenant,
+ * because no conversation stands behind it. The tenant is null there.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -66,9 +56,10 @@ describe("mapping an eligible customer", () => {
   });
 
   /**
-   * The regression. With the empty string this returned status "eligible" and
-   * `affordableCategories: []` - the same shape as the real answer above, and
-   * indistinguishable from a business with nothing in stock.
+   * A null tenant must produce no catalog answer. An empty tenant id would match
+   * no row in `WHERE b.tenant_id = ?`, and the result would read "eligible, and
+   * nothing is affordable", which is indistinguishable from a business whose
+   * catalog is empty.
    */
   it("does not claim an empty catalog when no tenant owns the check", () => {
     const result = mapEligibilityToEnrichment(null, eligible);
@@ -77,8 +68,8 @@ describe("mapping an eligible customer", () => {
     expect(result.credit).toBe(CREDIT);
     expect(result.name).toBe("Juan");
 
-    // Nothing was asked, so nothing is answered - rather than an empty list
-    // that reads as an answer.
+    // No catalog was queried, so no catalog answer is returned. An empty list
+    // would read as an answer.
     expect(result.catalogChecked).toBe(false);
     expect(result.affordableCategories).toBeUndefined();
     expect(result.affordableBundles).toBeUndefined();

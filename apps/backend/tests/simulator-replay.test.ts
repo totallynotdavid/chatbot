@@ -1,11 +1,7 @@
 /**
- * Loading a real conversation into the simulator.
- *
- * Regression: the source conversation was resolved through the tenant's default
- * channel account, but a business with two WhatsApp numbers has two separate
- * threads with the same contact. Replaying one that came in on the second
- * number was answered with "Source conversation not found" even though the
- * conversation was right there, in the caller's own tenant.
+ * Loading a real conversation into the simulator. A business with two WhatsApp
+ * numbers has two separate threads with the same contact, so the source is
+ * resolved on the number it came in on, not through the default account.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -119,8 +115,8 @@ describe("replaying a conversation from a second WhatsApp number", () => {
     });
 
     // The simulator's own endpoints look the conversation up through the
-    // tenant's default account, so that is where the replay has to land -
-    // carrying the source conversation's client, not the source's number.
+    // tenant's default account, so the replay has to land there. It carries the
+    // source conversation's client, not the source's number.
     const loaded = db
       .prepare(
         `SELECT client_name, is_simulation FROM conversations
@@ -164,15 +160,10 @@ describe("replaying a conversation from a second WhatsApp number", () => {
 });
 
 /**
- * Which simulations the simulator lists.
- *
- * Every action here - open, reset, delete, send - resolves a phone number
- * through the tenant's default channel account, while the listing returned
- * every simulation the tenant had on any of its numbers. The frontend keys
- * those rows by phone number alone, so a business with two numbers got two
- * identical-looking rows for the same contact, and clicking either one acted on
- * the default account: an empty thread created on the spot, or a delete that
- * answered 404. The listing now shows what the actions can actually reach.
+ * Which simulations the simulator lists. Every action on a listed conversation
+ * resolves its phone number through the tenant's default channel account, and
+ * the frontend keys rows by phone number alone. The listing must show only what the actions can
+ * reach, or a row on the other number opens an empty thread or answers 404.
  */
 describe("listing simulated conversations", () => {
   let app: Hono;

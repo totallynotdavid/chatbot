@@ -1,11 +1,7 @@
 /**
- * Signed contracts and call recordings.
- *
- * Regression: every upload for a conversation was written to the same two
- * storage keys (`contract.<ext>`, `audio.<ext>`) but minted a new asset row, so
- * the previous asset id - still named by the audit trail, the notification event
- * and any link already handed out - started serving the newest bytes instead of
- * the ones it was created for. An asset id now names its own file.
+ * Signed contracts and call recordings. An asset id names its own file, so a
+ * later upload for the same conversation cannot change the bytes an earlier id
+ * serves. The audit trail, the notification event and handed-out links name it.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -96,7 +92,6 @@ describe("uploading a contract", () => {
     expect(keys).toHaveLength(4);
     expect(new Set(keys).size).toBe(4);
 
-    // The key is named by the asset id, which is what makes it unique.
     for (const id of [
       first.contractAssetId,
       first.audioAssetId,

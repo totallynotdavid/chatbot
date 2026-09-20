@@ -1,18 +1,7 @@
 /**
- * What a transition leaves behind when one of its sends is refused.
- *
- * Round 15 made a number switched off mid-flight a failure the queue can see:
- * the send throws `ChannelUnavailableError` and the aggregator puts the message
- * back to be answered once the number returns. That fixed the message and not
- * the conversation. `executeCommands` persisted the new phase before running
- * the commands and wrote TRACK_EVENT rows as it met them, so by the time the
- * send threw, the conversation had moved on and the analytics had been written
- * - for a reply the customer never received. The orchestrator did the same with
- * the transition's domain events, one of which creates an order.
- *
- * A requeued message is only safe to answer again if answering it the first
- * time recorded nothing. These check that it recorded nothing, and that the
- * retry then does everything exactly once.
+ * A refused send throws `ChannelUnavailableError`, and the aggregator requeues
+ * the message. The first attempt must record nothing (no new phase, TRACK_EVENT
+ * rows or domain events), and the retry must record each exactly once.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -169,9 +158,9 @@ describe("a send refused partway through a transition", () => {
   });
 
   /**
-   * The review's scenario, as it happens: a new contact says "hola", the
-   * greeting transition tracks `session_start` and then sends, and the number
-   * is switched off in between.
+   * A new contact says "hola". The greeting transition lists `session_start`
+   * before its sends, and the number is switched off after the dequeue and
+   * before the first send.
    */
   describe("on a new contact's first message", () => {
     beforeEach(() => {
@@ -182,8 +171,8 @@ describe("a send refused partway through a transition", () => {
       await answerWithNumberSwitchedOffMidFlight();
 
       expect(queueStatuses()).toEqual(["pending"]);
-      // Still waiting to be greeted - not `confirming_client`, which would
-      // read the next "hola" as the answer to a question never asked.
+      // The phase stays `greeting`. `confirming_client` would read the next
+      // "hola" as the answer to a question never asked.
       expect(storedPhase()).toEqual({ phase: "greeting" });
       expect(analytics("session_start")).toBe(0);
       expect(sends).toBe(0);
@@ -199,7 +188,6 @@ describe("a send refused partway through a transition", () => {
       expect(storedPhase()).toEqual({ phase: "confirming_client" });
       expect(analytics("session_start")).toBe(1);
 
-      // The retry answered with the greeting itself, and it went out.
       const greetings = GREETING.flat();
       const last = outbound().at(-1);
       expect(last?.status).toBe("sent");
@@ -208,10 +196,9 @@ describe("a send refused partway through a transition", () => {
   });
 
   /**
-   * The same shape one layer up. `purchase_confirmed` is a domain event the
-   * orchestrator emits, and its subscriber creates the order - so with the
-   * phase now correctly left in `confirming_selection`, emitting it before the
-   * sends would have made the retry confirm the same sale twice.
+   * `purchase_confirmed` is a domain event the orchestrator emits, and its
+   * subscriber creates the order. Emitting it before the sends would make the
+   * retry confirm the same sale twice.
    */
   describe("on a purchase confirmation", () => {
     let confirmations: number;
@@ -279,10 +266,9 @@ describe("a send refused partway through a transition", () => {
     } as ConversationMetadata;
 
     /**
-     * The tradeoff, pinned down rather than implied. A message that went out
-     * before the refusal is not taken back and is sent again on the retry; what
-     * the batch records - the phase, the analytics - is written once, after the
-     * last send, and never for a batch that did not finish.
+     * A message sent before the refusal is not retracted and is sent again on
+     * the retry. The phase and the analytics are written once, after the last
+     * send, and never for a batch that did not finish.
      */
     it("repeats a message that went out before the refusal, and records nothing until the batch completes", async () => {
       insertConversation(ref);
@@ -332,11 +318,9 @@ describe("a send refused partway through a transition", () => {
     });
 
     /**
-     * Deferring the write must not lose what an image or bundle command adds to
-     * the phase. Those used to persist their own `sentProducts` straight after
-     * the upfront write; persisting the plain `nextPhase` last would have
-     * silently overwritten them, and the next message could no longer be matched
-     * against the products the customer had just been shown.
+     * Image and bundle commands add `sentProducts` to the phase. Persisting the
+     * plain `nextPhase` after the last send would overwrite them, and the next
+     * message could not be matched against the products the customer was shown.
      */
     it("keeps the products a bundle command showed on the phase it persists", async () => {
       const periodId = `per-${crypto.randomUUID()}`;

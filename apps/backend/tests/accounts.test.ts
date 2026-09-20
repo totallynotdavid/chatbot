@@ -1,4 +1,4 @@
-/** Creating and promoting accounts; each refusal also checks nothing was written. */
+/** Creating and promoting accounts. Each refused create or promote also checks that nothing was written. */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";

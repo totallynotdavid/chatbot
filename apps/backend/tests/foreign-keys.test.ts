@@ -1,11 +1,7 @@
 /**
- * Foreign key enforcement.
- *
- * SQLite defaults `PRAGMA foreign_keys` to off, which made every REFERENCES and
- * ON DELETE CASCADE in schema.sql decorative: orphan rows went in without
- * complaint and cascades never fired. These check that the connection the app
- * actually uses enforces them, and that the places which leaned on the
- * unenforced constraints now behave.
+ * SQLite defaults `PRAGMA foreign_keys` to off, which leaves every REFERENCES
+ * and ON DELETE CASCADE in schema.sql unenforced. These tests check that the
+ * connection the app uses turns enforcement on.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -195,8 +191,8 @@ describe("foreign key enforcement", () => {
     }
 
     it("is refused on a message, even with a conversation of its own", () => {
-      // The conversation the message would hang off exists under the other
-      // tenant, so only the pairing on the message row is wrong.
+      // A conversation with this phone number exists under the other tenant.
+      // The message still pairs this tenant with the other tenant's number.
       insertConversation(other.ref("51900000015"));
 
       expect(() =>
@@ -230,10 +226,9 @@ describe("foreign key enforcement", () => {
   });
 
   /**
-   * `catalog_bundles.period_id` referenced `catalog_periods(id)` alone, so
-   * nothing at the database level stopped a bundle naming one tenant while the
-   * period it sits in belonged to another. The route checked it - and still
-   * does - but a check in one handler is not the same as a constraint.
+   * The database rejects a bundle that names one tenant while its period
+   * belongs to another. The route checks this too, but a check in one handler
+   * is not a constraint.
    */
   describe("a bundle in another tenant's period", () => {
     let other: TenantFixture;
@@ -488,9 +483,9 @@ describe("foreign key enforcement", () => {
 
 /**
  * Every table carrying both columns has to reference the pair, not the two
- * columns separately. The tests above prove it one table at a time; this one
- * catches the next table somebody adds with the old independent references,
- * which would compile, pass its own tests, and quietly accept cross-tenant rows.
+ * columns separately. The tests above prove it one table at a time. This one
+ * catches a new table with independent references, which would compile, pass
+ * its own tests, and accept cross-tenant rows.
  */
 describe("the composite reference itself", () => {
   let dir: string;
@@ -526,11 +521,10 @@ describe("the composite reference itself", () => {
   }
 
   /**
-   * A conversation is deleted as a whole - the simulator's delete route is the
-   * one place that does it - so nothing may reference one without saying what
-   * becomes of it. `orders` did, and the delete turned into a 500 the moment
-   * enforcement was switched on. This is the shape check for the next table
-   * somebody hangs off a conversation.
+   * The simulator's delete route removes a conversation as a whole, so every
+   * table that references one must cascade the delete. A new table hung off a
+   * conversation fails the expected list, and a key with any other ON DELETE
+   * action fails the cascade check.
    */
   it("cascades on every table that references a conversation", () => {
     const referencing = fresh
@@ -610,10 +604,9 @@ describe("the composite reference itself", () => {
 });
 
 /**
- * The migration rebuilds tables and renames them aside, which enforcement would
- * trip. It has to turn foreign keys off for the rebuild and put them back the
- * way it found them - including when the connection had them on, which is how
- * the application connection is configured.
+ * The migration renames tables aside while it rebuilds them, which enforcement
+ * would trip. It turns foreign keys off for the rebuild and restores the prior
+ * setting, including when the connection had them on as the app's does.
  */
 describe("migration under an enforcing connection", () => {
   let dir: string;

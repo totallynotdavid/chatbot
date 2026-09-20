@@ -1,11 +1,8 @@
 /**
- * Catalog images shared between tenants.
- *
- * Regression: every tenant's catalog is seeded from the same base data, so the
- * seeded bundles of two businesses name the same `image_id` - the bundle row's
- * id is tenant-scoped, the image behind it is not. Editing or deleting a bundle
- * deleted that file unconditionally, which blanked the identically-seeded
- * bundle in every other tenant's dashboard and in anything sent on WhatsApp.
+ * A tenant's catalog is seeded from the same base data as every other seeded
+ * tenant's, so two tenants' seeded bundles name the same `image_id`. The bundle
+ * and asset rows are tenant-scoped, but the image file is shared. Deleting a
+ * bundle must keep a file that another tenant's bundle still names.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -25,14 +22,12 @@ import { IMAGES_DIR } from "../src/lib/storage-paths.ts";
 import { AssetService } from "../src/domains/assets/index.ts";
 import { BundleService } from "../src/domains/catalog/bundles.ts";
 
-// The store's own root, not a second copy of the join: this test writes the
-// files the store is then asked to delete, and a copy that drifted would make
-// it pass while proving nothing.
-
 const written: string[] = [];
 
 /** The bytes a seeded catalog ships with, as a file the storage can find. */
 function writeImage(imageId: string): string {
+  // Uses the store's own root. A separate copy of the path could drift and let
+  // the deletion assertions pass against a directory the store never reads.
   fs.mkdirSync(IMAGES_DIR, { recursive: true });
   fs.writeFileSync(path.join(IMAGES_DIR, `${imageId}.jpg`), "jpeg-bytes");
   written.push(imageId);

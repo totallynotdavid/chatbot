@@ -1,12 +1,8 @@
 /**
- * The suite's own database.
- *
- * `bun test` runs with the repository's real .env, and the application's
- * connection opens DB_PATH - a developer's actual database unless something
- * says otherwise. `applySchema` migrates whatever it is handed (rename aside,
- * rebuild, copy, drop) and the fixtures insert and delete rows through that
- * same connection, so running the suite against it would rewrite real data.
- * tests/setup.ts, preloaded by bunfig.toml, is what keeps that from happening.
+ * The test commands load the repository's .env, so the application's connection
+ * would open a developer's real database. `applySchema` migrates it and the fixtures
+ * insert and delete rows in it. `tests/setup.ts` prevents that by pointing
+ * DB_PATH at a throwaway file.
  */
 
 import { describe, it, expect } from "bun:test";

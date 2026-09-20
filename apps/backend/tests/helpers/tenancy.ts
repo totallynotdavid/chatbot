@@ -4,14 +4,10 @@ import { db } from "../../src/db/index.ts";
 import { initializeDatabase } from "../../src/db/init.ts";
 import type { ConversationRef } from "@totem/types";
 
-/**
- * The suite drives the application's own connection - the fixtures below write
- * through it, and `applySchema` will migrate whatever it finds. That database
- * must therefore be a throwaway one: `tests/setup.ts`, preloaded by
- * bunfig.toml, points DB_PATH at a fresh temp file before the connection is
- * opened. If some other way of running the tests skipped that preload, DB_PATH
- * is still a developer's real database, and nothing here may touch it.
- */
+// The fixtures write through the application's own connection, so it must be
+// a throwaway database. `tests/setup.ts` points DB_PATH at a temp file before
+// the connection opens. Another way of running the tests could skip that
+// preload, and then nothing here may touch a developer's real database.
 const dbPath = path.resolve(db.filename);
 
 if (!dbPath.startsWith(path.resolve(tmpdir()) + path.sep)) {
@@ -23,9 +19,8 @@ if (!dbPath.startsWith(path.resolve(tmpdir()) + path.sep)) {
 }
 
 /**
- * Bring the test database up to the current schema, migrating it first if it
- * was left behind by a pre-tenancy run. Idempotent, so every test file can call
- * it; they share one connection.
+ * Brings the test database to the current schema, migrating a legacy database
+ * first. Idempotent, so every test file can call it on the shared connection.
  */
 export function applySchema(): void {
   initializeDatabase(db);
@@ -40,7 +35,7 @@ export type TenantFixture = {
 
 /**
  * A tenant with one WhatsApp number, ready to hang conversations off. Ids are
- * random per call so parallel test files never collide in the shared database.
+ * random per call so test files never collide in the shared database.
  */
 export function createTenantFixture(slug: string): TenantFixture {
   const tenantId = `tn-${crypto.randomUUID()}`;

@@ -1,11 +1,8 @@
 /**
- * Migrating a real single-business database.
- *
- * The point of the exercise is that the one existing business keeps working
- * exactly as before: the same conversations, messages, orders, catalog and users
- * come out the other side, now addressed by (tenant, channel account, phone
- * number). This builds a database in the pre-tenancy shape, migrates it, and
- * checks the rows survived with their tenant stamped on.
+ * Migrating a real single-business database. The one existing business must
+ * keep its conversations, messages, orders, catalog and users, now addressed by
+ * (tenant, channel account, phone number). The test builds a pre-tenancy
+ * database, migrates it and checks each row survived with its tenant stamped on.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -744,7 +741,7 @@ describe("migrating a database with WhatsApp credentials configured", () => {
       "the migrated channel account",
     );
 
-    // Nothing to decrypt the token with, so it is not stored and the number is
+    // Nothing to encrypt the token with, so it is not stored and the number is
     // marked as one that cannot yet send.
     expect(account.status).toBe("pending");
     expect(account.access_token_secret_id).toBeNull();
@@ -771,10 +768,9 @@ describe("migrating a database with WhatsApp credentials configured", () => {
 });
 
 /**
- * The seeds write to the database they are handed. That is what lets the
- * migration run them against a database that is not the process-wide one - and
- * what these assert, by seeding a temporary file and checking nothing landed in
- * the application connection.
+ * The seeds write to the database they are handed. The migration relies on that
+ * to run them against a database other than the process-wide one. These tests
+ * seed a temporary file and check nothing landed in the application connection.
  */
 describe("seeding a database the seed was handed", () => {
   let restoreEnv: () => void;
@@ -916,7 +912,7 @@ describe("re-seeding a channel account that was left pending", () => {
     process.env.SECRETS_KEY = KEY;
     const reseeded = seedTenants(db).channelAccount;
 
-    // The credentials are imported - the number is still not to be used.
+    // The credentials are imported, but the number stays disabled.
     expect(reseeded.status).toBe("disabled");
     expect(channelAccounts.getAccessToken(reseeded)).toBe(ACCESS_TOKEN);
   });
@@ -1034,15 +1030,8 @@ describe("migrating uploads that exist on disk", () => {
   let dir: string;
   let db: Database;
   /**
-   * `data/` relative to the backend: where the pre-tenancy application wrote
-   * its uploads, and so where the migration reads them from. Deliberately not
-   * derived from UPLOAD_DIR - the source of a one-time migration is wherever
-   * the old code actually put it, which was always the working directory.
-   *
-   * The *destination* is a different root entirely (PRIVATE_DIR), and
-   * conflating the two here was a bug waiting for PRIVATE_DIR to be set: this
-   * file read back the migrated bytes from `<cwd>/data/private` while the
-   * migration wrote them wherever the store says.
+   * Legacy uploads live under `<cwd>/data`, not under UPLOAD_DIR, and the
+   * migration reads them from there. It writes to a different root (PRIVATE_DIR).
    */
   let legacyRoot: string;
   let legacyDir: string;
@@ -1132,8 +1121,7 @@ describe("migrating uploads that exist on disk", () => {
       "the recording asset",
     );
 
-    // The bytes are where the row says they are - which is the whole claim the
-    // row makes, and the one that was not being checked.
+    // The bytes must be at the path each row's storage key names.
     expect(storedAt(contract.storage_key)).toBe(CONTRACT_BYTES);
     expect(storedAt(recording.storage_key)).toBe(AUDIO_BYTES);
 
@@ -1166,12 +1154,10 @@ describe("migrating uploads that exist on disk", () => {
   });
 
   it("refuses a legacy path that points outside data/", () => {
-    // `recording_contract_path` is a column nothing ever validated, so its
-    // contents are input. Sanitising only the *destination* key left the source
-    // free to climb out of data/ on enough `../`: the migration would read a
-    // file it has no business reading and hand it back from /api/assets/:id
-    // under a tidy, in-prefix storage key. The source is checked now, before
-    // anything touches the filesystem.
+    // `recording_contract_path` is unvalidated input. Sanitising the destination
+    // key alone would let the source climb out of data/ on enough `../`, so the
+    // migration would copy a file it must not read and /api/assets/:id would
+    // serve it under an in-prefix storage key.
     const secret = join(dir, "id_rsa");
     writeFileSync(secret, SECRET_BYTES);
 
@@ -1183,13 +1169,13 @@ describe("migrating uploads that exist on disk", () => {
     initializeDatabase(db);
     const tenantId = tenantOf(db);
 
-    // First and foremost: the file was never read. Nothing under the tenant's
-    // private storage holds its bytes, and it is untouched where it lay.
+    // The file was never read. No file under the tenant's private storage holds
+    // its bytes, and the original is untouched.
     expect(filesUnder(join(PRIVATE_DIR, tenantId))).not.toContain(SECRET_BYTES);
     expect(readFileSync(secret, "utf-8")).toBe(SECRET_BYTES);
 
-    // The traversal path is dropped entirely - no asset, no key, no bytes.
-    // The legitimate upload alongside it still migrates.
+    // The traversal path produces no asset, no key and no bytes. The legitimate
+    // upload alongside it still migrates.
     const assets = db
       .prepare("SELECT kind, storage_key FROM assets")
       .all() as Array<{ kind: string; storage_key: string }>;
@@ -1307,9 +1293,9 @@ describe("migrating uploads that exist on disk", () => {
 
   describe("when a file cannot be copied", () => {
     beforeEach(() => {
-      // A directory where the migration expects a file: `existsSync` says the
-      // upload is there, and `copyFileSync` fails on it. Standing in for the
-      // permission or disk fault this is really about, without needing either.
+      // A directory where the migration expects a file makes `existsSync`
+      // report the upload and `copyFileSync` fail. This simulates a permission
+      // or disk fault without needing one.
       rmSync(join(legacyDir, "contract.pdf"));
       mkdirSync(join(legacyDir, "contract.pdf"));
 
@@ -1476,7 +1462,7 @@ describe("the scope a carried-over session is given", () => {
 
     backfillSessionTenants(db);
 
-    // Their scope is chosen, never implied - the same rule login follows.
+    // Their scope is chosen, never implied. Login follows the same rule.
     expect(scopeOf("staff")).toBeNull();
   });
 
@@ -1494,7 +1480,10 @@ describe("the scope a carried-over session is given", () => {
   });
 });
 
-/** Migrating promotes nobody; the environment asks for a promotion throughout, to show it is not read. */
+/**
+ * Migrating promotes nobody. The environment asks for a promotion throughout,
+ * to show it is not read.
+ */
 describe("migrating a legacy database", () => {
   let restoreEnv: () => void;
   let dir: string;
@@ -1589,7 +1578,10 @@ describe("migrating a legacy database", () => {
   });
 });
 
-/** A migrated database has users and no platform operator; the operator command supplies one. */
+/**
+ * A migrated database has users and no platform operator. The operator command
+ * supplies one.
+ */
 describe("giving a database that already has users a platform operator", () => {
   const PASSWORD = "a-long-enough-password";
   let dir: string;
@@ -1646,7 +1638,7 @@ describe("giving a database that already has users a platform operator", () => {
     expect(operators()).toEqual(["vendeya-staff"]);
     expect(userCount()).toBe(3);
 
-    // Platform staff belong to no tenant; they select one when they need it.
+    // Platform staff belong to no tenant. They select one when they need it.
     const staff = db
       .prepare("SELECT id FROM users WHERE username = 'vendeya-staff'")
       .get() as { id: string };

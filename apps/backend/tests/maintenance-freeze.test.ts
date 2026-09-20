@@ -1,20 +1,8 @@
 /**
- * What a maintenance freeze has to stop, including when somebody asks nicely.
- *
- * Maintenance mode makes exactly one promise: nothing goes out while it is on.
- * The webhook keeps that promise on the way in - an inbound message is held
- * instead of processed - but `/api/admin/process-held-messages` is the door out
- * of that queue, and it checked nothing. `processHeldMessages` runs the bot
- * over every held message and replies to the customer, so a tenant admin (or a
- * platform operator) could switch the freeze on, call the endpoint, and have
- * the bot answer everyone anyway. The dashboard hides the button while the
- * freeze is on, which is not the same thing as the API refusing.
- *
- * The check is layered the way `isMaintenanceMode` layers it: a platform-wide
- * freeze refuses the call whatever scope it came from, a pinned caller's own
- * tenant freeze refuses theirs, and a platform operator sweeping every tenant
- * skips the individual businesses that froze themselves rather than being
- * refused on their behalf.
+ * Maintenance mode holds customer messages instead of answering them. The route
+ * `/api/admin/process-held-messages` drains the held queue and replies to
+ * customers, so the API itself must refuse it during a freeze. Hiding the
+ * dashboard button does not count.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -115,7 +103,6 @@ describe("processing held messages while a freeze is on", () => {
     return app.request(path, { method: "POST", headers: { Cookie: cookie } });
   }
 
-  /** Named for what it does, not shadowing the global of the same name. */
   const sweep = (cookie: string) =>
     post("/api/admin/process-held-messages", cookie);
 

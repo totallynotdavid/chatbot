@@ -1,11 +1,8 @@
 /**
- * Seeding a tenant's catalog.
- *
- * Both of these are onboarding-or-startup crashes rather than wrong answers:
- * the seeds run on every boot, and a throw here takes the process with it.
- * Foreign keys are enforced on the temporary databases, the way `connection.ts`
- * enforces them on the real one, so a bundle pointing at a period that does not
- * exist fails here exactly as it would in production.
+ * The seeds run on every boot, so a throw takes the process down.
+ * Foreign keys are enforced on the temporary databases as `connection.ts`
+ * enforces them on the real one. A bundle naming a missing period fails here
+ * as it would in production.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -106,11 +103,10 @@ describe("seeding a catalog", () => {
 
     expect(periods(tenantId)).toEqual([
       { year_month: "2020-01", status: "active" },
-      // The live catalog is left alone; the new month arrives as a draft.
+      // The live catalog is left alone. The new month arrives as a draft.
       { year_month: currentYearMonth(), status: "draft" },
     ]);
 
-    // The bundles went into the period the seed names, which now exists.
     expect(bundleCount(tenantId)).toBeGreaterThan(0);
     expect(
       db
@@ -143,8 +139,8 @@ describe("seeding a catalog", () => {
     ]);
   });
 
-  // Product IDs must include enough of the tenant ID to avoid collisions even
-  // when tenant IDs share a prefix.
+  // Product ids embed enough of the tenant id to stay unique when tenant ids
+  // share a prefix.
   it("keeps two tenants whose ids share a prefix apart", async () => {
     const first = tenant("prefix-one", "aaaaaaaa-1111-4111-8111-111111111111");
     const second = tenant("prefix-two", "aaaaaaaa-2222-4222-8222-222222222222");

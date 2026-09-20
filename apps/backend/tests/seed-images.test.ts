@@ -1,17 +1,8 @@
 /**
  * The seeded catalog's photos, on a deployment whose uploads live on a volume.
- *
- * Every seeded bundle names its image by id, and the 53 files behind those ids
- * are tracked in git under the backend's own uploads directory - which is the
- * development IMAGES_DIR and nothing more. Round 13 correctly moved the image
- * store onto UPLOAD_DIR; nothing moved the seed images with it. So under a
- * production-shaped UPLOAD_DIR, fresh or migrated, every seeded bundle pointed
- * at a file the store had never been given: /media/images answered 404 and every
- * catalog image message handed Meta a link it could not fetch.
- *
- * No earlier test could see it, because every test that touches images writes
- * its own files into IMAGES_DIR first. The last describe here writes nothing:
- * it boots the real server against an empty volume and asks for the images.
+ * The files behind the seeded image ids are tracked in git outside UPLOAD_DIR.
+ * Unless boot copies them into IMAGES_DIR, /media/images answers 404 for them
+ * and an image message for a seeded bundle hands Meta a link it cannot fetch.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -118,6 +109,8 @@ function freePort(): number {
   return port;
 }
 
+// No test here writes into IMAGES_DIR first, so only the boot can have
+// installed the images it asks for.
 describe("booting with UPLOAD_DIR on a volume of its own", () => {
   it("serves every seeded bundle's image from that volume", async () => {
     const root = mkdtempSync(join(tmpdir(), "totem-seed-images-boot-"));
@@ -158,7 +151,7 @@ describe("booting with UPLOAD_DIR on a volume of its own", () => {
       (await new Response(child.stderr).text());
 
     try {
-      // Up once it answers anything at all; an unauthenticated 401 is quickest.
+      // Up once it answers anything at all. An unauthenticated 401 is quickest.
       const deadline = Date.now() + 45_000;
       let served = false;
       while (!served && Date.now() < deadline && child.exitCode === null) {
@@ -188,7 +181,7 @@ describe("booting with UPLOAD_DIR on a volume of its own", () => {
       ).map((row) => row.image_id);
       seeded.close();
 
-      // The boot seeded the catalog; otherwise the rest proves nothing.
+      // The boot seeded the catalog. Otherwise the rest proves nothing.
       expect(imageIds.length).toBeGreaterThan(0);
 
       for (const imageId of imageIds) {

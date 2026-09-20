@@ -1,10 +1,7 @@
 /**
  * A message answered out of maintenance hold stays recognised by its Meta id.
- *
- * `isQueued` and `isHeld` together are the only record of which message ids
- * this deployment has already taken in. Meta redelivers a webhook it considers
- * unacknowledged, so an id that has been answered must still be known when the
- * same message arrives again.
+ * Meta redelivers a webhook it considers unacknowledged, and `isQueued` and
+ * `isHeld` are the only record of ids already taken in.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";

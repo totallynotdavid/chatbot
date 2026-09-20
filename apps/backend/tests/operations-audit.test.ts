@@ -1,18 +1,8 @@
 /**
- * What the audit trail says about the platform-wide operations sweeps.
- *
- * `/api/admin/process-held-messages` and `/api/admin/retry-eligibility` sit
- * behind `requireTenantScope`, which lets a platform operator through with no
- * tenant selected - and both then hand a null tenant to a processor that means
- * "every open tenant" by it. That cross-tenant sweep is the support case and
- * stays; what it left behind did not. One `logAction` with `tenantId: null` and
- * a set of aggregate counts recorded that somebody had mutated conversations
- * across the platform without recording which businesses, or what happened in
- * any of them - and it landed in none of those tenants' own trails either.
- *
- * Each tenant the run actually reaches now gets its own entry, with its own
- * counts. A run that reaches nobody still gets the one entry it would have had,
- * so an operator triggering a no-op is on the record too.
+ * What the audit trail says about the platform-wide operations sweeps. An
+ * operator with no tenant selected sweeps every open tenant. Each tenant the
+ * run reaches gets its own entry with its own counts. A retry run that reaches
+ * no tenant gets one entry, so a no-op is on the record too.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -139,7 +129,6 @@ describe("auditing an operations sweep", () => {
       );
 
       expect(alphaTrail).toHaveLength(1);
-      // ...and only their own: the other business's sweep is not their business.
       expect(alphaTrail[0]!.tenant_id).toBe(alpha.tenantId);
     });
 
@@ -203,7 +192,7 @@ describe("auditing an operations sweep", () => {
     }
 
     // The provider is still down, so every conversation stays where it is and
-    // nothing is sent; only the bookkeeping is under test.
+    // nothing is sent. Only the bookkeeping is under test.
     const stillDown = {
       execute: async () =>
         Ok({ type: "eligibility_result", status: "system_outage" }),

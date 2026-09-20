@@ -1,24 +1,7 @@
 /**
- * Where the two stores put their bytes.
- *
- * Regression, and a data-loss one: `private-files.ts` built its root from
- * `process.cwd()` and never looked at UPLOAD_DIR. In production UPLOAD_DIR is a
- * persistent volume (`/var/lib/totem/uploads`) and the working directory is
- * replaced on every restart or redeploy, so signed contracts and call
- * recordings were written where they could not survive one - the `assets` rows
- * did survive, and /api/assets/:id answered 404 for every file taken before the
- * restart.
- *
- * Then the same bug turned up again, unchanged, in the catalog image store: it
- * joined `<cwd>/data/uploads/images` for itself instead of taking the root that
- * had just been centralised, so every product photo was lost on the next
- * redeploy while its `assets` row stayed behind naming it. Both stores are
- * covered here now, and tests/storage-path-guard.test.ts checks mechanically
- * that no third one grows its own root.
- *
- * The derivation is checked directly, and then the real stores are booted in a
- * subprocess with a production-shaped UPLOAD_DIR to prove the wiring, since the
- * constants are read once at module load.
+ * UPLOAD_DIR is a persistent volume in production and the working directory is
+ * replaced on every deploy, so neither store may derive its root from the cwd.
+ * The subprocess tests exist because the roots are read once at module load.
  */
 
 import { describe, it, expect } from "bun:test";
@@ -48,13 +31,12 @@ describe("resolving the private storage root", () => {
     });
 
     expect(resolved).toBe("/var/lib/totem/private");
-    // The bug in one assertion: the old root was always under the cwd.
+    // A deploy replaces the working directory, so the root must not be under it.
     expect(resolved.startsWith(process.cwd() + sep)).toBe(false);
   });
 
   it("keeps the development default exactly where it was", () => {
-    // `path.join(process.cwd(), "data", "private")`, which is what the
-    // hardcoded root used to be, for the default UPLOAD_DIR.
+    // Existing development data under `data/private` must stay readable.
     expect(
       resolvePrivateDir({ uploadDir: "./data/uploads", privateDir: undefined }),
     ).toBe(join(process.cwd(), "data", "private"));
@@ -97,8 +79,8 @@ describe("resolving the catalog image root", () => {
   });
 
   it("keeps the development default exactly where it was", () => {
-    // `path.join(process.cwd(), "data", "uploads", "images")`, which is what
-    // the hardcoded root used to be, for the default UPLOAD_DIR.
+    // Existing development images under `data/uploads/images` must stay
+    // readable.
     expect(resolveImagesDir("./data/uploads")).toBe(
       join(process.cwd(), "data", "uploads", "images"),
     );
@@ -106,43 +88,28 @@ describe("resolving the catalog image root", () => {
 
   it("is absolute, so both of its consumers read the same directory", () => {
     // `serveStatic` resolves a relative root against the working directory of
-    // whichever process mounts it; the store resolves one against its own. A
-    // relative root is how the mount and the store came to disagree.
+    // the process that mounts it. The store resolves one against its own. A
+    // relative root would let the mount and the store disagree.
     expect(isAbsolute(resolveImagesDir("./data/uploads"))).toBe(true);
-    // And the constant the application actually uses is one of these.
+    // `IMAGES_DIR` is the constant the application uses.
     expect(isAbsolute(IMAGES_DIR)).toBe(true);
   });
 });
 
 /**
- * The constants are read at module load, so the only way to see a store use
- * them is to load it again with a different environment. Both probes below are
- * run that way.
- *
- * A probe imports the module under test by **absolute path**, and imports
- * nothing by bare name. That is a hard requirement, not a style: a probe file
- * lives in a temp directory with no `node_modules` above it, so a bare
- * specifier cannot resolve through the repository's packages at all. Bun falls
- * back to auto-installing it from the npm registry instead - which succeeds
- * silently on a warm global cache and, on a cold one or a restricted network,
- * blocks with no output on either stream until the test's own timeout kills it.
- * `sharp` was imported that way here and did exactly that. The module under
- * test resolves its own dependencies normally, because it is read from inside
- * the repository where `node_modules` is where it belongs.
- *
- * `--install=disable` holds that line: a bare specifier that creeps back in
- * fails immediately with "Cannot find package" rather than reaching for the
- * network.
+ * Runs `source` in a fresh process, since the roots are read once at module
+ * load. Returns its stdout, or throws with the exit code and stderr.
  */
-
-/** What a probe reported on stdout, or a failure that says what went wrong. */
 function runProbe(source: string, uploadDir: string, cwd: string): string {
   const probe = join(uploadDir, "..", "probe.ts");
   writeFileSync(probe, source);
 
+  // The probe file has no node_modules above it, so a bare import cannot
+  // resolve and Bun would install it from the registry, blocking silently on a
+  // cold cache. `--install=disable` makes that fail at once. Probe sources must
+  // import by absolute path.
   const result = Bun.spawnSync(["bun", "--install=disable", "run", probe], {
-    // A working directory that is not where the files must land, which is the
-    // whole scenario: in production these differ.
+    // The cwd differs from the volume, as in production.
     cwd,
     env: {
       PATH: process.env.PATH ?? "",
@@ -154,9 +121,8 @@ function runProbe(source: string, uploadDir: string, cwd: string): string {
   const stdout = result.stdout.toString().trim();
   const stderr = result.stderr.toString().trim();
 
-  // Reported together, because the useful diagnosis is always the combination:
-  // a probe that resolved nothing exits non-zero with an empty stdout, and
-  // parsing that silence as a result is how this test failed unreadably once.
+  // A probe that resolved nothing exits non-zero with an empty stdout, so the
+  // error reports the exit code, stdout and stderr together.
   if (result.exitCode !== 0 || stdout === "") {
     throw new Error(
       `Probe exited ${result.exitCode} (signal ${result.signalCode ?? "none"}) ` +
@@ -173,8 +139,8 @@ function runProbe(source: string, uploadDir: string, cwd: string): string {
 describe("the private store under a production-shaped environment", () => {
   it("writes onto the UPLOAD_DIR volume rather than the working directory", () => {
     const volume = mkdtempSync(join(tmpdir(), "totem-volume-"));
-    // A working directory of its own, so "nothing landed under the cwd" is a
-    // statement about a directory this test owns and starts empty.
+    // A working directory of its own, so the `data` check below is about a
+    // directory this test owns and starts empty.
     const workdir = mkdtempSync(join(tmpdir(), "totem-cwd-"));
 
     const written = runProbe(
@@ -196,7 +162,7 @@ describe("the private store under a production-shaped environment", () => {
 
     expect(written).toBe(join(volume, "private", "tenant-x", "contract.pdf"));
     expect(readFileSync(written, "utf-8")).toBe("signed");
-    // Nothing under the process's own directory, which is what used to happen.
+    // No `data` directory may appear under the working directory.
     expect(existsSync(join(workdir, "data"))).toBe(false);
 
     rmSync(volume, { recursive: true, force: true });
@@ -204,23 +170,14 @@ describe("the private store under a production-shaped environment", () => {
   }, 30_000);
 });
 
-/**
- * The same proof for the image store, which is the file that had the bug the
- * second time.
- *
- * `store()` puts the bytes through sharp, so they have to be a real JPEG. It is
- * encoded *here*, in a process that resolves `sharp` through the repository's
- * own node_modules, and travels to the probe as a base64 literal - the probe
- * itself imports nothing it cannot reach by absolute path. `images.ts` still
- * imports sharp for itself, and resolves it normally from inside the repo,
- * which is what makes this an end-to-end check of the store rather than of a
- * path string.
- */
 describe("the catalog image store under a production-shaped environment", () => {
   it("writes onto the UPLOAD_DIR volume rather than the working directory", async () => {
     const volume = mkdtempSync(join(tmpdir(), "totem-images-volume-"));
     const workdir = mkdtempSync(join(tmpdir(), "totem-images-cwd-"));
 
+    // `store()` runs the bytes through sharp, so they must be a real JPEG. The
+    // probe cannot resolve `sharp` by bare name, so the JPEG is encoded here and
+    // passed as a base64 literal. The store resolves `sharp` from the repository.
     const jpeg = await sharp({
       create: {
         width: 4,
@@ -252,10 +209,9 @@ describe("the catalog image store under a production-shaped environment", () => 
     expect(existsSync(join(volume, "uploads", "images", `${id}.jpg`))).toBe(
       true,
     );
-    // And the store agrees the file it just wrote is there, which is what
-    // `exists()` answers for the delete and repair paths.
+    // The store's own `exists()` must agree with the file on the volume.
     expect(exists).toBe(true);
-    // Nothing under the process's own directory, which is what used to happen.
+    // No `data` directory may appear under the working directory.
     expect(existsSync(join(workdir, "data"))).toBe(false);
 
     rmSync(volume, { recursive: true, force: true });

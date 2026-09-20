@@ -1,19 +1,8 @@
 /**
- * What happens to the messages already queued for a number that gets switched
- * off.
- *
- * The webhook refuses new inbound for a channel account that is not active, but
- * that says nothing about the messages already sitting on the inbox queue or
- * held through a maintenance freeze. Those were dequeued as usual, answered as
- * usual, and the reply handed to an account that cannot send: the send was
- * recorded as failed, nothing was thrown, and the worker marked the row
- * processed - or deleted it, on the held side - the instant afterwards. The
- * customer got nothing and there was no row left to recover, not even after the
- * number was turned back on.
- *
- * Both halves are checked here: the dequeue leaves those rows alone, and a send
- * refused because the number is off is a failure the queue can see, so a number
- * switched off mid-conversation pauses it instead of swallowing it.
+ * Messages already queued or held for a number that is switched off must stay
+ * where they are: a queued row stays `pending` and a held row stays held. A
+ * refused send that only recorded a failure would let the worker mark the row
+ * processed, leaving nothing to recover once the number is on.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -124,8 +113,8 @@ describe("a channel account that is not active", () => {
     tenant = createTenantFixture("channel-off");
     untouched = addChannelAccount(tenant);
 
-    // Nothing in this file is allowed to reach Meta or the notifier: a send
-    // that got out would be the very failure under test going unnoticed.
+    // Tests here must not reach Meta or the notifier. The fake fetch counts
+    // sends so that a send that got out fails the test.
     sends = 0;
     originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
@@ -232,8 +221,8 @@ describe("a channel account that is not active", () => {
     it("leaves the message on the queue instead of dropping it", async () => {
       await processReadyMessages();
 
-      // Still pending, not 'processed' and not stranded in 'processing': the
-      // customer is owed this reply and the row is the only record of it.
+      // The row must stay 'pending'. It is the only record that this reply is
+      // owed.
       expect(queueStatuses(tenant.channelAccountId)).toEqual(["pending"]);
       expect(sends).toBe(0);
     });
@@ -279,10 +268,9 @@ describe("a channel account that is not active", () => {
   });
 
   /**
-   * The dequeue above is the wide net; this is the race it cannot cover. A
-   * number switched off after its batch was taken off the queue used to end the
-   * same way - the send refused, the row marked processed - so the refusal has
-   * to be something the worker can see.
+   * The dequeue filter cannot cover a number switched off after its batch was
+   * taken off the queue. The worker must see the refusal as a thrown error,
+   * because a recorded failure alone would let it mark the row processed.
    */
   describe("switched off after its messages were already dequeued", () => {
     it("refuses the send by throwing rather than recording a quiet failure", async () => {
@@ -294,7 +282,6 @@ describe("a channel account that is not active", () => {
         WhatsAppService.sendMessage(ref, "¿Sigue ahí?"),
       ).rejects.toThrow(ChannelUnavailableError);
 
-      // The attempt is still recorded, and it never left the building.
       expect(MessageStore.getHistory(ref)[0]).toMatchObject({
         direction: "outbound",
         status: "failed",
@@ -307,8 +294,8 @@ describe("a channel account that is not active", () => {
       insertConversation(ref);
       setStatus(tenant.channelAccountId, "disabled");
 
-      // `handleMessage` swallows everything else that goes wrong inside it, so
-      // that it answers the next customer; this one it has to pass on.
+      // `handleMessage` absorbs other processing errors after logging them. It
+      // must rethrow this one so the worker sees the refusal.
       await expect(
         handleMessage({
           ref,
@@ -343,8 +330,7 @@ describe("a channel account that is not active", () => {
     });
 
     /**
-     * The status the worker leaves behind matters as much as the row surviving:
-     * nothing ever moves a group out of `processing`, so a batch parked there
+     * Only the worker moves a group out of `processing`. A batch it leaves there
      * is invisible to every later dequeue and to the pending count.
      */
     it("does not leave the batch stranded in 'processing'", async () => {
@@ -366,13 +352,8 @@ describe("a channel account that is not active", () => {
 });
 
 /**
- * The same race on the held-message side, which the sweep can actually run
- * into: it reads every held group up front and then answers them one at a
- * time, so a number switched off while it is working is a number whose groups
- * were read while it was still on.
- *
- * Staged with two numbers - the first one genuinely sends, and switching the
- * second off from inside that send is what puts the sweep mid-flight.
+ * The sweep reads every held group up front and answers them one at a time, so
+ * a number switched off mid-sweep has groups that were read while it was on.
  */
 describe("switched off while a held-message sweep is already running", () => {
   let savedKey: string | undefined;
@@ -476,8 +457,8 @@ describe("switched off while a held-message sweep is already running", () => {
     // The second was not, and its messages are still there to answer later.
     expect(heldFor(switchedOff.channelAccountId)).toBe(1);
 
-    // Deliberately skipped, like a tenant that froze itself - not a failure
-    // somebody has to go and investigate.
+    // The skip is deliberate, as for a tenant that froze itself, so it is not
+    // counted as an error.
     expect(run.errors).toBe(0);
   });
 
@@ -493,11 +474,9 @@ describe("switched off while a held-message sweep is already running", () => {
   });
 
   /**
-   * `byTenant` is what the operations route writes one audit row per entry
-   * from. A business whose only held group was skipped this way used to get a
-   * zeroed entry anyway - the entry was created before the attempt - and so an
-   * audit row saying a platform-wide sweep had acted in a tenant it had not
-   * touched.
+   * The operations route writes one audit row per `byTenant` entry. A business
+   * whose only held group was skipped must have no entry, or the audit row
+   * would claim a platform-wide sweep acted in a tenant it never touched.
    */
   it("records no sweep in a business whose only held messages were skipped", async () => {
     const other = createTenantFixture("channel-off-other-business");
