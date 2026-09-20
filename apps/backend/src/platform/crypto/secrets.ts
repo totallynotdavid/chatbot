@@ -1,13 +1,7 @@
 /**
- * Envelope encryption for channel credentials.
- *
- * Access tokens and webhook verify tokens never touch a plaintext column: the
- * `channel_secrets` table stores AES-256-GCM ciphertext and the channel account
- * keeps only a reference to the row.
- *
- * The key comes from SECRETS_KEY (32 bytes, hex or base64). It is read lazily so
- * that a deployment which never stores a credential (dev, tests using the
- * notifier adapter) does not have to configure one.
+ * Access tokens and webhook verify tokens never touch a plaintext column.
+ * `channel_secrets` stores AES-256-GCM ciphertext and the channel account keeps
+ * only a reference to the row.
  */
 
 import {
@@ -45,6 +39,8 @@ function parseKey(raw: string): Buffer {
 }
 
 function readKey(): Buffer {
+  // The key is read on each call, not at import. A deployment that never stores
+  // a credential (dev, tests using the notifier adapter) needs no SECRETS_KEY.
   const raw = process.env.SECRETS_KEY;
   if (!raw) {
     throw new Error(
@@ -54,7 +50,10 @@ function readKey(): Buffer {
   return parseKey(raw);
 }
 
-/** Whether a usable key is configured. Callers use this to degrade politely. */
+/**
+ * Whether a usable key is configured. Callers check it before storing a
+ * credential, so they can skip or refuse the write instead of throwing.
+ */
 export function isEncryptionAvailable(): boolean {
   try {
     readKey();
@@ -66,8 +65,8 @@ export function isEncryptionAvailable(): boolean {
 
 /**
  * Short fingerprint of the key in use, stored alongside the ciphertext so a
- * value encrypted under a retired key can be recognised instead of silently
- * failing to decrypt.
+ * value encrypted under a retired key is reported as that instead of as a
+ * generic authentication failure.
  */
 function keyId(key: Buffer): string {
   return createHash("sha256").update(key).digest("hex").slice(0, 16);

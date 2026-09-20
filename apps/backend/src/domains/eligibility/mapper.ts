@@ -15,18 +15,6 @@ type EligibilityResult = ProviderCheckResult & {
   nse?: number;
 };
 
-/**
- * `tenantId` is null when nothing owns the check: GET /api/providers/:dni is an
- * operator's provider diagnostic, not a conversation, so there is no business
- * whose catalog the answer could be about.
- *
- * That case used to be passed down as the empty string, which reached
- * `WHERE b.tenant_id = ?` and matched no tenant - so a genuinely eligible DNI
- * came back "eligible, and nothing is affordable", indistinguishable from a real
- * empty catalog and wrong whatever the catalog held. The verdict is what that
- * endpoint asks for; the catalog is simply not consulted, and `catalogChecked`
- * says so rather than an empty list implying an answer nobody computed.
- */
 export function mapEligibilityToEnrichment(
   tenantId: string | null,
   result: EligibilityResult,
@@ -50,6 +38,11 @@ export function mapEligibilityToEnrichment(
     const segment = result.nse !== undefined ? "gaso" : "fnb";
     const credit = result.credit || 0;
 
+    // A null `tenantId` means nothing owns the check. GET /api/providers/:dni
+    // checks a DNI for no tenant, so there is no business catalog to consult.
+    // An empty string would match no tenant in `WHERE b.tenant_id = ?`
+    // and read as an empty catalog. `catalogChecked: false` says the catalog was
+    // skipped, so an empty list never implies an answer nobody computed.
     if (tenantId === null) {
       return {
         type: "eligibility_result",

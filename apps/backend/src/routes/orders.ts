@@ -71,7 +71,7 @@ app.post("/", requireActiveTenant, async (c) => {
   const scope = c.get("scope");
 
   // The order belongs to the conversation it came from, which fixes both the
-  // tenant and the channel account; a phone number alone is not enough.
+  // tenant and the channel account. A phone number alone is not enough.
   const lookup = lookupConversation(
     scope,
     body.conversationPhone,
@@ -139,8 +139,9 @@ app.get("/by-conversation/:phone", async (c) => {
   );
 
   if (lookup.status !== "found") {
-    // Ambiguous is reported the same way as missing here: this endpoint feeds a
-    // side panel, and guessing a thread would attach the wrong order to it.
+    // Ambiguous is reported the same way as missing here: this endpoint feeds
+    // the conversation page, and guessing a thread would attach the wrong order
+    // to it.
     return c.json({ order: null });
   }
 

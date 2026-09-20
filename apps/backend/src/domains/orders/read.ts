@@ -6,8 +6,8 @@ import type { OrderFilters, OrderMetrics } from "./types.ts";
 const MS_PER_DAY = 86400000;
 
 /**
- * `tenantId` null reads across tenants and is only reachable by a platform
- * operator; route handlers pass the caller's scope.
+ * A null `tenantId` reads across open tenants. Route handlers pass the caller's
+ * scope, so only an unpinned platform operator reaches that case.
  */
 export function getOrders(
   tenantId: string | null,

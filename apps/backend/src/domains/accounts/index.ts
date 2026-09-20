@@ -64,8 +64,8 @@ const USER_COLUMNS =
 /**
  * Account creation and promotion bound to one connection. Only the operator
  * command calls `create` and `promote`: not boot, the seeds or the migration.
- * Each writes its audit row in the transaction that changes the account, naming
- * the operator who ran the command.
+ * Each change writes its audit row in the same transaction, naming the
+ * operator who ran the command. Promoting an existing operator writes no row.
  */
 export function accountsOn(database: Database) {
   const { getOne } = queriesOn(database);
@@ -165,7 +165,7 @@ export function accountsOn(database: Database) {
         ),
       ),
 
-    /** A platform operator gets no membership; anyone else administers one tenant. */
+    /** A platform operator gets no membership. Anyone else administers one tenant. */
     create: (
       input: NewAccount & { password: string },
       operator: CliOperator,
@@ -245,7 +245,7 @@ export function accountsOn(database: Database) {
         .immediate();
     },
 
-    /** Memberships are kept; the cross-tenant powers are added to them. */
+    /** Memberships are kept. The cross-tenant powers are added to them. */
     promote: (
       username: string,
       operator: CliOperator,

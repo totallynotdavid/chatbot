@@ -100,10 +100,8 @@ channels.patch("/:id", async (c) => {
   const body = await c.req.json();
   const changed: string[] = [];
 
-  // Everything the request could be refused for is checked before anything is
-  // written, so a rejected PATCH leaves the account exactly as it was. Stored
-  // the verify token and then refused the status, and the caller got a 400 for
-  // a request that had already half happened.
+  // Every refusal is checked before anything is written, so a rejected PATCH
+  // leaves the account unchanged.
   if (body.accessToken || body.verifyToken) {
     if (!isEncryptionAvailable()) {
       return c.json(
@@ -120,17 +118,12 @@ channels.patch("/:id", async (c) => {
     return c.json({ error: "Invalid status" }, 400);
   }
 
-  // 'active' is a claim the account has to be able to make good on, in both
-  // directions. Webhook intake accepts inbound messages for any active account
-  // (routes/webhook.ts), while the outbound adapter refuses to send without
-  // credentials (adapters/whatsapp/cloud-api.ts) - so a number activated with
-  // no access token swallows customer messages it can never answer, quietly,
-  // for as long as it takes somebody to notice. 'pending' is the state that
-  // means exactly this, and it is the one such an account belongs in.
+  // The webhook accepts inbound messages for any active account, and the
+  // outbound adapter refuses to send without credentials. An account activated
+  // with no access token would receive messages it can never answer. Such an
+  // account belongs in 'pending'.
   //
-  // The token may already be stored or arrive in this same request; either
-  // settles it, and the second case is the ordinary "here are the credentials,
-  // turn it on" call.
+  // The token counts when it is already stored or arrives in this same request.
   if (
     body.status === "active" &&
     !account.access_token_secret_id &&

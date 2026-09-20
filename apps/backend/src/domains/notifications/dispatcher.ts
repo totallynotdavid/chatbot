@@ -29,17 +29,8 @@ const adapters: Record<string, NotificationChannelAdapter> = {
 };
 
 /**
- * Notifications go out on the channel account of the tenant the event came
- * from, falling back to that tenant's default account when the event names no
- * specific one.
- *
- * Not every event has a tenant. A platform-wide provider outage is raised by
- * the admin DNI lookup, which has no conversation and so no tenant behind it,
- * and `notification_traces.tenant_id` is nullable for exactly that reason.
- * Before tenancy those alerts went out on the one global WhatsApp number;
- * refusing to send them now would mean the dev team stops hearing that both
- * eligibility providers are down. They go out on the platform's own operations
- * account instead - see `getPlatformOps`.
+ * Picks the account a notification goes out on. The event's own channel account
+ * wins, then its tenant's default account, then the platform operations account.
  */
 export function accountForEvent(event: DomainEvent): ChannelAccount | null {
   if (event.channelAccountId) {
@@ -52,6 +43,10 @@ export function accountForEvent(event: DomainEvent): ChannelAccount | null {
     if (account) return account;
   }
 
+  // A platform-wide alert, such as both eligibility providers being down, has
+  // no tenant, and `notification_traces.tenant_id` is nullable for that case.
+  // Any event that found no account above takes this fallback, a tenant's own
+  // event included.
   return ChannelAccountService.getPlatformOps();
 }
 
@@ -127,9 +122,8 @@ export async function dispatchNotifications(
           continue;
         }
 
-        // The Cloud adapter refuses to send from an account that is not active
-        // and answers false rather than throwing. Dropping that answer recorded
-        // an alert nobody received as delivered.
+        // The Cloud adapter answers false, without throwing, when the account
+        // is not active. A false answer must mark the trace failed.
         const sent = await adapter.send(
           account,
           resolvedTarget,
@@ -169,6 +163,6 @@ function markFailed(traceId: string, ruleId: string, reason: string): void {
        WHERE trace_id = ? AND rule_id = ?`,
     ).run(reason, traceId, ruleId);
   } catch {
-    // Trace bookkeeping is best-effort; the delivery failure is already logged.
+    // Trace bookkeeping is best-effort. The delivery failure is already logged.
   }
 }

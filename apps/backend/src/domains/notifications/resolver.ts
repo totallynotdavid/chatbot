@@ -7,14 +7,14 @@ const logger = createLogger("notification-resolver");
 
 /**
  * Group numbers configured for the deployment. These are VendeYa's own
- * operations groups; a tenant that wants its own routing sets
- * `whatsapp_group_dev` / `whatsapp_group_sales` in its tenant settings.
+ * operations groups.
  */
 const STATIC_ROLES: Record<string, string | undefined> = {
   dev: process.env.WHATSAPP_GROUP_DEV,
   sales: process.env.WHATSAPP_GROUP_AGENT,
 };
 
+// A tenant that wants its own routing sets these keys in its tenant settings.
 const TENANT_ROLE_KEYS: Record<string, string> = {
   dev: "whatsapp_group_dev",
   sales: "whatsapp_group_sales",
@@ -62,16 +62,7 @@ export const NotificationResolver = {
   },
 };
 
-/**
- * The agent assigned to the conversation the event came from.
- *
- * The conversation is named in full - tenant, channel account, contact number.
- * The channel account was optional here, which meant an event that arrived
- * without one was answered with whichever thread of that contact came first,
- * and so possibly with the agent handling the tenant's *other* number. Every
- * event raised from a conversation carries it; one that does not falls back to
- * the sales group rather than guessing a person.
- */
+/** The agent assigned to the conversation the event came from. */
 function resolveAssignedAgent(event: DomainEvent): string | undefined {
   if (
     "phoneNumber" in event.payload &&
@@ -79,6 +70,11 @@ function resolveAssignedAgent(event: DomainEvent): string | undefined {
   ) {
     const customerPhone = event.payload.phoneNumber;
 
+    // The conversation is named by tenant, channel account and contact number.
+    // Without the channel account, the contact's thread on the tenant's other
+    // number could match, and the wrong agent would be told. An event that
+    // does not name the conversation gets no agent, and the caller falls back
+    // to the sales group.
     if (!event.tenantId || !event.channelAccountId) {
       logger.warn(
         {

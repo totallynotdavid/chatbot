@@ -1,9 +1,7 @@
 /**
  * Channel accounts: one row per business phone number a tenant messages from.
- *
- * Inbound routing resolves Meta's `metadata.phone_number_id` to an account here;
- * outbound sends read that account's credentials. Nothing in this layer reads
- * WHATSAPP_TOKEN / WHATSAPP_PHONE_ID — those only seed the first account.
+ * Inbound routing resolves Meta's `metadata.phone_number_id` to an account here.
+ * Outbound sends read that account's stored credentials, not WHATSAPP_TOKEN.
  */
 
 import type { Database } from "bun:sqlite";
@@ -31,9 +29,8 @@ type SecretRow = {
 };
 
 /**
- * Channel accounts bound to one connection. The seeds and the migration are
- * handed a database - a temporary file, in tests - rather than the process-wide
- * one, so they bind their own; everything else uses `ChannelAccountService`.
+ * Binds the channel-account queries to `database`. The seeds and the migration
+ * pass their own connection. Everything else uses `ChannelAccountService`.
  */
 export function channelAccountsOn(database: Database) {
   const { getAll, getOne } = queriesOn(database);
@@ -125,9 +122,9 @@ export function channelAccountsOn(database: Database) {
       ),
 
     /**
-     * Resolve an inbound webhook to the account that owns the receiving number.
-     * Disabled accounts resolve too, so the caller can log and drop deliberately
-     * rather than treat a disabled number as unknown.
+     * An account resolves whatever its status. The webhook logs and rejects
+     * messages for an inactive one deliberately instead of treating the number
+     * as unknown.
      */
     getByPhoneNumberId: (
       phoneNumberId: string,
@@ -139,8 +136,8 @@ export function channelAccountsOn(database: Database) {
       ) ?? null,
 
     /**
-     * The account a tenant sends from when no specific one is named (simulator,
-     * agent replies on a conversation that predates multiple numbers).
+     * The account a tenant sends from when the caller names none. Active
+     * accounts come first, then pending, then disabled, oldest first in each.
      */
     getDefaultForTenant: (tenantId: string): ChannelAccount | null =>
       getOne<ChannelAccount>(
@@ -152,24 +149,13 @@ export function channelAccountsOn(database: Database) {
       ) ?? null,
 
     /**
-     * The account VendeYa's own operations alerts go out on.
-     *
-     * Some events belong to the platform rather than to any tenant: both
-     * Calidda providers being down is one deployment-wide outage, and the admin
-     * DNI lookup that notices it has no conversation behind it. Those alerts
-     * still have to reach the dev team, and they need a number to send from -
-     * so the platform names one instead of borrowing whichever tenant happens
-     * to be at hand and spending their Meta quota on VendeYa's business.
-     *
-     * First hit wins:
-     *   1. `platform_ops_channel_account_id` in system_settings - the explicit
-     *      designation, writable only by a platform operator.
-     *   2. PLATFORM_OPS_PHONE_NUMBER_ID - the same choice made at deploy time.
-     *   3. WHATSAPP_PHONE_ID - the number these alerts went out on before
-     *      tenancy, so an existing deployment keeps alerting with nothing new
-     *      to configure.
+     * The account VendeYa's own operations alerts go out on. These alerts belong
+     * to the platform, so the account comes from a platform setting or the
+     * environment, not from `getDefaultForTenant`.
      */
     getPlatformOps: (): ChannelAccount | null => {
+      // The setting is writable only by a platform operator and wins over the
+      // environment.
       const designated =
         getOne<{ value: string }>(
           "SELECT value FROM system_settings WHERE key = 'platform_ops_channel_account_id'",
@@ -185,6 +171,8 @@ export function channelAccountsOn(database: Database) {
         );
       }
 
+      // WHATSAPP_PHONE_ID is the last fallback, so a deployment that already
+      // alerts on that number needs no new configuration.
       for (const phoneNumberId of [
         process.env.PLATFORM_OPS_PHONE_NUMBER_ID,
         process.env.WHATSAPP_PHONE_ID,
@@ -241,13 +229,6 @@ export function channelAccountsOn(database: Database) {
       return service.getById(id)!;
     },
 
-    /**
-     * Store the token this account sends with. 'pending' means exactly one
-     * thing - the number has no token yet and so cannot send - so storing one
-     * settles it, and the account becomes active without a second call. A
-     * disabled account stays disabled: that state is somebody's decision, not a
-     * missing credential.
-     */
     setAccessToken: (accountId: string, token: string): void => {
       const account = service.getById(accountId);
       if (!account) throw new Error(`Channel account not found: ${accountId}`);
@@ -270,6 +251,9 @@ export function channelAccountsOn(database: Database) {
           .run(secretId, accountId);
       }
 
+      // A pending number is waiting for its token, so storing one activates it.
+      // A disabled account stays disabled because disabling is a deliberate
+      // decision, not a missing credential.
       if (account.status === "pending")
         service.updateStatus(accountId, "active");
     },
@@ -318,9 +302,8 @@ export function channelAccountsOn(database: Database) {
       readSecret(account.verify_token_secret_id),
 
     /**
-     * Accounts that could answer a webhook verification handshake. Meta's GET
-     * handshake carries no phone-number id, so the token itself is the only
-     * discriminator.
+     * Meta's GET verification handshake carries no phone-number id. The caller
+     * matches the token against every account listed here.
      */
     listWithVerifyToken: (): ChannelAccount[] =>
       getAll<ChannelAccount>(

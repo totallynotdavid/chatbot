@@ -14,26 +14,22 @@ const assets = new Hono();
 
 assets.use("/*", requireTenantScope);
 
-/**
- * Resolve an asset to its bytes (private) or its public URL (catalog images).
- *
- * The tenant check happens before anything else: an asset owned by another
- * tenant is reported as missing rather than forbidden, so the endpoint cannot
- * be used to probe which ids exist elsewhere.
- */
+/** Resolve an asset to its bytes (private) or its public URL (catalog images). */
 assets.get("/:id", async (c) => {
   const scope = c.get("scope");
   const id = pathParam(c, "id");
 
   const asset = AssetService.getById(null, id);
 
+  // An asset owned by another tenant is reported as missing, not forbidden, so
+  // the endpoint cannot be used to probe which ids exist elsewhere.
   if (!asset || !canAccessTenant(scope, asset.tenant_id)) {
     return c.json({ error: "Asset not found" }, 404);
   }
 
   if (asset.visibility === "public") {
     // Catalog images are served from the static /media mount so Meta can fetch
-    // them; hand back the URL rather than proxying the bytes.
+    // them. Return the URL, not the bytes.
     const imageId = asset.storage_key
       .replace(/^images\//, "")
       .replace(/\.jpg$/, "");
@@ -56,11 +52,9 @@ assets.get("/:id", async (c) => {
   }
 
   // A private asset is a file to save, never a page to render. It is served as
-  // an attachment, and with a content type off the allowlist for its kind
-  // rather than the one the uploading browser declared - see
-  // domains/assets/content-types.ts. Without both, an .html or .svg uploaded as
-  // a "contract" executes on this origin when its /api/assets/:id URL is
-  // opened.
+  // an attachment with a content type from the allowlist for its kind, not the
+  // one the uploader declared. Otherwise an .html or .svg uploaded as a
+  // "contract" executes on this origin when its /api/assets/:id URL is opened.
   return new Response(file.stream(), {
     headers: {
       "Content-Type": servableContentType(asset),
@@ -73,9 +67,9 @@ assets.get("/:id", async (c) => {
 
 /**
  * A filename for the download. The original one is not kept, so the asset id
- * names the file and the stored key supplies the extension. Both come from
- * `privateStorageKey`, which has already stripped everything but
- * `[A-Za-z0-9._+-]`, so nothing here can break out of the quoted header value.
+ * names the file and the stored key supplies the extension. The final replace
+ * leaves only `[A-Za-z0-9._+-]`, so nothing here can break out of the quoted
+ * header value.
  */
 function downloadName(asset: { id: string; storage_key: string }): string {
   const base = asset.storage_key.split("/").pop() ?? "";

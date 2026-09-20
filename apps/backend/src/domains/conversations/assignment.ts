@@ -20,16 +20,14 @@ type Agent = {
 
 const AGENT_INDEX_KEY = "last_agent_index";
 
-/**
- * Round-robin over the agents of one tenant. Agents are found through
- * membership, so a sales agent in tenant A is never handed tenant B's client,
- * and availability is read from that membership: going offline for one business
- * leaves the agent in the other's rotation.
- */
+/** Round-robin over the agents of one tenant. */
 export async function assignNextAgent(
   ref: ConversationRef,
   clientName: string | null,
 ): Promise<string | null> {
+  // Agents are found through membership, so a sales agent in tenant A is never
+  // handed tenant B's client. Availability is read from the membership too, so
+  // going offline for one business leaves the agent in the other's rotation.
   const agents = getAll<Agent>(
     `SELECT u.id, u.name, u.phone_number FROM users u
      JOIN tenant_memberships m ON m.user_id = u.id
@@ -45,10 +43,9 @@ export async function assignNextAgent(
   }
 
   // The cursor is this module's own state, and the settings route refuses to
-  // write it (INTERNAL_TENANT_SETTING_KEYS). It is still read defensively: a
-  // row left behind by an older build, or edited straight in the database,
-  // would otherwise make the index NaN - and NaN survives the modulo, is
-  // written back, and quietly stops the tenant assigning anyone ever again.
+  // write it (INTERNAL_TENANT_SETTING_KEYS). It is still read defensively. A
+  // non-numeric or negative value falls back to 0. Otherwise the index would
+  // be NaN, which survives the modulo and is written back.
   const stored = TenantSettings.get(ref.tenantId, AGENT_INDEX_KEY);
   const parsed = stored === null ? 0 : parseInt(stored, 10);
   const previousIndex = Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
@@ -104,19 +101,17 @@ export async function assignNextAgent(
 }
 
 /**
- * Hand conversations nobody picked up to the next agent.
- *
- * Runs on a timer across every tenant, so it takes the same restriction the
- * scope-driven reads take: a suspended business would otherwise keep churning
- * assignments and notifying the agents of a company that has been closed. A
- * conversation on a number that is not active is left alone for the same reason
- * the queues leave its messages alone: nobody can answer the customer on it, so
- * handing it to agent after agent every five minutes only pages them for
- * nothing. Its assignment stands until the number is back.
+ * Hands conversations nobody picked up to the next agent. It runs on a timer
+ * across every tenant, so it takes the restriction the scope-driven reads take.
+ * A suspended business must not keep churning assignments and notifying agents.
  */
 export function checkAndReassignTimeouts(): void {
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
+  // A conversation on a number that is not active is left alone, as the queues
+  // leave its messages. Nobody can answer the customer there, so reassigning
+  // every five minutes would only page agents for nothing. Its assignment
+  // stands until the number is back.
   const timedOutConversations = getAll<{
     tenant_id: string;
     channel_account_id: string;

@@ -9,13 +9,9 @@ const notifierUrl = getNotifierUrl();
 const publicUrl = getPublicUrl();
 
 /**
- * Whether this account may send at all, in the words cloud-api.ts uses.
- *
- * Development is where a `pending` or `disabled` number is most likely to
- * exist - it is the state a number sits in while it is being set up - so the
- * adapter used there is exactly the wrong one to skip the check in. Without
- * it, dev behaves as if a half-configured number worked and the difference
- * only shows up in production.
+ * Applies the same active-account check as the Cloud adapter. A number being
+ * set up sits in `pending` during development, so skipping the check here
+ * would hide a refusal that only production shows.
  */
 function maySend(account: ChannelAccount): boolean {
   if (account.status === "active") return true;

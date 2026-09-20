@@ -37,7 +37,7 @@ function constantTimeEquals(a: string, b: string): boolean {
 /**
  * Meta's verification handshake carries no phone-number id, so the token is the
  * only thing identifying the caller. Any channel account whose verify token
- * matches answers the challenge; the env var stays as the fallback for the
+ * matches answers the challenge. The env var stays as the fallback for the
  * account seeded from it.
  */
 function verifyTokenMatches(token: string): ChannelAccount | "env" | null {
@@ -250,8 +250,8 @@ async function handleInbound(
   }
 
   // The message row belongs to a conversation, so the conversation has to
-  // exist before it is written. Inbound text from a contact is exactly what
-  // starts one; the handler's own get-or-create later is idempotent.
+  // exist before it is written. Inbound text from a contact starts one, and the
+  // handler's own get-or-create later is idempotent.
   getOrCreateConversation(ref);
 
   WhatsAppService.logMessage(ref, "inbound", "text", message.body, "received");
@@ -342,7 +342,7 @@ webhook.post("/", async (c) => {
   }
 
   // Meta redelivers the whole batch after a 5xx, so the messages that did land
-  // come back with it; `handleInbound` recognises them by id and skips them.
+  // come back with it. `handleInbound` recognises them by id and skips them.
   return failed ? c.json({ results }, 500) : c.json({ results });
 });
 

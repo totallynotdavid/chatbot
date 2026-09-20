@@ -1,6 +1,7 @@
 -- TENANCY
--- A tenant is one business using VendeYa. Every row of business data below
--- carries the tenant that owns it.
+-- A tenant is one business using VendeYa. Each table of business data below
+-- has a `tenant_id` naming the tenant that owns the row. It is nullable only in
+-- `notification_traces` and `audit_log`, whose rows can belong to the platform.
 CREATE TABLE IF NOT EXISTS tenants (
     id TEXT PRIMARY KEY,
     slug TEXT UNIQUE NOT NULL,
@@ -16,8 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
 -- CORE AUTHENTICATION & USER MANAGEMENT
 -- `role` is the user's default role, copied onto a membership when one is
 -- created. Authorization reads the membership role, not this column.
--- `is_platform_operator` marks VendeYa's own staff: they are never members of a
--- tenant but may act across tenants for support.
+-- `is_platform_operator` marks VendeYa's own staff. They need no membership to
+-- act in a tenant, and a promoted account keeps the memberships it already had.
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
@@ -52,7 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON tenant_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_tenant_role ON tenant_memberships(tenant_id, role, is_available);
 
 -- `active_tenant_id` is the tenant scope the session is acting in. NULL means
--- unscoped, which is only meaningful for a platform operator.
+-- no tenant is pinned. A platform operator then gets the cross-tenant view. A
+-- member has no scope until they pick a tenant.
 CREATE TABLE IF NOT EXISTS session (
     id TEXT NOT NULL PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -64,8 +66,8 @@ CREATE INDEX IF NOT EXISTS idx_session_user ON session(user_id);
 
 
 -- CHANNEL ACCOUNTS
--- Encrypted credential store. Values are AES-256-GCM ciphertext; nothing here
--- is readable without the key in SECRETS_KEY.
+-- Encrypted credential store. Values are AES-256-GCM ciphertext, which cannot be
+-- decrypted without the key in SECRETS_KEY.
 CREATE TABLE IF NOT EXISTS channel_secrets (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -82,12 +84,6 @@ CREATE INDEX IF NOT EXISTS idx_channel_secrets_tenant ON channel_secrets(tenant_
 
 -- One row per business phone number. `channel_type` is a column rather than an
 -- assumption so a second channel can be added without reshaping the table.
---
--- `UNIQUE(id, tenant_id)` is redundant on its own - `id` is already the primary
--- key - and exists so the tables below can point a composite foreign key at it.
--- Every row that carries both `tenant_id` and `channel_account_id` references
--- the pair, not the two columns separately, which is what makes a row naming
--- tenant A alongside tenant B's number impossible rather than merely wrong.
 CREATE TABLE IF NOT EXISTS channel_accounts (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -102,6 +98,9 @@ CREATE TABLE IF NOT EXISTS channel_accounts (
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
     UNIQUE(channel_type, phone_number_id),
+    -- Redundant with the primary key. It gives every table that carries both
+    -- `tenant_id` and `channel_account_id` a pair to reference, so a row cannot
+    -- name tenant A alongside tenant B's number.
     UNIQUE(id, tenant_id)
 );
 
@@ -110,11 +109,6 @@ CREATE INDEX IF NOT EXISTS idx_channel_accounts_waba ON channel_accounts(waba_id
 
 
 -- CATALOG MANAGEMENT
---
--- `UNIQUE(id, tenant_id)` is redundant against the primary key and exists for
--- the same reason as the one on `channel_accounts`: it lets `catalog_bundles`
--- point a composite foreign key here, so a bundle cannot name one tenant while
--- the period it sits in belongs to another.
 CREATE TABLE IF NOT EXISTS catalog_periods (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -125,6 +119,9 @@ CREATE TABLE IF NOT EXISTS catalog_periods (
     created_by TEXT REFERENCES users(id),
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
     UNIQUE(tenant_id, year_month),
+    -- Redundant with the primary key. It lets `catalog_bundles` reference the
+    -- pair, so a bundle cannot name one tenant while its period belongs to
+    -- another.
     UNIQUE(id, tenant_id)
 );
 
@@ -307,10 +304,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_agent ON orders(tenant_id, assigned_agent)
 
 
 -- TESTING & DEVELOPMENT
--- `id` is typed in by the tenant's own users ("cliente_moroso"), so it is only
--- unique inside that tenant: two businesses naming a persona the same way is
--- ordinary, and a global primary key turned it into a UNIQUE constraint failure
--- on the second one. Every read here is already scoped by tenant.
 CREATE TABLE IF NOT EXISTS test_personas (
     id TEXT NOT NULL,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -324,6 +317,9 @@ CREATE TABLE IF NOT EXISTS test_personas (
     is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
     created_by TEXT REFERENCES users(id),
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    -- `id` is typed in by the tenant's own users ("cliente_moroso"), so it is
+    -- unique only inside a tenant. Two businesses naming a persona the same way
+    -- is ordinary, and a global primary key would reject the second one.
     PRIMARY KEY (tenant_id, id)
 );
 
@@ -331,25 +327,23 @@ CREATE INDEX IF NOT EXISTS idx_personas_tenant ON test_personas(tenant_id, is_ac
 
 
 -- MEDIA & ASSETS
--- `visibility = 'public'` means the bytes are reachable without a session.
--- Catalog images are public by design: Meta's servers fetch the `link` we hand
--- them when sending an image message, and they present no credentials. Ids are
--- random and unguessable, and the asset row still records the owning tenant so
--- catalog reads stay scoped. Everything else ('private') is only reachable
--- through /api/assets/:id, which checks tenant scope.
---
--- `content_type` starts as the uploading browser's `File.type`, so it holds a
--- value only when that value is on the allowlist for the kind (see
--- domains/assets/content-types.ts); null means the upload claimed something
--- this deployment does not serve. Private bytes go out as an attachment
--- regardless - the column labels a download, it never decides what a browser
--- renders.
 CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     kind TEXT NOT NULL CHECK(kind IN ('catalog_image', 'contract', 'recording')),
+    -- 'public' bytes are reachable without a session. Catalog images are public
+    -- because Meta's servers fetch their `link` with no credentials. Their ids
+    -- are random and unguessable, and the row still records the owning tenant so
+    -- catalog reads stay scoped. 'private' bytes are only reachable through
+    -- /api/assets/:id, which checks tenant scope.
     visibility TEXT NOT NULL CHECK(visibility IN ('public', 'private')),
     storage_key TEXT NOT NULL,
+    -- For a contract or recording upload it starts as the browser's `File.type`.
+    -- It holds a value only when the kind's allowlist in
+    -- domains/assets/content-types.ts accepts it. Null means no type was
+    -- recorded: none declared, one not served, or a migrated legacy upload.
+    -- Private bytes go out as an attachment regardless, so this column labels a
+    -- download and never decides what a browser renders.
     content_type TEXT,
     byte_size INTEGER,
     created_by TEXT REFERENCES users(id),
@@ -405,13 +399,12 @@ CREATE INDEX IF NOT EXISTS idx_llm_calls_operation ON llm_calls(tenant_id, opera
 CREATE INDEX IF NOT EXISTS idx_llm_calls_status ON llm_calls(tenant_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(tenant_id, created_at DESC);
 
--- `tenant_id` is nullable: a few events (provider outages affecting the whole
--- platform) are not attributable to one tenant. Those alerts are still sent -
--- on the platform's own operations channel account, see
--- `ChannelAccountService.getPlatformOps` - so a null here is a delivered
--- platform alert, not an undeliverable one.
 CREATE TABLE IF NOT EXISTS notification_traces (
     id TEXT PRIMARY KEY,
+    -- Null for a few events, such as provider outages affecting the whole
+    -- platform, that are not attributable to one tenant. The alert goes out on
+    -- the platform operations account (`ChannelAccountService.getPlatformOps`).
+    -- The trace is marked failed when no such account is configured.
     tenant_id TEXT REFERENCES tenants(id) ON DELETE CASCADE,
     trace_id TEXT NOT NULL,
     event_type TEXT NOT NULL,

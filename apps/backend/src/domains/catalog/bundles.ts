@@ -6,18 +6,10 @@ import { imageStorage } from "../../adapters/storage/images.ts";
 import { AssetService } from "../assets/index.ts";
 
 /**
- * Drop a bundle's claim on its image.
- *
- * The asset row is this tenant's own record and always goes. The bytes are
- * shared: every tenant's catalog is seeded from the same base data, so the
- * seeded bundles of two businesses name the same `image_id` even though their
- * bundle ids are tenant-scoped. Deleting the file while another row still
- * points at it would blank that bundle in the other tenant's dashboard and in
- * anything we send on WhatsApp, so only the last reference deletes it.
- *
- * `bundleId` is the row giving the image up. It still holds its old `image_id`
- * when this runs - the update or delete lands after - so it is excluded from
- * the count rather than counted against itself.
+ * Drop a bundle's claim on its image. The asset row is this tenant's own
+ * record and always goes. The image file goes only with its last reference.
+ * `bundleId` still holds its old `image_id` when this runs, so the count of
+ * references excludes it.
  */
 async function releaseImage(
   tenantId: string,
@@ -26,6 +18,11 @@ async function releaseImage(
 ): Promise<void> {
   AssetService.deleteByStorageKey(tenantId, imageStorage.storageKey(imageId));
 
+  // The bytes are shared. Tenants seeded from the base catalog get the same
+  // `image_id`s, so the seeded bundles of two businesses name the same image
+  // even though their bundle ids are tenant-scoped. Deleting the file while
+  // another row still points at it would blank that bundle for the other
+  // tenant, in the dashboard and on WhatsApp.
   const others = getOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM catalog_bundles
      WHERE image_id = ? AND NOT (id = ? AND tenant_id = ?)`,
@@ -48,8 +45,9 @@ type BundleFilters = {
 };
 
 /**
- * Every read takes the tenant whose catalog is being read. `tenantId` null is
- * cross-tenant and only reachable by a platform operator.
+ * Every read takes the tenant whose catalog is being read. `getByPeriod` and
+ * `getById` also accept null for the cross-tenant read, which an unpinned
+ * platform operator reaches through the catalog routes.
  */
 export const BundleService = {
   /** Get all bundles for a period (dashboard) */
@@ -160,15 +158,8 @@ export const BundleService = {
   },
 
   /**
-   * Editable bundle fields, one `if` per column.
-   *
-   * The columns are named here and nowhere else: callers hand this raw request
-   * bodies, so anything not on this list - `tenant_id` above all - is dropped
-   * rather than written. Building the SET clause from the caller's own keys
-   * would let a PATCH body carry `tenant_id` into the update and hand the row
-   * to another business, since the WHERE still matches on the row's *current*
-   * tenant. Unknown keys are ignored, not rejected; the type is the contract,
-   * this is the enforcement.
+   * Editable bundle fields, one `if` per column. Unknown keys are ignored, not
+   * rejected. The type is the contract and this list is the enforcement.
    */
   update: (
     tenantId: string,
@@ -178,6 +169,9 @@ export const BundleService = {
     >,
   ): Bundle | null => {
     const data = updates ?? {};
+    // Callers hand this raw request bodies, so `tenant_id` must not reach the
+    // SET clause. The WHERE still matches on the row's current tenant, so a
+    // body that carried it would hand the row to another business.
     const fields: string[] = [];
     const values: SQLQueryBindings[] = [];
 

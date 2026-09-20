@@ -63,10 +63,8 @@ async function runWorkerLoop(): Promise<void> {
 
 /**
  * One pass of the queue: everything ready right now, answered in parallel.
- *
- * Exported, along with `processGroup`, because the loop above is only a poll
- * around them - a test that has to know what the queue does with a message
- * drives these directly rather than starting a worker and waiting on a timer.
+ * Exported with `processGroup` so a test can drive the queue directly instead
+ * of starting a worker and waiting on a timer.
  */
 export async function processReadyMessages(): Promise<void> {
   const readyGroups = getReadyForAggregation(QUIET_WINDOW_MS);
@@ -80,10 +78,7 @@ export async function processReadyMessages(): Promise<void> {
   await Promise.all(readyGroups.map((group) => processGroup(group)));
 }
 
-/**
- * One conversation's batch. See `processReadyMessages` for why it is exported,
- * and message-inbox.ts for the statuses a group moves through.
- */
+/** One conversation's batch. Its statuses are listed in message-inbox.ts. */
 export async function processGroup(group: AggregatedGroup): Promise<void> {
   const ref = {
     tenantId: group.tenant_id,
@@ -136,10 +131,10 @@ function parseQuotedContext(
 }
 
 /**
- * The answer is still running, and may yet reply or be refused. Handing the
- * group back now would have the next poll answer it a second time; leaving it
- * `processing` for good would never answer it if the late attempt is refused. So
- * it stays `processing` until the answer settles, and is recorded then.
+ * The answer is still running and may yet reply or be refused. Handing the
+ * group back now would have the next poll answer it twice. Leaving it
+ * `processing` for good would never answer it if the late attempt is refused.
+ * So it stays `processing` until the answer settles.
  */
 function recordLateOutcome(
   group: AggregatedGroup,
@@ -190,12 +185,10 @@ function recordUnanswered(
   if (error instanceof ChannelUnavailableError) {
     // The number was switched off between the dequeue and a send, and
     // `getReadyForAggregation` keeps the group out of every poll until it is
-    // back. Replaying it then is faithful because nothing the transition records
-    // was written: `executeCommands` persists the phase and analytics only once
-    // every send has gone out, and the orchestrator emits the transition's
-    // events after that. The one thing that may already have happened is an
-    // earlier message in the same batch reaching the customer, which the retry
-    // sends again.
+    // back. The replay is faithful because `executeCommands` persists the phase
+    // and analytics, and the orchestrator emits events, only after every send
+    // went out. An earlier message of the same batch may already have reached
+    // the customer, and the retry sends it again.
     markAsPending(group.ids);
     logger.warn(
       { ...context, status: error.status },

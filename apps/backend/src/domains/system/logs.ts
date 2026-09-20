@@ -21,7 +21,11 @@ export interface SystemLogEntry {
 }
 
 export class SystemLogService {
-  /** `tenantId` null spans tenants; only platform operators pass it. */
+  /**
+   * A null `tenantId` spans open tenants and adds the platform's own audit
+   * rows. An unpinned platform operator reaches it through
+   * routes/system-logs.ts.
+   */
   static getRecentLogs(
     tenantId: string | null,
     limit: number = 100,

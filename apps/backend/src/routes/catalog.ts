@@ -16,7 +16,8 @@ const catalog = new Hono();
 
 const requireCatalogWrite = requireRole("admin", "developer", "supervisor");
 
-// Reads are tenant-scoped; writes additionally need a tenant to write into.
+// Reads use the pinned tenant, or every open tenant for an unpinned platform
+// operator. Writes additionally need a pinned tenant to write into.
 catalog.use("/*", requireTenantScope);
 
 // ============ PRODUCTS (base templates) ============
@@ -182,8 +183,8 @@ catalog.post(
     const buffer = Buffer.from(await file.arrayBuffer());
     const imageId = await imageStorage.store(buffer);
 
-    // Catalog images are public by design (Meta fetches them when we send an
-    // image message); the asset row still records who owns them.
+    // Catalog images are public by design because Meta fetches them when we
+    // send an image message. The asset row still records who owns them.
     AssetService.create({
       tenantId,
       kind: "catalog_image",

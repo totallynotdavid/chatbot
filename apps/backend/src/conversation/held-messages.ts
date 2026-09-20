@@ -13,25 +13,27 @@ const logger = createLogger("held-messages");
 /*
  * The states of a held message, and who moves each one.
  *
- *  - held: `processed_at` null and not claimed. Stored by the webhook
- *    (`holdMessage`). Only a sweep takes it out, with `claimHeldMessages`, right
- *    before it answers the group.
- *  - answering: `processed_at` null and in `answering` below. A claim is refused
- *    while any row of the group is answering or already answered, so two sweeps
- *    never answer one group. Only the sweep that claimed it moves it on, and
- *    only once `handleMessage` has settled - which, after a `LockTimeoutError`,
- *    is after that sweep has returned. It goes to
- *      - answered (`markHeldAsProcessed`), when the reply was handled;
- *      - held (`releaseHeldMessages`), when answering threw, so a later sweep
+ *  - held: `processed_at` is null and the row is not claimed. The webhook stores
+ *    it (`holdMessage`). Only a sweep takes it out, with `claimHeldMessages`,
+ *    right before it answers the group.
+ *  - answering: `processed_at` is null and the id is in `answering` below. A
+ *    claim is refused while any row of the group is answering or already
+ *    answered, so two sweeps in this process never answer one group. Only the
+ *    sweep that claimed the row moves it on, and only once `handleMessage` has
+ *    settled. After a `LockTimeoutError` the sweep returns first and the answer
+ *    settles later.
+ *    The row goes to:
+ *      - answered (`markHeldAsProcessed`) when the reply was handled.
+ *      - held (`releaseHeldMessages`) when answering threw, so a later sweep
  *        answers it.
- *  - answered: `processed_at` set. Kept for `isHeld` until
- *    `purgeProcessedHeldMessages`.
- *
- * `answering` lives in memory because it stands for an answer running in this
- * process, the same thing the conversation lock stands for. A restart ends
- * every such answer, and its rows are held again; a reply that went out just
- * before the process died is sent again by the next sweep.
+ *  - answered: `processed_at` is set. `isHeld` counts it until
+ *    `purgeProcessedHeldMessages` removes it.
  */
+
+// `answering` lives in memory because it stands for an answer running in this
+// process, the same thing the conversation lock stands for. A restart ends
+// every such answer and its rows are held again. A reply that went out just
+// before the process died is sent again by the next sweep.
 const answering = new Set<number>();
 
 type AggregatedHeldGroup = {
@@ -60,8 +62,8 @@ export function isHeld(messageId: string): boolean {
 }
 
 /**
- * Store a message received during maintenance mode. Like the inbox, the Meta
- * message id is unique and a redelivery of the same message is ignored.
+ * Store a message received during maintenance mode. A redelivery of the same
+ * Meta message id is ignored.
  */
 export function holdMessage(
   ref: ConversationRef,
@@ -94,14 +96,10 @@ export function holdMessage(
 }
 
 /**
- * Held messages not yet answered, aggregated by conversation (like
- * aggregator-worker does). `tenantId` null spans tenants, for platform-wide
- * maintenance recovery.
- *
- * A number that is no longer active is left out, exactly as the inbox dequeue
- * leaves it out. Processing a held group is a sending loop, and a send on a
- * `pending` or `disabled` account is refused: those rows stay held and go out
- * whenever the number comes back.
+ * Held messages not yet answered, aggregated by conversation. `tenantId` null
+ * spans open tenants, for platform-wide maintenance recovery. Groups on a
+ * `pending` or `disabled` channel account are left out, because a send on such
+ * an account is refused. Those rows stay held until the number is active.
  */
 export function getAggregatedHeldMessages(
   tenantId: string | null = null,

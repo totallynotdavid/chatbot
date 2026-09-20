@@ -27,21 +27,15 @@ function getCurrentPeriod(tenantId: string) {
 }
 
 /**
- * Make sure the tenant has this month's period, because that is the one the
- * catalog seed writes its bundles into.
- *
- * Skipping the insert whenever the tenant had *any* period looked equivalent
- * and was not: the month after onboarding - or a tenant migrated in with an
- * older period - has periods but not this one, and the bundle seed's insert
- * then failed its foreign key and took the whole startup down with it.
- *
- * A tenant that already runs a catalog keeps running it: the new month is added
- * as a draft for someone to publish, rather than quietly becoming a second
- * active period alongside the live one.
+ * Ensures the tenant has a period for the current month, because the catalog
+ * seed inserts its bundles into that period.
  */
 export async function seedPeriods(db: Database, tenantId: string) {
   const period = getCurrentPeriod(tenantId);
 
+  // Check for this month's period, not for any period. A tenant created in an
+  // earlier month has periods but not this one, and the bundle insert would
+  // then fail its foreign key.
   const existing = db
     .prepare(
       "SELECT count(*) as count FROM catalog_periods WHERE tenant_id = ? AND year_month = ?",
@@ -58,6 +52,8 @@ export async function seedPeriods(db: Database, tenantId: string) {
     )
     .get(tenantId) as { count: number };
 
+  // A tenant that already has a period keeps its live catalog. The new month
+  // is a draft to publish, not a second active period.
   const status = anyPeriod.count > 0 ? "draft" : "active";
 
   db.prepare(

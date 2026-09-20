@@ -35,8 +35,8 @@ export function setupEventSubscribers(): void {
     "purchase_confirmed",
     async (event: DomainEvent & { type: "purchase_confirmed" }) => {
       if (!event.tenantId || !event.channelAccountId) {
-        // Without the conversation's identity there is no tenant to file the
-        // order under; dropping it is safer than guessing one.
+        // Without the tenant and channel account of the conversation there is
+        // nowhere to file the order. Dropping it is safer than guessing.
         logger.error(
           { traceId: event.traceId, phoneNumber: event.payload.phoneNumber },
           "purchase_confirmed carried no tenant; order not created",

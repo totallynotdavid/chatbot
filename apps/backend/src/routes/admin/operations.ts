@@ -16,26 +16,18 @@ const logger = createLogger("admin-operations");
 const operations = new Hono();
 
 // These touch conversation state, so they run inside the caller's tenant.
-// An unpinned platform operator sweeps every tenant, which is the support case.
+// An unpinned platform operator sweeps every open tenant, which is the support
+// case.
 operations.use("/*", requireTenantScope);
 
 /** Per-tenant counts, as both processors below report them. */
 type SweepStats = Record<string, number>;
 
 /**
- * Audit for an operation that may have run across several tenants at once.
- *
- * The gate above lets an unpinned platform operator through and the routes then
- * hand a null tenant to a processor that sweeps every open tenant. Recorded as
- * a single entry with `tenantId: null` and one set of aggregate counts, that
- * sweep left no trace of which businesses had been mutated or what happened in
- * each - the one thing an audit trail of a cross-tenant write has to say, and
- * the entry landed in none of the affected tenants' own trails either.
- *
- * So every tenant the run actually reached gets its own entry, with its own
- * counts, in its own trail. A run that reached nobody still gets the single
- * entry it would have had, under whatever scope the caller had, so "an operator
- * triggered this and it did nothing" stays on the record too.
+ * Audits an operation that may have run across several tenants. Each tenant
+ * the run reached gets its own entry, because one aggregate entry would not
+ * say which businesses were mutated. A run that reached nobody gets one entry
+ * under the caller's scope, so a run that did nothing stays on record.
  */
 function logSweep(
   userId: string,
@@ -74,19 +66,11 @@ operations.post("/process-held-messages", async (c) => {
   const user = c.get("user");
   const scope = c.get("scope");
 
-  // Maintenance mode's whole guarantee is that nothing goes out while it is on,
-  // and this endpoint sends: `processHeldMessages` runs the bot over every held
-  // message and answers the customer. Without this check an admin could lift
-  // the freeze by hand from the operations panel while it was still switched
-  // on - the dashboard hides the button (settings/+page.svelte), which is not
-  // the same thing as the API refusing.
-  //
-  // Layered the way `isMaintenanceMode` layers it: a platform-wide freeze
-  // refuses the call whatever scope it came from, and a pinned caller's own
-  // tenant freeze refuses theirs. An unpinned platform operator sweeping every
-  // tenant is let through when only individual businesses are frozen - those
-  // are skipped inside the sweep (see conversation/process-held.ts) rather than
-  // holding up recovery for everyone else.
+  // Maintenance mode holds customer messages instead of answering them, and
+  // `processHeldMessages` answers customers. The dashboard hides the button
+  // (settings/+page.svelte), but only this check makes the API refuse.
+  // `isMaintenanceMode` checks two scopes. A platform-wide freeze refuses every
+  // caller, and a tenant's own freeze refuses a caller pinned to that tenant.
   if (isMaintenanceMode(scope.tenantId ?? undefined)) {
     return c.json(
       {
@@ -119,6 +103,9 @@ operations.post("/process-held-messages", async (c) => {
     "Admin triggered held messages processing",
   );
 
+  // An unpinned platform operator reaches this when only some businesses are
+  // frozen. The sweep skips those (see conversation/process-held.ts), so they
+  // do not hold up recovery for everyone else.
   const { byTenant, frozenTenants, ...stats } = await processHeldMessages(
     scope.tenantId,
   );

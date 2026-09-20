@@ -15,13 +15,9 @@ const NO_WORK: RecoveryResult = {
 };
 
 /**
- * The totals, plus the same counts split by tenant.
- *
- * A pinned caller retries inside one tenant and `byTenant` holds that one
- * entry; a platform operator with no tenant selected retries every open
- * tenant's stuck conversations at once, and the totals alone say nothing about
- * which businesses were touched or what happened in each. The audit trail is
- * written from the split - see routes/admin/operations.ts.
+ * The totals plus the same counts per tenant. A platform operator with no
+ * tenant selected retries every open tenant in one run, and the audit trail is
+ * written from `byTenant`, not from the totals.
  */
 export type RecoveryRun = RecoveryResult & {
   byTenant: Record<string, RecoveryResult>;
@@ -33,7 +29,7 @@ export type RecoveryRun = RecoveryResult & {
 export class RetryEligibilityHandler {
   constructor(private eligibilityHandler: CheckEligibilityHandler) {}
 
-  /** `tenantId` null retries every tenant's stuck conversations. */
+  /** `tenantId` null retries the stuck conversations of every open tenant. */
   async execute(
     tenantId: string | null = null,
   ): Promise<Result<RecoveryRun, Error>> {

@@ -6,10 +6,10 @@ type SettingRow = {
 };
 
 /**
- * Keys that stay platform-wide because they describe the deployment rather than
- * any one business: the shared Calidda provider kill switches, a platform-wide
- * maintenance freeze, and the channel account VendeYa's own operations alerts
- * are sent from. Only platform operators may write these.
+ * Keys that describe the deployment rather than any one business. A platform
+ * operator with no tenant selected writes them. A tenant-scoped writer is
+ * refused, except for `maintenance_mode`, which each business also keeps in its
+ * own row.
  */
 export const PLATFORM_SETTING_KEYS = [
   "maintenance_mode",
@@ -23,40 +23,24 @@ export function isPlatformSettingKey(key: string): boolean {
 }
 
 /**
- * The platform values a tenant admin is shown, read-only, because their own
- * dashboard has something to say about them: a platform-wide freeze holds this
- * tenant's messages whatever the tenant's own setting says, and the two Calidda
- * kill switches are rendered as disabled toggles so the state of a shared
- * integration is visible to the business it is affecting. They are reported as
- * `_platform_<key>`, never under their own names, so a tenant's save cannot post
- * them back (routes/admin/system.ts).
- *
- * An allowlist rather than "everything on the platform": VendeYa's own
- * deployment configuration is not a tenant's business, and
- * `platform_ops_channel_account_id` - the internal channel account its
- * operations alerts are sent from - has no place in a customer's settings
- * response. Anything added to PLATFORM_SETTING_KEYS is therefore private to
- * platform operators until it is named here too.
+ * The platform values a tenant admin is shown read-only, reported as
+ * `_platform_<key>` so a tenant's save cannot post them back. This is an
+ * allowlist, so a key added to PLATFORM_SETTING_KEYS stays hidden from
+ * tenant-scoped callers until it is named here too.
  */
 export const TENANT_VISIBLE_PLATFORM_KEYS = [
+  // A platform freeze holds this tenant's messages whatever its own setting says.
   "maintenance_mode",
+  // Shared Calidda integrations, shown as disabled toggles on the dashboard.
   "force_fnb_down",
   "force_gaso_down",
 ] as const;
 
 /**
- * Tenant keys the application writes and reads back as its own working state,
- * rather than configuration a person sets. `tenant_settings` is a bare key/value
- * table, so these sit next to the operator-owned rows with nothing marking them
- * apart - and a hand-written value does not fail loudly, it corrupts the logic
- * that stores it: `last_agent_index` is the round-robin cursor in
- * domains/conversations/assignment.ts, and a non-numeric one makes every
- * subsequent index NaN, which stops the tenant assigning any agent at all.
- *
- * They are therefore refused on the settings write path and left out of what it
- * reads back, the same way platform keys are refused to a tenant admin. Nothing
- * legitimate writes them through HTTP; the modules that own them keep using
- * `TenantSettings.set` directly.
+ * Tenant keys the application writes as its own working state, such as the
+ * round-robin cursor `last_agent_index`. A value written by hand changes where
+ * the rotation resumes, so the settings route refuses these keys and leaves
+ * them out of what it reads back.
  */
 export const INTERNAL_TENANT_SETTING_KEYS = ["last_agent_index"] as const;
 
@@ -114,8 +98,8 @@ export const TenantSettings = {
 };
 
 /**
- * Maintenance holds messages instead of processing them. Either the platform or
- * the individual business can be in maintenance; both hold.
+ * Maintenance holds messages instead of processing them. It applies when either
+ * the platform or the tenant is in maintenance.
  */
 export function isMaintenanceMode(tenantId?: string): boolean {
   if (SystemSettings.get("maintenance_mode") === "true") return true;

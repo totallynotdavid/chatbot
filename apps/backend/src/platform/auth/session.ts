@@ -30,17 +30,18 @@ export interface User {
   id: string;
   username: string;
   /**
-   * Role in the session's active tenant, or null when no tenant is selected -
-   * a role is held inside a tenant, not globally (see AuthScope).
+   * The role the session acts with, from `sessionRole`. A platform operator is
+   * admin in every scope. Anyone else has their membership role in the active
+   * tenant, or null while no tenant is selected.
    */
   role: string | null;
   name: string;
   isPlatformOperator: boolean;
   activeTenantId: string | null;
   /**
-   * Whether the agent is taking new conversations in the active tenant. Like
-   * the role, it comes from the membership, so it is false for a caller who has
-   * not pinned one.
+   * Whether the agent is taking new conversations in the active tenant. It
+   * comes from the membership there, so it is false while no tenant is
+   * selected and for an operator who is not a member of the pinned tenant.
    */
   isAvailable: boolean;
 }
@@ -65,10 +66,10 @@ export function generateSessionToken(): string {
 }
 
 /**
- * Pick the tenant a fresh session starts in: none for a platform operator (they
- * choose explicitly), otherwise the user's only membership. A member of several
- * tenants also starts unpinned and must select one, which keeps a multi-tenant
- * user from writing into whichever tenant happened to sort first.
+ * Picks the tenant a fresh session starts in. A user with exactly one open
+ * membership starts in it. Everyone else starts unpinned. A platform operator
+ * chooses explicitly, and a user with several memberships is not put in
+ * whichever tenant sorted first.
  */
 export function defaultTenantForUser(
   userId: string,
@@ -172,28 +173,23 @@ export function validateSessionToken(token: string): SessionValidationResult {
 
   const isPlatformOperator = row.is_platform_operator === 1;
 
-  // Membership and the tenant's own status are re-read on every request:
-  // revoking one or suspending the other takes effect at once rather than at
-  // the next login.
+  // Membership and the tenant's own status are re-read on every request, so
+  // revoking one or suspending the other takes effect at once.
   let membership: TenantMembership | null = null;
   if (session.activeTenantId) {
     membership = MembershipService.get(session.activeTenantId, row.uid);
 
-    // A suspended tenant is closed to everyone, platform operators included -
-    // otherwise suspension only stopped new sessions from pinning it while
-    // every session pinned beforehand kept full read and write access. The pin
-    // is dropped rather than the session: the user stays logged in and can
-    // select another tenant, exactly as when a membership is revoked.
-    //
-    // Dropping the pin is the whole story only for a member, for whom no pin
-    // means no access. For a platform operator no pin is the *cross-tenant*
-    // view, so this step alone would hand back what it removed; the reads
-    // themselves exclude suspended tenants (`tenantPredicate` in db/query.ts,
-    // `canAccessTenant` in auth/scope.ts), and writes need a pin they can no
-    // longer obtain.
+    // A suspended tenant is closed to everyone, platform operators included.
+    // The pin is dropped, not the session, so the user stays logged in and can
+    // select another tenant, as when a membership is revoked.
     const tenantIsOpen = row.tenant_status === "active";
     const stillAMember = membership !== null || isPlatformOperator;
 
+    // A member whose pin is dropped has no tenant scope, so `requireTenantScope`
+    // refuses them. For a platform operator no pin is the cross-tenant view, so
+    // the reads exclude suspended tenants themselves (`tenantPredicate` in
+    // db/query.ts, `canAccessTenant` in auth/scope.ts). POST /api/tenants/active
+    // refuses a suspended tenant.
     if (!tenantIsOpen || !stillAMember) {
       setSessionTenant(session.id, null);
       session.activeTenantId = null;

@@ -12,20 +12,15 @@ import { requireActiveTenant, requireTenantScope } from "../middleware/auth.ts";
 
 const conversations = new Hono();
 
-// Nothing here is readable without a tenant scope to read it in. Reads may span
-// tenants for a platform operator who has not pinned one; the writes below
-// additionally take `requireActiveTenant`, because a write has to land in a
-// tenant the caller has actually selected.
+// Reads span tenants for a platform operator who has not pinned one. Writes
+// also take `requireActiveTenant`, because a write must land in a tenant the
+// caller has selected.
 conversations.use("/*", requireTenantScope);
 
 /**
- * Resolve `:phone` inside the caller's tenant. A conversation belonging to
- * another tenant is indistinguishable from one that does not exist.
- *
- * When the same contact is talking to two of this tenant's numbers, `?channel=`
- * says which thread is meant; without it the request is refused as ambiguous
- * rather than answered with whichever was touched last. The conversation list
- * links carry the channel account, so the dashboard always names it.
+ * Resolves `:phone` within the caller's scope: the pinned tenant, or every open
+ * tenant for an unpinned platform operator. A conversation outside that scope
+ * is indistinguishable from one that does not exist.
  */
 function resolve(
   c: Context,
@@ -40,6 +35,9 @@ function resolve(
     return { conversation: lookup.conversation };
   }
 
+  // The same contact can talk to two numbers in scope. `?channel=` picks the
+  // thread. Without it the request is refused instead of answered with
+  // whichever thread was touched last.
   if (lookup.status === "ambiguous") {
     return {
       error: c.json(

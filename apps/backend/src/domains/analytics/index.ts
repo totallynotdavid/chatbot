@@ -39,8 +39,9 @@ export function trackEvent(
 }
 
 /**
- * `tenantId` null aggregates across tenants (platform operators only).
- * A date-only bound covers that Lima day; a timestamp with a zone is exact.
+ * `tenantId` null aggregates across open tenants, which an unpinned platform
+ * operator reaches through the route.
+ * A date-only bound covers that Lima day. A timestamp with a zone is exact.
  */
 export function getFunnelStats(
   tenantId: string | null,

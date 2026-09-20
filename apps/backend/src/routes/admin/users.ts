@@ -23,9 +23,10 @@ type UserRow = {
 };
 
 /**
- * User management is per tenant: an admin sees and edits the members of the
+ * User management is per tenant. An admin sees and edits the members of the
  * tenant they are acting in, and the role returned is the membership role.
- * Platform operators are never listed as members of anything.
+ * A platform operator appears only if they hold a membership there, as a
+ * promoted member account does.
  */
 users.use("/*", requireActiveTenant);
 
@@ -47,20 +48,10 @@ users.get("/", (c) => {
 });
 
 /**
- * Usernames are one namespace across the whole platform, on purpose: login is
- * `username` + password with no business to pick first, so the name has to
- * identify one account by itself. Somebody who sells for two businesses has one
- * login and two memberships, which is also what makes "go offline for this
- * business only" a membership flag rather than an account one.
- *
- * That means a tenant admin choosing a name necessarily learns whether it is
- * free, and no wording changes that - it is what a unique constraint is. What
- * they must not learn is anything *beyond* availability, so both cases answer
- * with the same sentence. Reporting "username already exists" told a tenant B
- * admin that some account by that name existed somewhere on VendeYa, which is
- * more than the constraint has to give away; saying the name is unavailable and
- * naming the rule gives the admin everything they need to pick another and the
- * prober nothing to distinguish.
+ * Usernames are one namespace across the platform, because login takes a
+ * username and password with no business to pick first. A tenant admin
+ * necessarily learns whether a name is free. The answer must not say more, so a
+ * name held by another business gets the same sentence as one held here.
  */
 const USERNAME_UNAVAILABLE = {
   error:
@@ -136,19 +127,10 @@ function memberOfActiveTenant(tenantId: string, userId: string): boolean {
 }
 
 /**
- * Whether the caller may change this user's *global* account record - the
- * password hash and the active flag, both of which live on `users` rather than
- * on a membership.
- *
- * Changing either reaches every tenant the account belongs to: a reset password
- * hands over their access elsewhere, and clearing `is_active` locks them out of
- * businesses the acting admin has nothing to do with (setting it again lets
- * them back in). So a tenant admin may only touch the global record of a user
- * whose sole membership is the tenant being acted in; beyond that it takes a
- * platform operator, who already has cross-tenant authority.
- *
- * The tenant-scoped alternative is to revoke the membership, which removes the
- * user from this tenant and leaves their other ones alone.
+ * Whether the caller may change this user's global account record, which is the
+ * password hash and the active flag on `users`. Either change reaches every
+ * tenant the account belongs to, so a tenant admin may only make it for a user
+ * whose sole membership is the acting tenant. Others need a platform operator.
  */
 function mayEditGlobalAccount(
   scope: { isPlatformOperator: boolean },
@@ -165,10 +147,8 @@ const CROSS_TENANT_ACCOUNT_ERROR = {
 } as const;
 
 /**
- * Toggle user active status.
- *
- * `is_active` is on the global user record, so this is gated the same way as a
- * password reset - see mayEditGlobalAccount.
+ * `is_active` is on the global user record, so this route is gated by
+ * `mayEditGlobalAccount`, like a password reset.
  */
 users.patch("/:id/status", (c) => {
   const userId = pathParam(c, "id");
@@ -220,10 +200,8 @@ users.patch("/:id/status", (c) => {
 });
 
 /**
- * Force password change.
- *
- * `password_hash` is on the global user record, so this is gated the same way
- * as the active flag - see mayEditGlobalAccount.
+ * `password_hash` is on the global user record, so this route is gated by
+ * `mayEditGlobalAccount`, like the active flag.
  */
 users.post("/:id/password", async (c) => {
   const userId = pathParam(c, "id");

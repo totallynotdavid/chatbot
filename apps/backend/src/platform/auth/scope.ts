@@ -1,47 +1,46 @@
-/**
- * Authorization scope carried by a session.
- *
- * Two kinds of caller exist:
- *
- *  - a tenant member, always pinned to exactly one tenant, whose permissions
- *    come from their membership role;
- *  - a VendeYa platform operator, who is a member of no tenant but may act
- *    across all of them for support. They may pin themselves to one tenant
- *    (so writes have somewhere to land); unpinned, their reads span tenants.
- *
- * `tenantId === null` therefore means "not scoped to one tenant" and is only
- * ever reachable by a platform operator.
- */
-
 import type { TenantRole } from "@totem/types";
 import { TenantService } from "../../domains/tenants/index.ts";
 
+/**
+ * A session is pinned to at most one tenant. A member acts there with their
+ * membership role. A platform operator belongs to no tenant and may pin
+ * themselves to one, which scopes their reads and gives their writes somewhere
+ * to land.
+ */
 export type AuthScope = {
   userId: string;
+  /**
+   * The session's active tenant, or null when none is pinned. An unpinned
+   * platform operator gets the cross-tenant view. A member is unpinned until
+   * they pick a tenant, or after a revoked membership or suspended tenant drops
+   * the pin. `requireTenantScope` refuses an unpinned member with a 403.
+   */
   tenantId: string | null;
-  /** The caller's own membership in `tenantId`. Authority comes from `sessionRole`. */
+  /**
+   * The caller's own role in `tenantId`. It is null while unpinned, and for an
+   * operator pinned to a tenant they are not a member of. Authority comes from
+   * `sessionRole`.
+   */
   membershipRole: TenantRole | null;
   isPlatformOperator: boolean;
 };
 
-/** Roles a platform operator is treated as holding for RBAC checks. */
+/** The role a platform operator is treated as holding for RBAC checks. */
 const PLATFORM_OPERATOR_ROLE: TenantRole = "admin";
 
 /**
- * The role a session acts with, both as reported to the client and as checked
- * by `requireRole`.
- *
- * A role only exists inside a tenant. A platform operator acts with admin
- * authority everywhere, including in a tenant where they also hold a lesser
- * membership; a member holds whatever their membership says; a user who has not
- * yet picked a tenant holds nothing, and gets null rather than a borrowed role
- * from elsewhere.
+ * The role a session acts with, as reported to the client and as checked by
+ * `requireRole`. A platform operator is admin in every scope, including the
+ * cross-tenant view. Anyone else holds the role of their membership in the
+ * pinned tenant.
  */
 export function sessionRole(session: {
   isPlatformOperator: boolean;
   membershipRole: TenantRole | null;
 }): TenantRole | null {
+  // An operator is admin even in a tenant where they hold a lesser membership.
   if (session.isPlatformOperator) return PLATFORM_OPERATOR_ROLE;
+  // A member has no role while unpinned, and never one from another tenant.
   return session.membershipRole;
 }
 
@@ -51,15 +50,10 @@ export function hasRole(scope: AuthScope, allowed: string[]): boolean {
 }
 
 /**
- * The tenant a write lands in, and the one place that invariant is expressed:
- * a write always needs a concrete tenant, so an unpinned platform operator has
- * to select one first. `requireActiveTenant` and `activeTenantId` in
- * middleware/auth.ts are both this function; nothing writes tenant-owned data
- * without passing through it.
- *
- * Reads are the other half and need no helper: a pinned scope filters to
- * `scope.tenantId`, and null there means "across tenants", which the read
- * services already take.
+ * The tenant a write lands in. A write needs a concrete tenant, so an unpinned
+ * caller, operator or member, throws until one is selected. Request handlers
+ * reach this through `activeTenantId` and `requireActiveTenant` in
+ * middleware/auth.ts.
  */
 export function writeTenantId(scope: AuthScope | null | undefined): string {
   if (!scope?.tenantId) {
@@ -76,20 +70,19 @@ export class TenantScopeRequiredError extends Error {
 }
 
 /**
- * Whether `scope` is allowed to touch a row owned by `rowTenantId`.
- *
- * Unpinned platform operators may touch any *open* tenant's row. Suspension is
- * checked here rather than left to the session, because for an operator the
- * session's response to suspension - dropping the pin - is the cross-tenant
- * view itself: it removes nothing. A pinned caller needs no such check, since
- * a pin on a suspended tenant is dropped before the scope is built.
+ * Whether `scope` may touch a row owned by `rowTenantId`. An unpinned platform
+ * operator may touch any open tenant's row.
  */
 export function canAccessTenant(
   scope: AuthScope,
   rowTenantId: string,
 ): boolean {
   if (scope.tenantId === null) {
+    // Suspension is checked here, not left to the session. Dropping an
+    // operator's pin on suspension yields the cross-tenant view, which removes
+    // nothing.
     return scope.isPlatformOperator && TenantService.isOpen(rowTenantId);
   }
+  // A pin on a suspended tenant is dropped before the scope is built.
   return scope.tenantId === rowTenantId;
 }

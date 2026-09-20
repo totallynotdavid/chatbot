@@ -10,15 +10,11 @@ import type { ReplayData, ReplayMetadata } from "@totem/types";
 
 export type Role = "admin" | "developer" | "sales_agent";
 
-/** A caller with no role (no tenant selected yet) is not a valid role. */
+/** A null role, held by a member who has not pinned a tenant, is not valid. */
 export function isValidRole(role: string | null): role is Role {
   return role === "admin" || role === "developer" || role === "sales_agent";
 }
 
-/**
- * Conversations visible to the caller. The tenant predicate comes first: a
- * caller pinned to a tenant sees only that tenant's rows, whatever their role.
- */
 export function listConversations(
   scope: AuthScope,
   status: string | null | undefined,
@@ -27,6 +23,7 @@ export function listConversations(
   const conditions = ["is_simulation = 0"];
   const params: SQLQueryBindings[] = [];
 
+  // A caller pinned to a tenant sees only that tenant's rows, whatever the role.
   conditions.push(tenantPredicate(scope.tenantId));
   if (scope.tenantId) params.push(scope.tenantId);
 
@@ -48,13 +45,9 @@ export function listConversations(
 }
 
 /**
- * Result of resolving a `:phone` path parameter to a conversation.
- *
- * `ambiguous` exists because a conversation is identified by
- * (tenant, channel account, phone number): one contact can be talking to two of
- * the same tenant's WhatsApp numbers, which is two separate conversations.
- * Picking the most recent one would silently splice two threads together, so
- * the caller is told to name the channel account instead.
+ * A `:phone` can match two conversations of one tenant, one per WhatsApp
+ * number. Picking the latest would splice two threads, so `ambiguous` makes the
+ * caller name the channel account.
  */
 export type ConversationLookup =
   | { status: "found"; conversation: Conversation }
@@ -62,8 +55,9 @@ export type ConversationLookup =
   | { status: "ambiguous"; candidates: Conversation[] };
 
 /**
- * Resolve a conversation the caller is allowed to see. A conversation belonging
- * to another tenant is reported as not found, never returned.
+ * Resolve a conversation the caller is allowed to see. A caller pinned to a
+ * tenant gets another tenant's conversation reported as not found. An unpinned
+ * platform operator can find a conversation in any open tenant.
  */
 export function lookupConversation(
   scope: AuthScope,

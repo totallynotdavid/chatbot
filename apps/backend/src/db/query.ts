@@ -2,9 +2,9 @@ import { db } from "./connection.ts";
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 
 /**
- * `getOne` / `getAll` bound to one connection. Code that is handed a database -
- * the seeds and the migration, which in tests run against a temporary file -
- * binds its own; everything else uses the process-wide pair below.
+ * Binds the query helpers to a database passed in, so tests can run the seeds,
+ * the account command and the tenant and channel services on a temporary file.
+ * The exports below use the application database.
  */
 export function queriesOn(database: Database) {
   return {
@@ -23,57 +23,41 @@ export const getOne = appQueries.getOne;
 export const getAll = appQueries.getAll;
 
 /**
- * The set a cross-tenant read is allowed to span.
- *
- * Suspension closes a business to everyone, platform operators included. An
- * operator's session drops its pin when the tenant it names is suspended
- * (platform/auth/session.ts), which for an ordinary member is a lockout - but
- * for an operator, no pin *is* the cross-tenant view, so dropping the pin would
- * hand back exactly the access it was meant to remove. The exclusion therefore
- * lives in the read itself.
+ * Cross-tenant reads of a tenant's rows span only active tenants. An operator's
+ * session drops its pin when the tenant is suspended (platform/auth/session.ts),
+ * but an unpinned operator already reads every tenant, so the exclusion has to
+ * live in the read.
  */
 const OPEN_TENANTS = "(SELECT id FROM tenants WHERE status = 'active')";
 
 /**
- * The tenant predicate for a read whose scope may be one tenant or all of them.
- *
- * A concrete `tenantId` is the ordinary case: one tenant, one bind parameter.
- * Null is the cross-tenant read only a platform operator can reach, and it
- * means "every tenant still open", never every row.
- *
- * The null branch binds nothing, so callers keep the parameter list they
- * already build: `tenantId ? [other, tenantId] : [other]`.
+ * A concrete `tenantId` filters to that tenant. Null is the cross-tenant read.
+ * An unpinned platform operator reaches it, and so does a background worker that
+ * passes null on purpose. It spans open tenants, never every row.
  */
 export function tenantPredicate(
   tenantId: string | null,
   column = "tenant_id",
 ): string {
+  // The null branch binds nothing, so callers build their params as
+  // `tenantId ? [other, tenantId] : [other]`.
   return tenantId ? `${column} = ?` : openTenantsOnly(column);
 }
 
 /**
- * The same restriction for a query that has no tenant parameter at all: the
- * background workers, which sweep every tenant's queue by design. "Every
- * tenant" has to mean every tenant still open there too - a message queued
- * before suspension must not be answered after it, and a conversation in a
- * closed business must not go on being reassigned.
+ * Limits a query with no tenant parameter to open tenants. The background
+ * workers that sweep every tenant's queue use it, so a message queued before a
+ * suspension is not answered after it and a suspended tenant's conversations
+ * are not reassigned.
  */
 export function openTenantsOnly(column = "tenant_id"): string {
   return `${column} IN ${OPEN_TENANTS}`;
 }
 
 /**
- * The channel accounts a background worker may send on.
- *
- * A tenant being open is not enough: the reply goes out on one of its numbers,
- * and a number that is `pending` or `disabled` cannot send at all - the webhook
- * already refuses inbound for one (routes/webhook.ts) and every adapter refuses
- * outbound. A message queued a minute before its number was switched off is
- * still sitting on the queue, though, and answering it means handing the send
- * to an account that will drop it on the floor while the worker marks the row
- * done. Restricting the dequeue leaves those rows where they are, so
- * re-enabling the number resumes them - the same promise `openTenantsOnly`
- * makes about a suspended business.
+ * Accounts a background worker may send on. A send on a `pending` or `disabled`
+ * number is refused, so a query that dequeues work leaves those accounts out.
+ * The row stays queued, and re-enabling the number resumes it.
  */
 export function activeChannelAccountsOnly(
   column = "channel_account_id",
@@ -82,9 +66,9 @@ export function activeChannelAccountsOnly(
 }
 
 /**
- * The same, for the two tables whose `tenant_id` is nullable - `audit_log` and
- * `notification_traces`. A null there is a platform-level row belonging to no
- * tenant, not a suspended business's data, so a cross-tenant read keeps it.
+ * For `audit_log` and `notification_traces`, whose `tenant_id` is nullable. A
+ * null row belongs to the platform, not to a suspended business, so a
+ * cross-tenant read keeps it.
  */
 export function tenantOrPlatformPredicate(
   tenantId: string | null,
@@ -100,7 +84,10 @@ export function toISOString(timestamp: number | null): string | null {
   return timestamp ? new Date(timestamp).toISOString() : null;
 }
 
-/** A date query parameter that is not a real calendar date or timestamp; answered as 400. */
+/**
+ * A date query parameter that is not a real calendar date or timestamp.
+ * `middleware/error.ts` answers it as 400.
+ */
 export class InvalidDateError extends Error {
   constructor(
     readonly field: string,
@@ -158,8 +145,8 @@ export function limaDateString(timestamp: number): string {
 }
 
 /**
- * One end of a query range in ms: `YYYY-MM-DD` opens or closes that Lima day,
- * an ISO timestamp with a zone is taken as the exact instant.
+ * One end of a query range in ms. A `YYYY-MM-DD` value opens or closes that Lima
+ * day. An ISO timestamp with a zone is taken as the exact instant.
  */
 export function limaRangeEdge(
   value: string,

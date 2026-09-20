@@ -17,8 +17,8 @@ db.run("PRAGMA journal_mode = WAL;");
 db.run("PRAGMA synchronous = NORMAL;");
 db.run("PRAGMA cache_size = 10000;");
 db.run("PRAGMA temp_store = MEMORY;");
-// SQLite defaults foreign key enforcement to off, which would make every
-// REFERENCES and ON DELETE CASCADE in schema.sql decorative - orphan rows and
-// cross-tenant dangling references would be inserted without complaint. The
-// schema relies on them, so they are enforced.
+// SQLite leaves foreign key enforcement off by default. Without this pragma,
+// every REFERENCES and ON DELETE CASCADE in schema.sql would do nothing, and
+// orphan rows or cross-tenant dangling references would insert without
+// complaint.
 db.run("PRAGMA foreign_keys = ON;");

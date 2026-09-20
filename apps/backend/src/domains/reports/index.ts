@@ -8,7 +8,10 @@ import {
 import * as XLSX from "xlsx";
 
 type ActivityReportParams = {
-  /** null spans tenants; only platform operators ever pass it. */
+  /**
+   * Null spans open tenants. Only an unpinned platform operator's request
+   * passes it.
+   */
   tenantId: string | null;
   startDate: Date;
   endDate: Date;
@@ -25,7 +28,7 @@ type OrderReportParams = {
 };
 
 export const ReportService = {
-  /** `date` is `YYYY-MM-DD` in Lima; omitted, it is today there. */
+  /** `date` is `YYYY-MM-DD` in Lima. Omitted, it is today there. */
   generateDailyReport: (tenantId: string | null, date?: string) => {
     const [start, end] = limaDayBounds(date);
 

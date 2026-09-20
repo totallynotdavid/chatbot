@@ -128,8 +128,8 @@ export async function seedTestData(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
-  // The fixture references an agent by id; it may not exist because the user
-  // seed no longer ships accounts, so only link one that is really there.
+  // The fixture names an agent by id. The seeds create no user accounts, so
+  // link the agent only when that user exists.
   const agentExists = (id: string): boolean =>
     (
       db

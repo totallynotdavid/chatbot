@@ -5,7 +5,7 @@ import type { AuditLog } from "@totem/types";
 
 /**
  * Who did it and inside which tenant. `tenantId` is null only for actions taken
- * outside any tenant - platform operators editing global settings, say.
+ * outside any tenant, such as a platform operator editing global settings.
  */
 export type AuditActor = {
   userId: string;
@@ -98,8 +98,9 @@ export function logAction(
 }
 
 /**
- * `tenantId` null returns the whole trail and is only reachable by platform
- * operators; a tenant-scoped caller sees their own tenant's entries.
+ * `tenantId` null returns the entries of every open tenant and the platform's
+ * own rows. The audit route passes null only for an unpinned platform operator.
+ * A tenant-scoped caller sees their own tenant's entries.
  */
 export function getAuditTrail(
   tenantId: string | null,

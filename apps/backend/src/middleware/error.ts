@@ -8,9 +8,9 @@ import { NO_ACTIVE_TENANT } from "./auth.ts";
 const logger = createLogger("app");
 
 export async function errorHandler(err: Error, c: Context) {
-  // A write reached a handler with no tenant to land in, which means the route
-  // is missing `requireActiveTenant`. Refusing it is the point of the
-  // invariant; a 500 would hide it.
+  // A handler asked for the active tenant while none was pinned, so its route
+  // is missing `requireActiveTenant`. Refusing it is the point of the invariant.
+  // A 500 would hide the missing guard.
   if (err instanceof TenantScopeRequiredError) {
     logger.error(
       { path: c.req.path, method: c.req.method },

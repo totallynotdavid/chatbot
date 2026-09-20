@@ -116,10 +116,11 @@ export class CheckEligibilityHandler {
     }
 
     // 6. Map to enrichment result. Bundles offered come from the tenant that
-    //    owns the conversation; with no conversation (the admin DNI lookup)
-    //    there is no catalog to draw from, and null says so - the empty string
-    //    this used to pass reached the catalog query as a tenant id matching
-    //    nothing, which reads as an empty catalog rather than as no question.
+    //    owns the conversation.
+    //    With no conversation (the lookup behind GET /api/providers/:dni) there
+    //    is no catalog to draw from, so the tenant is null. An empty string
+    //    would match no tenant and read as an empty catalog rather than as no
+    //    question.
     const enrichmentResult = mapEligibilityToEnrichment(ref?.tenantId ?? null, {
       ...evaluation.value.result,
       needsHuman: false,

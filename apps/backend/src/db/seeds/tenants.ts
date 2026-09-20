@@ -9,19 +9,13 @@ import type { ChannelAccount, Tenant } from "@totem/types";
 const logger = createLogger("seed-tenants");
 
 /**
- * The first tenant is Totem, the business this codebase was built for. Its
- * WhatsApp number comes from the WHATSAPP_* environment variables that used to
- * be read at module load: those now seed one channel account and nothing else
- * reads them at runtime, so Totem behaves exactly as before once migrated.
+ * The default tenant is Totem, the business this codebase was built for. Its
+ * channel account is seeded from the WHATSAPP_* environment variables.
  */
 export const DEFAULT_TENANT_SLUG = "totem";
 export const DEFAULT_TENANT_NAME = "Totem";
 
-/**
- * The phone-number id a tenant's seeded account goes by while it has no real
- * number. `phone_number_id` is unique across every tenant, so the placeholder
- * names the tenant it belongs to.
- */
+/** `phone_number_id` is unique across tenants, so a placeholder names its tenant. */
 export function unconfiguredPhoneNumberId(tenantId: string): string {
   return `unconfigured:${tenantId}`;
 }
@@ -39,22 +33,10 @@ export function ensureDefaultTenant(db: Database): Tenant {
 }
 
 /**
- * Create the channel account for a tenant out of the legacy env configuration,
- * or finish one that was created before the credentials were available. Tokens
- * are stored encrypted; when no key is configured the account is created
- * without them and left 'pending', which is the correct state for a number that
- * cannot yet send.
- *
- * That pending state is recoverable, and this is what recovers it: seeding a
- * number that already exists imports whatever credentials it is still missing,
- * so setting SECRETS_KEY and re-running the seed turns a pending account into
- * one that can send. Credentials it already has are left alone - the env
- * variables are the initial import, not the source of truth, and a token
- * rotated through PATCH /api/admin/channels/:id must survive the next seed.
- *
- * This is the only path that imports those credentials - a fresh seed and the
- * migration of an existing database both come through here, so both end up with
- * the same working account rather than one of them writing a bare row.
+ * Creates the channel account for a tenant from the WHATSAPP_* environment
+ * variables, or imports the credentials that an existing one is missing. A
+ * fresh seed and the migration both come through here, and nothing else
+ * imports those credentials.
  */
 export function ensureChannelAccountFromEnv(
   db: Database,
@@ -84,11 +66,17 @@ export function ensureChannelAccountFromEnv(
       );
     }
 
+    // Seeding a number that already exists imports only the credentials it is
+    // missing. Setting SECRETS_KEY and re-running the seed therefore turns a
+    // pending account into one that can send.
     const needsAccessToken =
       accessToken !== null && existing.access_token_secret_id === null;
     const needsVerifyToken =
       verifyToken !== null && existing.verify_token_secret_id === null;
 
+    // The environment variables are the initial import, not the source of
+    // truth. A token rotated through PATCH /api/admin/channels/:id must
+    // survive the next seed.
     if (!needsAccessToken && !needsVerifyToken) return existing;
 
     if (!canEncrypt) {
@@ -127,6 +115,9 @@ export function ensureChannelAccountFromEnv(
     warnAboutMissingKey();
   }
 
+  // Tokens are stored encrypted. Without a key the account is created without
+  // them and left 'pending', which is the right state for a number that cannot
+  // send yet.
   const storeCredentials = canEncrypt;
 
   const account = channelAccounts.create({
@@ -154,11 +145,6 @@ export function ensureChannelAccountFromEnv(
 /**
  * WHATSAPP_PHONE_ID when it is set and free for this tenant, otherwise this
  * tenant's placeholder.
- *
- * A configured number already registered to another tenant is that tenant's:
- * handing it to this one would put this tenant's rows on another business's
- * number. The seeded tenant gets a pending placeholder instead, and the
- * conflict is logged as the configuration error it is.
  */
 function seededPhoneNumberId(
   channelAccounts: ReturnType<typeof channelAccountsOn>,
@@ -167,6 +153,8 @@ function seededPhoneNumberId(
   const configured = process.env.WHATSAPP_PHONE_ID;
   if (!configured) return unconfiguredPhoneNumberId(tenantId);
 
+  // A configured number registered to another tenant belongs to that tenant.
+  // Handing it out would put this tenant's rows on another business's number.
   const owner = channelAccounts.getByPhoneNumberId(configured);
   if (!owner || owner.tenant_id === tenantId) return configured;
 

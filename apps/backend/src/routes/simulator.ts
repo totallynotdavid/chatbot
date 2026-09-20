@@ -47,10 +47,9 @@ function simulatorRef(c: Context, phoneNumber: string): ConversationRef | null {
 
 /**
  * The conversation being replayed belongs to the tenant but not necessarily to
- * the number the simulator runs on: a business with two WhatsApp numbers has
+ * the number the simulator runs on. A business with two WhatsApp numbers has
  * two separate threads with the same contact, and `channelAccountId` says which
- * of them is being loaded. Without one the tenant's default account is assumed,
- * which is the whole story for a business with a single number.
+ * one is being loaded. Without it the default account is assumed.
  */
 function replaySourceRef(
   c: Context,
@@ -145,23 +144,17 @@ simulator.delete("/personas/:id", (c) => {
 });
 
 /**
- * The simulated conversations on the number the simulator runs on.
- *
- * Every other route here resolves a phone number through `simulatorRef`, which
- * is the tenant's default account, while this listed every simulation the
- * tenant had on any of its numbers. Two numbers meant two rows for the same
- * contact under a key the frontend builds out of the phone number alone - and
- * opening, resetting or deleting either of them acted on the default account,
- * so a row belonging to a different number showed an empty thread (created on
- * the spot by `getOrCreateConversation`) or a 404. Listing what the actions can
- * actually reach keeps the two in step. Simulations left on a number that is no
- * longer the default are not lost, only out of view, and come back if it is
- * made the default again.
+ * The simulated conversations on the simulator's number. Every route here that
+ * takes a simulated conversation's phone number resolves it through
+ * `simulatorRef`, and the frontend keys rows by phone number alone. A row on
+ * another number would open a new empty thread or answer 404.
  */
 simulator.get("/conversations", (c) => {
   const ref = simulatorRef(c, SIMULATOR_PHONE);
   if (!ref) return c.json(NO_ACCOUNT, 400);
 
+  // Simulations on another number stay in the table. They show again if that
+  // number becomes the default.
   const conversations = getAll<Conversation>(
     `SELECT * FROM conversations
      WHERE tenant_id = ? AND channel_account_id = ? AND is_simulation = 1
@@ -301,9 +294,9 @@ simulator.post("/load", async (c) => {
     return c.json({ error: "sourcePhone required" }, 400);
   }
 
-  // The replay is always loaded onto the default account, because that is where
-  // the rest of the simulator looks for it - only the source is read from the
-  // number the conversation actually happened on.
+  // The replay always loads onto the default account, where the rest of the
+  // simulator looks for it. Only the source is read from the number the
+  // conversation happened on.
   const targetRef = simulatorRef(c, SIMULATOR_PHONE);
   if (!targetRef) return c.json(NO_ACCOUNT, 400);
 

@@ -1,13 +1,8 @@
 /**
  * Storage for files that must never be served statically: signed contracts and
- * call recordings.
- *
- * These live under `<PRIVATE_DIR>/<tenant>/...`, deliberately outside the
- * uploads directory (the only one the HTTP server mounts). The bytes are
- * reachable only through /api/assets/:id, which checks tenant scope first.
- *
- * The root comes from lib/storage-paths.ts, so it sits on the same persistent
- * volume as UPLOAD_DIR rather than under the process's working directory.
+ * call recordings. They live under `<PRIVATE_DIR>/<tenant>/...`, outside the
+ * images directory, which is the only one the HTTP server mounts. The bytes
+ * are reachable only through /api/assets/:id, which checks tenant scope first.
  */
 
 import { mkdir } from "node:fs/promises";
@@ -30,11 +25,8 @@ export function privateStorageKey(
 
 /**
  * Absolute location of a storage key, refusing anything that resolves outside
- * the private root.
- *
- * Exported because the migration writes into this store too, and has to go
- * through the same check rather than joining paths of its own: the keys it
- * builds come from a legacy column, which nothing ever validated.
+ * the private root. Exported for the migration, whose keys come from a legacy
+ * column that nothing validated, so it must go through this check.
  */
 export function privateFilePath(storageKey: string): string {
   const resolved = path.resolve(PRIVATE_ROOT, storageKey);

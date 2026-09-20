@@ -15,10 +15,9 @@ export function isTenantRole(role: string): role is TenantRole {
 }
 
 /**
- * Tenant reads and writes bound to one connection. The seeds and the migration
- * are handed a database - a temporary file, in tests - rather than the
- * process-wide one, so they bind their own; everything else uses
- * `TenantService` below.
+ * Tenant reads and writes bound to one connection. The seeds and the account
+ * command receive their own database (a temporary file in tests) and bind it
+ * here. Other code uses `TenantService` below.
  */
 export function tenantsOn(database: Database) {
   const { getAll, getOne } = queriesOn(database);
@@ -34,11 +33,9 @@ export function tenantsOn(database: Database) {
       getOne<Tenant>("SELECT * FROM tenants WHERE slug = ?", [slug]) ?? null,
 
     /**
-     * Whether the tenant is open for access at all. Suspension closes a
-     * business to everyone, platform operators included, so this is the check
-     * an unpinned cross-tenant caller has to pass before touching one of its
-     * rows - see `canAccessTenant` in platform/auth/scope.ts. A tenant that no
-     * longer exists is closed too.
+     * Whether the tenant is open for access. Suspension closes a business to
+     * everyone, platform operators included, and a missing tenant is closed too.
+     * `canAccessTenant` in platform/auth/scope.ts applies it to unpinned callers.
      */
     isOpen: (id: string): boolean =>
       getOne<{ status: string }>("SELECT status FROM tenants WHERE id = ?", [
@@ -67,7 +64,7 @@ export function membershipsOn(database: Database) {
   const { getAll, getOne } = queriesOn(database);
 
   const service = {
-    /** Tenants the user belongs to, with the role they hold in each. */
+    /** Open tenants the user belongs to, with the role they hold in each. */
     listForUser: (userId: string): Array<Tenant & { role: TenantRole }> =>
       getAll<Tenant & { role: TenantRole }>(
         `SELECT t.*, m.role as role
@@ -79,9 +76,9 @@ export function membershipsOn(database: Database) {
       ),
 
     /**
-     * How many tenants a user belongs to, counting suspended ones. Used where a
-     * change to the global user record would reach beyond the acting tenant, so
-     * a suspended tenant must still count - it can be reactivated.
+     * How many tenants a user belongs to, counting suspended ones. Callers use
+     * it where a change to the global user record would reach beyond the acting
+     * tenant. A suspended tenant still counts because it can be reactivated.
      */
     countForUser: (userId: string): number =>
       getOne<{ count: number }>(

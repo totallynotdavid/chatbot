@@ -1,22 +1,8 @@
 /**
- * Asset registry.
- *
- * Two visibilities, and the difference is deliberate:
- *
- *  - `public` covers catalog images only. When we send an image message, Meta
- *    fetches the `link` we hand it from its own servers with no session and no
- *    header we control, so those bytes have to be reachable unauthenticated.
- *    They are still owned by a tenant (the row records it, and catalog reads are
- *    tenant-scoped), and the storage key is a random 16-hex id, so the URL is
- *    unguessable rather than merely unauthenticated. That is the whole of the
- *    exception.
- *
- *  - `private` covers signed contracts and call recordings. Those are never
- *    served statically; they are only reachable through /api/assets/:id, which
- *    resolves the asset's tenant and checks the caller's scope first, and hands
- *    the bytes back as an attachment with a content type off the allowlist for
- *    the kind - never the one the uploading browser declared. See
- *    ./content-types.ts for why that matters.
+ * Asset registry. `public` is for catalog images only. Meta fetches them with
+ * no session, so the storage key is a random id that keeps the URL unguessable.
+ * `private` assets are reachable only through /api/assets/:id, which checks the
+ * caller's scope first.
  */
 
 import { db } from "../../db/index.ts";
@@ -54,8 +40,8 @@ export const AssetService = {
   },
 
   /**
-   * `tenantId` null skips the tenant predicate and is only for platform
-   * operators; route handlers pass the caller's scope.
+   * A null `tenantId` reads across open tenants. Pass it only when the caller
+   * checks tenant access itself, as GET /api/assets/:id does.
    */
   getById: (tenantId: string | null, id: string): Asset | null =>
     getOne<Asset>(

@@ -16,25 +16,9 @@ export const SEEDED_IMAGE_IDS: readonly string[] = [
 ];
 
 /**
- * Put the base catalog's photos where the image store serves them from.
- *
- * The seeded bundles name their images by id, and the bytes behind those ids
- * ship in the repository - under the development IMAGES_DIR, which is the only
- * place they have ever been. A deployment with UPLOAD_DIR on a volume
- * (`/var/lib/totem/uploads`, as .env.production.example documents) seeded every
- * bundle with an image that did not exist there: /media/images answered 404,
- * and every catalog image message handed Meta a link it could not fetch and was
- * recorded as failed. Nothing about that is specific to migrating - a brand new
- * deployment had it too.
- *
- * Runs on every boot and is idempotent. A file already present is left alone,
- * whatever it holds, so nothing an operator put there is overwritten; a missing
- * one is copied to a temporary name and renamed into place, so a boot that dies
- * mid-copy leaves nothing behind that a later boot would mistake for finished.
- * With the development defaults the two directories are the same one and there
- * is nothing to do.
- *
- * Returns how many files were copied.
+ * Copies the seeded catalog photos from the repository into the directory the
+ * image store serves. A deployment whose UPLOAD_DIR is a new volume has none of
+ * them until this runs. Runs on every boot and returns how many files it copied.
  */
 export function seedCatalogImages(
   from: string = SEED_IMAGES_DIR,
@@ -43,6 +27,7 @@ export function seedCatalogImages(
   const source = path.resolve(from);
   const target = path.resolve(to);
 
+  // With the development defaults both directories are the same one.
   if (source === target) return 0;
 
   fs.mkdirSync(target, { recursive: true });
@@ -54,6 +39,8 @@ export function seedCatalogImages(
     const name = `${imageId}.jpg`;
     const destination = path.join(target, name);
 
+    // A file already present is left alone, whatever it holds, so nothing an
+    // operator put there is overwritten.
     if (fs.existsSync(destination)) continue;
 
     const origin = path.join(source, name);
@@ -62,6 +49,8 @@ export function seedCatalogImages(
       continue;
     }
 
+    // Copy to a temporary name and rename it into place. A boot that dies
+    // mid-copy then leaves no file that a later boot would take for finished.
     const staging = `${destination}.${process.pid}.partial`;
     fs.copyFileSync(origin, staging);
     fs.renameSync(staging, destination);
@@ -69,8 +58,8 @@ export function seedCatalogImages(
   }
 
   if (unavailable.length > 0) {
-    // Not a reason to refuse the boot - the bot answers in text without them -
-    // but these bundles will show no image until the files are restored.
+    // Missing source images do not stop the boot. The affected bundles have no
+    // image to serve until the files are restored.
     logger.error(
       { source, imageIds: unavailable },
       "Seeded catalog images are missing from the application's own copy; " +

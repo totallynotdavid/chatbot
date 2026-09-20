@@ -10,7 +10,7 @@ import {
   writeTenantId,
 } from "../platform/auth/scope.ts";
 
-/** Body for a caller who has to pick a tenant before this endpoint means anything. */
+/** Response body for a caller who has no active tenant. */
 export const NO_ACTIVE_TENANT = {
   error: "No active tenant",
   detail:
@@ -39,9 +39,9 @@ export async function requireAuth(c: Context, next: Next) {
 }
 
 /**
- * Role check against the caller's role *in the active tenant*. Being logged in
- * is not enough; a user with no membership in the active tenant has no role and
- * fails every check (platform operators excepted, see AuthScope).
+ * Checks the caller's role in the active tenant. A user with no membership in
+ * the active tenant has no role and fails every check. A platform operator is
+ * treated as admin (see sessionRole in platform/auth/scope.ts).
  */
 export function requireRole(...allowedRoles: string[]) {
   return async (c: Context, next: Next) => {
@@ -56,9 +56,9 @@ export function requireRole(...allowedRoles: string[]) {
 }
 
 /**
- * Gate for routes that read or write tenant-owned data. A caller who is neither
- * a member of the active tenant nor a platform operator is refused outright,
- * rather than being handed an unscoped query.
+ * Gate for routes that read or write tenant-owned data. A caller who is not a
+ * platform operator and has no pinned tenant gets a 403, so a member never
+ * reaches an unscoped query.
  */
 export async function requireTenantScope(c: Context, next: Next) {
   const scope = c.get("scope");
@@ -75,16 +75,15 @@ export async function requireTenantScope(c: Context, next: Next) {
 }
 
 /**
- * The tenant a request is acting in. This is `writeTenantId`, so a handler that
- * is reached without `requireActiveTenant` in front of it raises
- * TenantScopeRequiredError (which the error handler turns into the same 403)
- * rather than writing into whichever tenant happened to be around.
+ * The tenant a request is acting in. This calls `writeTenantId`. When no tenant
+ * is pinned and `requireActiveTenant` is not in front of the handler, it throws
+ * TenantScopeRequiredError, which the error handler turns into the same 403.
  */
 export function activeTenantId(c: Context): string {
   return writeTenantId(c.get("scope"));
 }
 
-/** Routes that mutate tenant data need a concrete tenant to write into. */
+/** Gate for routes that write tenant data, which need a concrete tenant. */
 export async function requireActiveTenant(c: Context, next: Next) {
   try {
     writeTenantId(c.get("scope"));
@@ -98,7 +97,7 @@ export async function requireActiveTenant(c: Context, next: Next) {
   await next();
 }
 
-/** Routes reserved for VendeYa's own staff. */
+/** Gate for routes reserved for VendeYa's own staff. */
 export async function requirePlatformOperator(c: Context, next: Next) {
   const scope = c.get("scope");
 

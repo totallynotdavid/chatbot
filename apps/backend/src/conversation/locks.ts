@@ -1,21 +1,10 @@
 /**
- * Makes sure that messages from the same conversation are processed
- * sequentially, while allowing different conversations to be processed in
- * parallel.
+ * Messages of one conversation run sequentially. Different conversations run
+ * in parallel.
  *
- * The lock key is the whole conversation identity: the same contact number
- * writing to two businesses must not serialise behind each other.
- *
- * Each key has a queue of acquisitions, and an acquisition only ever moves
- * waiting -> holding -> released:
- *
- *  - waiting -> holding happens when every acquisition queued before it on the
- *    same key has been released. The place in the queue is taken synchronously
- *    inside `acquireLock`, so two callers can never both be next.
- *  - holding -> released happens only through the release function that
- *    acquisition was handed. `withLock` calls it when `fn` settles and never
- *    earlier, because a promise cannot be cancelled: an `fn` whose caller has
- *    timed out is still writing to the conversation.
+ * An acquisition moves only from waiting to holding to released. It holds once
+ * every earlier acquisition on its key is released. It is released only through
+ * the function it was handed.
  */
 
 import { createLogger } from "../lib/logger.ts";
@@ -38,16 +27,15 @@ type Deadline = {
 };
 
 export function lockKey(ref: ConversationRef): string {
+  // The key is the whole conversation identity. The same contact writing to two
+  // businesses must not queue behind itself.
   return `${ref.tenantId}:${ref.channelAccountId}:${ref.phoneNumber}`;
 }
 
 /**
- * The time ran out while `fn` was running. It is still running, and still holds
- * the lock.
- *
- * Whatever `fn` goes on to do has not happened yet when this is thrown, so a
- * caller that records the outcome of its work waits for `operation`: it settles
- * when `fn` does, with `fn`'s result or `fn`'s error.
+ * The time ran out while `fn` was running. `fn` still runs and still holds the
+ * lock. A caller that records the outcome of its work awaits `operation`, which
+ * settles with `fn`'s result or error.
  */
 export class LockTimeoutError extends Error {
   readonly operation: Promise<unknown>;
@@ -68,11 +56,13 @@ export class ConversationBusyError extends Error {
 }
 
 /**
- * Wait for this conversation's turn. Resolves with the function that ends it;
- * calling that function more than once is harmless.
+ * Waits for this conversation's turn and resolves with the function that ends
+ * it. Calling that function more than once is harmless.
  */
 export function acquireLock(ref: ConversationRef): Promise<ReleaseLock> {
   const key = lockKey(ref);
+  // Reading the tail and replacing it happen in one synchronous step, so two
+  // callers can never both be next.
   const previous = queueTails.get(key) ?? Promise.resolve();
 
   let release!: ReleaseLock;
@@ -91,12 +81,7 @@ export function acquireLock(ref: ConversationRef): Promise<ReleaseLock> {
 }
 
 /**
- * Execute a function with the conversation lock held.
- *
- * The caller hears back within `timeoutMs`, counting the time spent queued.
- * The timeout does not end the turn: the conversation stays locked until `fn`
- * settles, and a caller that runs out of time while still queued gives its
- * turn straight back without running `fn` at all.
+ * Runs `fn` with the conversation lock held. `timeoutMs` includes queue time.
  *
  * @throws ConversationBusyError if `timeoutMs` passes before the lock is free
  * @throws LockTimeoutError if `timeoutMs` passes while `fn` is running
@@ -132,8 +117,9 @@ async function waitForTurn(
   const turn = await Promise.race([acquiring, deadline.expired]);
   if (turn !== EXPIRED) return turn;
 
-  // Leaving the middle of the queue would let the caller behind overtake
-  // whoever is still holding, so the turn is passed on when it comes up.
+  // The abandoned place in the queue is kept until its turn comes, then
+  // released at once. Dropping it early would let the caller behind overtake
+  // whoever is still holding.
   acquiring.then((release) => release());
   logger.error(
     { key: deadline.key, timeoutMs: deadline.timeoutMs },
@@ -149,6 +135,9 @@ async function runHoldingLock<T>(
 ): Promise<T> {
   const startedAt = Date.now();
   const running = Promise.resolve().then(fn);
+  // The lock is released when `fn` settles and never at the timeout. A promise
+  // cannot be cancelled, so an `fn` whose caller gave up is still writing to
+  // the conversation.
   running.then(release, release);
 
   const outcome = await Promise.race([running, deadline.expired]);

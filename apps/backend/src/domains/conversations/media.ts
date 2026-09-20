@@ -25,15 +25,9 @@ type UploadContractInput = {
 const FALLBACK_EXTENSION = { contract: "pdf", recording: "mp3" } as const;
 
 /**
- * Contracts and call recordings are private assets: written under the tenant's
- * private storage prefix and reachable only through /api/assets/:id, which
- * checks the caller's tenant scope. Nothing here lands in the statically served
- * uploads directory.
- *
- * Each upload gets its own asset id and its own storage key (the id names the
- * file), so an asset id always serves the bytes it was minted for. Re-uploading
- * a corrected contract adds a new asset rather than overwriting what an audit
- * trail, an event or an old link still points at.
+ * Contracts and call recordings are private assets. They are written under the
+ * tenant's private storage prefix, never the statically served uploads
+ * directory, and are reachable only through /api/assets/:id.
  */
 async function storeUpload(
   ref: ConversationRef,
@@ -42,6 +36,10 @@ async function storeUpload(
   file: File,
 ): Promise<Asset> {
   const extension = file.name.split(".").pop() || FALLBACK_EXTENSION[kind];
+  // The asset id names the file, so every upload has its own storage key and an
+  // id always serves the bytes it was created for. Re-uploading a corrected
+  // contract adds an asset instead of overwriting what an audit trail, an event
+  // or an old link points at.
   const assetId = crypto.randomUUID();
 
   const storageKey = privateStorageKey(
@@ -55,10 +53,10 @@ async function storeUpload(
   const bytes = Buffer.from(await file.arrayBuffer());
   await privateFileStorage.write(storageKey, bytes);
 
-  // `file.type` is whatever the uploading browser said, so it is recorded only
-  // when it is a type this kind of asset is actually served as. The file is
-  // kept either way - it is somebody's signed contract - but an unrecognised
-  // claim is dropped rather than stored for /api/assets/:id to echo back.
+  // `file.type` is whatever the uploading browser declared, so it is recorded
+  // only when this kind of asset is served as that type. The file is kept
+  // either way, because it is somebody's signed contract. An unrecognised claim
+  // is dropped instead of stored for /api/assets/:id to echo back.
   const contentType = storableContentType(kind, file.type);
 
   if (file.type && !contentType) {

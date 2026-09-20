@@ -92,20 +92,16 @@ app.use(
   }),
 );
 
-// Only catalog images are served statically, and deliberately so: Meta fetches
-// the image link we hand it with no credentials when sending an image message.
-// Every other uploaded file (contracts, call recordings) lives outside this
-// directory and is reachable only through /api/assets/:id, which checks tenant
-// scope. See apps/backend/src/domains/assets/index.ts.
-//
-// The root is the one lib/storage-paths.ts derives from UPLOAD_DIR, not a
-// literal "./data/uploads/images": a relative root resolves against the working
-// directory, which in production is ephemeral and is not where the store writes.
-// Mounting one directory while adapters/storage/images.ts filled another served
-// 404s for every catalog image.
+// Only catalog images are served statically, because Meta fetches the image
+// link with no credentials. Contracts and call recordings live outside this
+// directory and are reachable only through /api/assets/:id, which checks
+// tenant scope.
 app.use(
   "/media/images/*",
   serveStatic({
+    // The root derives from UPLOAD_DIR, like the store's write path. A relative
+    // literal would resolve against the working directory, where the store does
+    // not write.
     root: IMAGES_DIR,
     rewriteRequestPath: (p) => p.replace(/^\/media\/images/, ""),
   }),
@@ -197,7 +193,7 @@ app.get("/api/providers/:dni", requireAuth, async (c) => {
 // Error handler
 app.onError(errorHandler);
 
-// PORT lets a second instance - or a test that boots the real server - listen
+// PORT lets a second instance, or a test that boots the real server, listen
 // somewhere other than the development default.
 const port = Number(process.env.PORT) || 3000;
 

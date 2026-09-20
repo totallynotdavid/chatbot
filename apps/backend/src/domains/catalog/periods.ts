@@ -12,16 +12,17 @@ type CreatePeriodData = {
 
 /**
  * Period ids embed the tenant so two businesses can both run a "2026-09"
- * period. Uniqueness is enforced by the (tenant_id, year_month) constraint;
- * the id is just a readable handle.
+ * period. Uniqueness is enforced by the (tenant_id, year_month) constraint.
+ * The id is just a readable handle.
  */
 export function periodId(tenantId: string, yearMonth: string): string {
   return tenantScopedId(tenantId, `period-${yearMonth}`);
 }
 
 /**
- * `tenantId` null reads across tenants and is only reachable by a platform
- * operator; every tenant-scoped caller passes a concrete id.
+ * `tenantId` null reads across open tenants. Only the read routes pass it, for
+ * an unpinned platform operator. Writes take a concrete id from
+ * `activeTenantId`.
  */
 export const PeriodService = {
   getAll: (tenantId: string | null): CatalogPeriod[] =>

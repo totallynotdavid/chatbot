@@ -18,28 +18,9 @@ const logger = createLogger("commands");
 
 /**
  * Carry out a transition: send what it says, then record that it happened.
- *
- * The order matters. A send can throw - `ChannelUnavailableError` when the number
- * was switched off mid-flight - and the queue that delivered the message then
- * puts it back to be answered again once the number returns. That replay is
- * only faithful if nothing the transition *records* was written before the
- * sends went out. It used to be: the phase was persisted first and TRACK_EVENT
- * rows were written inline, so a new contact's "hola" on a number disabled
- * mid-flight left the conversation in `confirming_client` and a `session_start`
- * on the books with no greeting delivered - and the retry answered that "hola"
- * as though it were a reply to a greeting the customer never saw, logging a
- * second `session_start` besides.
- *
- * So every command runs in order (the pacing between consecutive messages is
- * unchanged), but analytics are collected rather than written, and the phase -
- * including the products an image or bundle command showed - is persisted once,
- * after the last command, together with those events. If any command throws,
- * none of it is written.
- *
- * The accepted cost: a batch that throws after an earlier message in it already
- * went out sends that message again on the retry. A duplicate is visible and
- * harmless; a conversation that has moved on from what the customer was
- * actually shown is neither.
+ * A send can throw (`ChannelUnavailableError` when the number was switched off
+ * mid-flight) and the queue replays the message once the number returns. The
+ * replay is faithful only if nothing the transition records was written first.
  */
 export async function executeCommands(
   result: TransitionResult,
@@ -73,9 +54,15 @@ export async function executeCommands(
     return;
   }
 
+  // Analytics are collected, not written, and the phase is persisted once
+  // after the last command. That phase includes the products an image or
+  // bundle command showed. A command that throws leaves both unwritten.
   let phase = result.nextPhase;
   const tracked: TrackEventCommand[] = [];
 
+  // A batch that throws after an earlier message in it went out sends that
+  // message again on the retry. A duplicate is visible and harmless. A
+  // conversation that moved on from what the customer was shown is neither.
   for (let i = 0; i < result.commands.length; i++) {
     const command = result.commands[i];
     if (!command) continue;
@@ -115,7 +102,7 @@ export async function executeCommands(
     }
   }
 
-  // Every send in the batch went out. Only now does the conversation move on.
+  // No command in the batch threw, so only now does the conversation move on.
   const stored = getOrCreateConversation(ref).phase;
   if (JSON.stringify(stored) !== JSON.stringify(phase)) {
     logger.info(
@@ -153,8 +140,8 @@ async function sendMessage(
 }
 
 /**
- * Send the images a command asks for, and return the phase with those products
- * recorded as shown - or null when nothing was shown. The caller persists it.
+ * Send the images a command asks for. Returns the phase with those products
+ * recorded as shown, or null when nothing was shown. The caller persists it.
  */
 async function executeImages(
   command: Extract<Command, { type: "SEND_IMAGES" }>,

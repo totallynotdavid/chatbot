@@ -1,23 +1,22 @@
 /**
  * What an asset is allowed to claim to be.
  *
- * `assets.content_type` starts life as the uploading browser's `File.type`:
- * client-controlled, chosen by whoever picked the file. GET /api/assets/:id
- * used to echo it back verbatim with no disposition, so a tenant user who
- * uploaded an .html or .svg file as a "contract" got it served as text/html
- * from the API's own origin - stored XSS against every session on that origin,
- * their own tenant's and everybody else's.
+ * For a contract or recording, `assets.content_type` starts as the uploading
+ * browser's `File.type`, which the uploader controls. Echoing it back verbatim
+ * with no disposition would serve a tenant user's .html or .svg "contract" as
+ * text/html from the API's own origin. That is stored XSS against every session
+ * on that origin.
  *
- * Two rules close it, and each would be enough on its own:
+ * Two rules close it, and each is enough on its own:
  *
- *  - only a type on the list below is ever stored, so the column holds
- *    something the deployment chose rather than something a client did;
- *  - only a type on the list below is ever served, and every private asset goes
- *    out as an attachment, so a row written before this existed (or by a future
- *    caller that forgets) still cannot be rendered in the browser.
+ *  - Only a type on the list below is stored, so the column holds a type the
+ *    deployment chose and not one a client declared.
+ *  - Only a type on the list below is served, and every private asset goes out
+ *    as an attachment. A row written by a caller that skips the first rule
+ *    still cannot be rendered in the browser.
  *
- * `image/svg+xml` is deliberately absent: an SVG is a document that can carry
- * script, so it is not an image as far as this file is concerned.
+ * `image/svg+xml` is absent on purpose. An SVG can carry script, so it is not
+ * an image here.
  */
 
 import type { AssetKind } from "@totem/types";
@@ -47,10 +46,10 @@ function baseType(declared: string): string {
 }
 
 /**
- * The value to record on the asset row. Anything unrecognised is stored as
- * null: the upload itself is kept - it is the customer's signed contract, and
- * refusing it over a header the client wrote would lose real work - but nothing
- * downstream gets to believe a type nobody vouched for.
+ * The value to record on the asset row. An unrecognised type is stored as null.
+ * The upload itself is kept, because refusing a customer's signed contract over
+ * a header the client wrote would lose real work. Nothing downstream gets to
+ * believe a type nobody vouched for.
  */
 export function storableContentType(
   kind: AssetKind,

@@ -1,6 +1,6 @@
 import process from "node:process";
 
-/** A hidden prompt, asked twice, on a terminal; otherwise all of stdin. */
+/** On a terminal, a hidden prompt asked twice. Otherwise one line from stdin. */
 export async function readPassword(): Promise<string> {
   if (!process.stdin.isTTY) return readFromStdin();
 

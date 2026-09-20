@@ -16,17 +16,17 @@ import type { ConversationRef, IncomingMessage } from "@totem/types";
  *    `getReadyForAggregation` hands it the group.
  *  - processing: a reply to the group is being worked out and sent. Only the
  *    worker that took the group moves it on, and only once `handleMessage` has
- *    settled - which, after a `LockTimeoutError`, is some time after the worker
- *    was told it ran out of time. It goes to
- *      - processed, when the reply was handled;
- *      - pending, when no reply went out and one is still owed: the
- *        conversation was busy, or the number was switched off;
+ *    settled. After a `LockTimeoutError` the worker is told it ran out of time,
+ *    and `handleMessage` settles some time later. The row goes to:
+ *      - processed, when the reply was handled.
+ *      - pending, when no reply went out and one is still owed because the
+ *        conversation was busy or the number was switched off.
  *      - failed, when answering threw anything else.
- *    A process that dies here leaves the row processing: whether the customer
- *    already got a reply is not known, so it is not answered again.
+ *    A process that dies here leaves the row processing. Whether the customer
+ *    already got a reply is not known, so the row is not answered again.
  *  - processed: kept for `isQueued` until `purgeProcessedInbox`.
- *  - failed: stays failed, with `last_error`, until `retryFailed` puts it back
- *    to pending.
+ *  - failed: stays failed, with `last_error`. `retryFailed` puts it back to
+ *    pending while `attempts` is below its limit.
  */
 
 type InboxMessage = {
@@ -73,8 +73,8 @@ export function isQueued(messageId: string): boolean {
 
 /**
  * Queue an inbound message for aggregation. The Meta message id is unique, so a
- * redelivery of the same message is ignored rather than raising - Meta resends
- * a whole batch whenever any part of it failed.
+ * redelivery of the same message is ignored rather than raising. Meta resends a
+ * whole batch when the webhook answers 5xx.
  */
 export function storeIncomingMessage(
   ref: ConversationRef,
@@ -102,29 +102,19 @@ export function storeIncomingMessage(
 }
 
 /**
- * The groups the aggregator worker is allowed to answer.
- *
- * Suspension has to stop work already in flight, not just new inbound. A
- * message queued a minute before a business was closed is still sitting here
- * pending, and processing it sends the customer a reply on behalf of an
- * account that has been cut off - `webhook.ts` refusing new messages does
- * nothing about the ones already queued. Restricting the dequeue leaves those
- * rows pending rather than dropping them, so reactivating the tenant resumes
- * where it left off.
- *
- * The number the reply would go out on has to be open too, and for the same
- * reason. Answering on an account that is `pending` or `disabled` gets the send
- * refused, and the refusal was silent: the reply was recorded as failed and the
- * worker marked the row processed regardless, so switching a number off threw
- * away every message already queued for it with nothing left to recover. Both
- * halves of the conversation's identity are therefore checked here, and both
- * leave the row pending.
+ * The groups the aggregator worker is allowed to answer. A group whose tenant
+ * is suspended or whose channel account is not active stays pending, so
+ * reactivating either resumes it.
  */
 export function getReadyForAggregation(
   quietWindowMs: number,
 ): AggregatedGroup[] {
   const cutoffTime = Date.now() - quietWindowMs;
 
+  // Suspension must also stop messages queued before it. `webhook.ts` refuses
+  // only new inbound.
+  // A send on a `pending` or `disabled` account is refused, so its rows must
+  // stay pending instead of being answered.
   const groups = getAll<AggregatedGroup>(
     `SELECT
        tenant_id,
@@ -147,9 +137,7 @@ export function getReadyForAggregation(
   return groups;
 }
 
-/**
- * Mark messages as processing (prevents double-processing)
- */
+/** Takes the group out of the ready set, so no poll answers it twice. */
 export function markAsProcessing(ids: string): void {
   const idList = ids.split(",").map((id) => id.trim());
   const placeholders = idList.map(() => "?").join(",");
@@ -159,7 +147,7 @@ export function markAsProcessing(ids: string): void {
   ).run(...idList);
 }
 
-/** Put a group that was never answered back on the queue. */
+/** Put a group whose reply is still owed back on the queue. */
 export function markAsPending(ids: string): void {
   const idList = ids.split(",").map((id) => id.trim());
   const placeholders = idList.map(() => "?").join(",");
@@ -192,8 +180,8 @@ export function markAsFailed(ids: string, error: string): void {
 }
 
 /**
- * Queue depth. `tenantId` null counts across tenants, which only platform
- * operators ever ask for.
+ * Queue depth. `tenantId` null counts across open tenants. `getWorkerStatus`
+ * relies on that default, and so may an unpinned platform operator.
  */
 export function countPending(tenantId: string | null = null): number {
   const rows = getAll<{ count: number }>(

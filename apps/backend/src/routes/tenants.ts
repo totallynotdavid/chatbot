@@ -12,13 +12,12 @@ import { requirePlatformOperator } from "../middleware/auth.ts";
 
 const tenants = new Hono();
 
-/**
- * Tenants the caller may act in. A tenant-side user sees their memberships; a
- * platform operator sees every tenant, because supporting them is the job.
- */
+/** Tenants the caller can see, with the caller's role in each. */
 tenants.get("/", (c) => {
   const scope = c.get("scope");
 
+  // A platform operator sees every tenant, suspended ones included, because
+  // supporting them is the job.
   if (scope.isPlatformOperator) {
     return c.json({
       tenants: TenantService.getAll().map((t) => ({ ...t, role: null })),
@@ -34,16 +33,13 @@ tenants.get("/", (c) => {
   });
 });
 
-/**
- * Repoint the session at a tenant. Membership is checked here rather than
- * trusted from the request; platform operators may select any tenant, and
- * passing null returns them to unscoped, cross-tenant reads.
- */
+/** Repoint the session at a tenant. */
 tenants.post("/active", async (c) => {
   const scope = c.get("scope");
   const session = c.get("session");
   const { tenantId } = await c.req.json();
 
+  // Passing null returns a platform operator to unscoped, cross-tenant reads.
   if (tenantId === null || tenantId === undefined) {
     if (!scope.isPlatformOperator) {
       return c.json(
@@ -64,6 +60,8 @@ tenants.post("/active", async (c) => {
     return c.json({ error: "Tenant not found" }, 404);
   }
 
+  // Membership is checked here rather than trusted from the request. A
+  // platform operator may select any open tenant.
   const role = MembershipService.roleFor(tenantId, scope.userId);
 
   if (!role && !scope.isPlatformOperator) {
@@ -83,8 +81,6 @@ tenants.post("/active", async (c) => {
 
   return c.json({ activeTenantId: tenantId, role });
 });
-
-// --- Platform operator only ---
 
 tenants.post("/", requirePlatformOperator, async (c) => {
   const scope = c.get("scope");

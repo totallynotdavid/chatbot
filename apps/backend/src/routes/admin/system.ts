@@ -16,11 +16,6 @@ const system = new Hono();
 
 system.use("/*", requireTenantScope);
 
-/**
- * LLM call traces for the caller's tenant. (The previous implementation read a
- * table named `llm_errors` that the schema has never defined; the traces live
- * in `llm_calls`, and the error rows are the ones with status = 'error'.)
- */
 system.get("/llm-errors", (c) => {
   const scope = c.get("scope");
   const phoneFilter = c.req.query("phone");
@@ -112,66 +107,49 @@ system.get("/audit", (c) => {
   return c.json({ logs: logsWithNames });
 });
 
-/**
- * Settings split by ownership: a tenant admin reads and writes their own
- * tenant's settings, and additionally sees the handful of platform values their
- * dashboard renders - the maintenance freeze and the shared Calidda kill
- * switches, TENANT_VISIBLE_PLATFORM_KEYS - read-only, as `_platform_<key>`. An
- * unpinned platform operator reads and writes the platform settings themselves,
- * all of them, under their own names.
- */
 system.get("/settings", (c) => {
   const scope = c.get("scope");
   const platform = SystemSettings.getAll();
 
   if (!scope.tenantId) {
+    // A platform operator with no tenant selected reads every platform setting
+    // under its own name.
     return c.json({ ...platform, _scope: "platform" });
   }
 
-  // The dashboard posts back whatever this returns, so the internal rows are
-  // dropped here as well as refused on the write: left in, every save would
-  // resubmit the round-robin cursor and be told its own read was rejected.
+  // The dashboard posts back whatever this returns. Internal rows are dropped
+  // here as well as refused on the write, so a save never resubmits the
+  // round-robin cursor and gets its own read back in `rejected`.
   const tenant = Object.fromEntries(
     Object.entries(TenantSettings.getAll(scope.tenantId)).filter(
       ([key]) => !isInternalTenantSettingKey(key),
     ),
   );
 
-  // The platform side is narrowed the same way, and for the same reason the
-  // tenant side is: only the values this tenant's own dashboard renders leave
-  // the platform scope. Spreading all of SystemSettings handed every tenant
-  // admin VendeYa's deployment configuration - `platform_ops_channel_account_id`
-  // among it - which no UI asks for and none of them are entitled to.
-  //
-  // And none of them arrives under its own name. Every key without a leading
-  // underscore here is one the dashboard posts straight back on the next save,
-  // and a platform key posted back by a tenant admin is refused - so returning
-  // `force_fnb_down` and `force_gaso_down` raw made every save of this page
-  // answer `rejected: ["force_fnb_down", "force_gaso_down"]` for a write nobody
-  // attempted, drowning the one signal `rejected` exists to give. Keys starting
-  // with "_" are skipped by POST /settings, so a platform value reported as
-  // `_platform_<key>` is information the page can render and cannot round-trip.
-  //
-  // `maintenance_mode` shows why this matters beyond noise: it is the one key
-  // that exists at both levels, and the platform's value used to be returned in
-  // the writable field. With a platform-wide freeze on, every tenant's
-  // dashboard loaded `maintenance_mode: "true"`, and the next save of any
-  // unrelated setting wrote it into the tenant's own row - leaving those tenants
-  // frozen, by a setting nobody chose, after the platform freeze lifted. So
-  // `maintenance_mode` is left to arrive through the tenant spread like any
-  // other tenant setting, present only when this business has stored one.
+  // Only the platform values in TENANT_VISIBLE_PLATFORM_KEYS leave the platform
+  // scope. The rest, such as `platform_ops_channel_account_id`, is deployment
+  // configuration that a tenant admin must not read.
   const visiblePlatform = Object.fromEntries(
     TENANT_VISIBLE_PLATFORM_KEYS.map((key) => [
+      // POST /settings skips keys that start with "_". The dashboard can render
+      // a platform value under this name but cannot post it back. An unprefixed
+      // platform key would be posted back on the next save and be refused into
+      // `rejected`.
       `_platform_${key}`,
       platform[key] ?? "false",
     ]),
   );
 
   return c.json({
+    // `maintenance_mode` exists at both levels. The plain key comes only from
+    // the tenant's own row, and the platform value appears only as
+    // `_platform_maintenance_mode`. Returning the platform value under the
+    // plain key would make the next save of any setting write it into the
+    // tenant's row.
     ...tenant,
     ...visiblePlatform,
-    // What actually governs the bot, which is what the dashboard must render:
-    // a tenant whose own toggle is off is still frozen by a platform freeze.
+    // A platform freeze applies to every tenant, even one whose own toggle is
+    // off. The dashboard renders this effective value.
     _effective_maintenance_mode: String(isMaintenanceMode(scope.tenantId)),
     _scope: "tenant",
   });
@@ -203,21 +181,19 @@ system.post("/settings", async (c) => {
     return c.json({ success: true, updates, scope: "platform" });
   }
 
-  // Tenant-scoped writers cannot reach platform switches. `maintenance_mode` is
-  // the exception both sides own: a business may freeze itself, and that is
-  // stored per tenant.
-  //
-  // Nor can they reach the keys the application owns inside their own tenant.
-  // `tenant_settings` is one flat table, so without this a tenant admin writes
-  // straight into another module's working state - and that state is read back
-  // unvalidated, so the damage is silent (see INTERNAL_TENANT_SETTING_KEYS).
   const rejected: string[] = [];
   for (const [key, value] of Object.entries(settings)) {
     if (key.startsWith("_")) continue;
+    // Tenant-scoped writers cannot write platform keys. `maintenance_mode` is
+    // the exception because a business may freeze itself, and that value is
+    // stored per tenant.
     if (isPlatformSettingKey(key) && key !== "maintenance_mode") {
       rejected.push(key);
       continue;
     }
+    // `tenant_settings` is one flat table, and the application keeps its own
+    // working state in it. A hand-written value changes where that state
+    // resumes (see INTERNAL_TENANT_SETTING_KEYS).
     if (isInternalTenantSettingKey(key)) {
       rejected.push(key);
       continue;

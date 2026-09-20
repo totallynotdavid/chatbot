@@ -4,8 +4,8 @@ export type NotificationContext = {
   phoneNumber: string;
   /**
    * The number the conversation is on. A conversation is (tenant, channel
-   * account, phone number), so a link without it is only unambiguous for a
-   * business with a single WhatsApp number.
+   * account, phone number), so a link without it is ambiguous when the contact
+   * has threads on more than one number.
    */
   channelAccountId?: string | null;
   clientName?: string | null;
@@ -21,12 +21,9 @@ function formatLink(suffix?: string): string {
 }
 
 /**
- * Link to the conversation this notification is about.
- *
- * The channel account travels with it, the same way the inbox's own links carry
- * it: a contact writing to two of the tenant's numbers has two threads, and the
- * dashboard answers a bare phone number with "ambiguous" rather than guessing.
- * An alert whose link dead-ends is worse than no alert.
+ * The link carries the channel account, as the inbox's own links do. A contact
+ * writing to two of the tenant's numbers has two threads, and the API answers a
+ * bare phone number with a 409 "Ambiguous conversation" instead of guessing.
  */
 function conversationLink(ctx: NotificationContext): string {
   const query = ctx.channelAccountId

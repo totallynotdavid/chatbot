@@ -22,17 +22,10 @@ function getAdapter() {
 const adapter = getAdapter();
 
 /**
- * A send refused because the number it would have gone out on is not active.
- *
- * This one failure is thrown rather than recorded and swallowed, because the
- * queues above this layer decide what to do with the customer's message on the
- * strength of whether the send threw. A `pending` or `disabled` account is
- * somebody's reversible decision about a number, not a dead conversation: the
- * aggregator leaves the inbox row pending and the maintenance sweep leaves the
- * held row held, so switching a number off pauses its conversations instead of
- * swallowing them. Everything else that can go wrong here - a tenant that was
- * suspended, an account that no longer exists, a reference assembled from two
- * tenants - is permanent for this conversation, and stays a logged failure.
+ * Thrown when a send targets a `pending` or `disabled` channel account of an
+ * open tenant. The aggregator leaves the inbox row pending and the maintenance
+ * sweep leaves the held row held, so switching a number off pauses its
+ * conversations.
  */
 export class ChannelUnavailableError extends Error {
   constructor(
@@ -46,7 +39,12 @@ export class ChannelUnavailableError extends Error {
   }
 }
 
-/** The account to send on, or why there is none to send on. */
+/**
+ * `unsendable` holds the account when its tenant is open and the ref matches it,
+ * but the account is not active. The caller turns that into a throw. It is null
+ * for a permanent refusal (suspended tenant, missing account, ref built from two
+ * tenants), which is logged and not thrown.
+ */
 type SendTarget =
   | { account: ChannelAccount }
   | { unsendable: ChannelAccount | null };
@@ -63,10 +61,8 @@ function resolveAccount(ref: ConversationRef): SendTarget {
   }
 
   if (!TenantService.isOpen(account.tenant_id)) {
-    // Every customer-facing send lands here, so this is where suspension stops
-    // being a login rule and starts being a silence. `sendDirect` deliberately
-    // does not pass through: platform alerts about a business are still worth
-    // delivering after it is closed.
+    // A suspended tenant sends nothing to customers. `sendDirect` skips this
+    // check so platform alerts about a closed business still go out.
     logger.warn(
       { channelAccountId: account.id, tenantId: account.tenant_id },
       "Refusing to send for a tenant that is not active",
@@ -75,8 +71,8 @@ function resolveAccount(ref: ConversationRef): SendTarget {
   }
 
   if (account.tenant_id !== ref.tenantId) {
-    // A mismatch means a conversation reference was assembled from two
-    // different tenants; refuse rather than send on the wrong account.
+    // A mismatch means the conversation ref was assembled from two tenants.
+    // Refuse it instead of sending on the wrong account.
     logger.error(
       {
         channelAccountId: account.id,
@@ -88,9 +84,8 @@ function resolveAccount(ref: ConversationRef): SendTarget {
     return { unsendable: null };
   }
 
-  // Checked last, so a suspended business stays the reason a send did not
-  // happen even when its number is also switched off: suspension is the wider
-  // fact, and it is already what keeps these messages off the queue.
+  // This check runs after the tenant check. A suspended business whose number
+  // is also switched off is refused as suspended, which does not throw.
   if (account.status !== "active") {
     logger.warn(
       {
@@ -192,10 +187,9 @@ export const WhatsAppService = {
   },
 
   /**
-   * Read receipts and the typing indicator are courtesies, so this one does not
-   * throw on an account it cannot use: it is called before any work is done,
-   * including on simulated conversations, which run on whichever number the
-   * tenant has and never send anything at all.
+   * Unlike the send methods, this does not throw for an account that is not
+   * active. It runs before the reply is worked out, including for simulated
+   * conversations, which use whichever number the tenant has.
    */
   async markAsReadAndShowTyping(
     ref: ConversationRef,

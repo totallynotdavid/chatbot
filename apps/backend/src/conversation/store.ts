@@ -2,9 +2,9 @@
  * Persistence layer for conversations-related data.
  * Stores ConversationPhase as discriminated union JSON.
  *
- * Every read and write is keyed by the full conversation identity
- * (tenant, channel account, contact number) - there is no lookup by phone
- * number alone, so one tenant can never reach another's conversation.
+ * Every read and write is keyed by the full conversation identity: tenant,
+ * channel account, and contact number. There is no lookup by phone number
+ * alone, so the same contact in two tenants has two separate conversations.
  */
 
 import { db } from "../db/index.ts";

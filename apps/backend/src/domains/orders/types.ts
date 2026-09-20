@@ -8,7 +8,7 @@ export interface OrderItem {
 }
 
 export interface CreateOrderInput {
-  /** Conversation the order came out of; also fixes the owning tenant. */
+  /** Conversation the order came out of. It also fixes the owning tenant. */
   ref: ConversationRef;
   clientName: string;
   clientDni: string;

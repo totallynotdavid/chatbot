@@ -101,9 +101,9 @@ const INITIAL_PERSONAS: TestPersona[] = [
 ];
 
 /**
- * Simulator personas are tenant-owned. The INITIAL_PERSONAS below are the
- * built-in fallbacks every tenant sees until it defines its own; they carry no
- * customer data, only fixtures.
+ * Simulator personas are tenant-owned. INITIAL_PERSONAS are built-in fallbacks.
+ * A tenant sees each one unless it has an active persona with the same id. They
+ * are shared across tenants, so they hold fixtures and no customer data.
  */
 export const PersonasService = {
   getAll(tenantId: string): TestPersona[] {

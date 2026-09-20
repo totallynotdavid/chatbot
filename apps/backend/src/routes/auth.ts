@@ -51,19 +51,19 @@ auth.post("/login", rateLimiter, async (c) => {
 
   const isPlatformOperator = user.is_platform_operator === 1;
 
-  // A user who belongs to no tenant has nothing to log in to - but a user whose
-  // tenants are all suspended does belong to one. Counted with the active-only
-  // list, they were told their correct password was wrong. They get the same
-  // session `validateSessionToken` leaves a logged-in user with when their
-  // tenant is suspended under them: valid, unpinned, and inside the
-  // application where they can see they have no business to act in.
+  // A user who is not a platform operator and belongs to no tenant has nothing
+  // to log in to. Suspended tenants still count as memberships here.
+  // A user whose tenants are all suspended logs in unpinned. That is the same
+  // session `validateSessionToken` leaves after a tenant is suspended under a
+  // logged-in user, so they can see that they have no business to act in.
   if (!isPlatformOperator && MembershipService.countForUser(user.id) === 0) {
     return c.json({ error: "Invalid credentials" }, 401);
   }
 
-  // The session carries the tenant scope it acts in; a user in several tenants
-  // starts unpinned and picks one via POST /api/tenants/active. Only open
-  // tenants can be pinned or picked, so these are the active ones.
+  // The session carries the tenant scope it acts in. A user with one open
+  // membership starts pinned to it. A platform operator, and a user with several
+  // open memberships or none, starts unpinned and picks a tenant via
+  // POST /api/tenants/active. Only open tenants can be pinned or picked.
   const pinnedTenantId = defaultTenantForUser(user.id, isPlatformOperator);
   const membership = pinnedTenantId
     ? MembershipService.get(pinnedTenantId, user.id)
@@ -77,9 +77,8 @@ auth.post("/login", rateLimiter, async (c) => {
     user: {
       id: user.id,
       username: user.username,
-      // The role a caller holds is a property of their membership in the
-      // active tenant. Unpinned, they hold none yet - reporting null says so
-      // rather than inventing an authority they do not have.
+      // A platform operator is admin in every scope. Anyone else holds their
+      // membership role in the pinned tenant, so it is null while unpinned.
       role: sessionRole({
         isPlatformOperator,
         membershipRole: membership?.role ?? null,

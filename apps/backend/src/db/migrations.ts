@@ -1,21 +1,16 @@
 /**
  * Migration from the single-business schema to the multi-tenant one.
  *
- * A database written before tenancy has no `tenants` table and no `tenant_id`
- * columns. Every row in it belongs to exactly one business (Totem) on exactly
- * one WhatsApp number (the WHATSAPP_* environment variables), so the migration
- * is: create that tenant and its channel account, then stamp every existing row
- * with them.
+ * A database without a `tenants` table and `tenant_id` columns holds exactly one
+ * business (Totem) on exactly one WhatsApp number (the WHATSAPP_* environment
+ * variables). The migration creates that tenant and its channel account, then
+ * stamps every existing row with them.
  *
- * Several tables change primary key (`conversations` most of all), which SQLite
- * cannot do in place. The approach is the standard rebuild: rename the old
- * tables aside, create the new shape from schema.sql, copy the rows across with
- * the tenant columns filled in, and drop the originals - all inside one
+ * Several tables change primary key, `conversations` most of all, and SQLite
+ * cannot do that in place. Each such table is rebuilt: rename the old table
+ * aside, create the new shape from schema.sql, copy the rows across with the
+ * tenant columns filled in, and drop the original. All of it runs in one
  * transaction, so a failure leaves the database untouched.
- *
- * The result is byte-identical behaviour for that one tenant: same
- * conversations, same messages, same catalog, same orders, now addressed by
- * (tenant, channel account, phone number) instead of phone number alone.
  */
 
 import type { Database } from "bun:sqlite";
@@ -52,15 +47,10 @@ function columnExists(db: Database, table: string, column: string): boolean {
   return columns.some((c) => c.name === column);
 }
 
-/**
- * A legacy database is one whose conversations table is still keyed by phone
- * number alone. The `conversations.tenant_id` column is the only signal used:
- * an empty `tenants` table can exist alongside legacy data if a previous run
- * applied part of the new schema before stopping, and that state still needs
- * migrating rather than another failing schema pass.
- */
 export function needsTenantMigration(db: Database): boolean {
   if (!tableExists(db, "conversations")) return false;
+  // Only `conversations.tenant_id` decides. A `tenants` table, even an empty
+  // one, does not show that the legacy data has been migrated.
   return !columnExists(db, "conversations", "tenant_id");
 }
 
@@ -120,11 +110,8 @@ export function migrateToMultiTenant(
     }
   }
 
-  // The database is committed and every legacy upload is readable at its new
-  // key, so the originals are now duplicates. Removing them is the last step
-  // and the only one allowed to fail quietly: a leftover file wastes disk,
-  // where removing it any earlier would have destroyed the copy source that
-  // makes a failed migration retryable.
+  // This runs after the commit. Removing the originals any earlier would
+  // destroy the copy source that makes a failed migration retryable.
   removeLegacyOriginals(migrated.copiedFiles);
 
   logger.info(
@@ -139,8 +126,8 @@ export function migrateToMultiTenant(
 
   function runMigration() {
     return db.transaction(() => {
-      // 1. Move the legacy tables aside, with their indexes, so schema.sql can
-      //    create the new shape under the original names.
+      // Drop the indexes and move the legacy tables aside, so schema.sql can
+      // create the new shape and its indexes under the original names.
       const indexes = db
         .prepare(
           "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'",
@@ -154,44 +141,34 @@ export function migrateToMultiTenant(
         db.run(`ALTER TABLE ${table} RENAME TO ${table}_legacy`);
       }
 
-      // 2. Create the new schema.
       runSchema(db);
 
-      // 3. The single tenant and the single channel account everything belonged
-      //    to. This is the same seed a fresh database gets, so the migrated
-      //    business ends up with its WHATSAPP_* credentials imported and
-      //    encrypted - a number it can actually send from, not a placeholder
-      //    row the adapter would refuse.
+      // Everything belonged to one tenant and one channel account. This is the
+      // seed a fresh database gets, so the WHATSAPP_* credentials are imported
+      // and encrypted when SECRETS_KEY is set. A placeholder row would be
+      // refused by the adapter.
       const { tenant, channelAccount } = seedTenants(db);
       const tenantId = tenant.id;
       const channelAccountId = channelAccount.id;
 
-      // 4. Copy each table across, stamping the tenant columns.
       for (const table of present) {
         const columns = legacyColumns(db, table);
         copyTable(db, table, columns, tenantId, channelAccountId);
       }
 
-      // 5. Every pre-existing user becomes a member of the one tenant, keeping
-      //    the role they already had, and the availability they had set.
       if (present.includes("users")) {
         migrateMemberships(db, tenantId);
       }
 
-      // 6. Sessions carried over from before tenancy have no active tenant.
-      //    They need the one login would have given them, or everybody still
-      //    logged in when the deployment happens loses their scope.
       if (present.includes("session")) {
         backfillSessionTenants(db);
       }
 
-      // 7. Uploaded contracts and recordings become private asset rows before
-      //    the legacy conversation columns disappear. This copies the files
-      //    rather than moving them and throws if a copy fails, so the
-      //    transaction below can still roll back onto intact legacy data.
+      // This reads the legacy recording columns, so it runs before the legacy
+      // tables are dropped. A failed copy throws, which rolls the transaction
+      // back onto intact legacy data.
       const copiedFiles = migrateRecordings(db, tenantId, channelAccountId);
 
-      // 8. Drop the originals.
       for (const table of present) {
         db.run(`DROP TABLE ${table}_legacy`);
       }
@@ -201,13 +178,9 @@ export function migrateToMultiTenant(
   }
 }
 
-/**
- * Every pre-existing user becomes a member of the one tenant. Availability used
- * to be a global flag on the account; it belongs to the membership now, so an
- * agent who had switched themselves off stays off in the tenant they were
- * working in.
- */
 function migrateMemberships(db: Database, tenantId: string): void {
+  // Availability is stored on the membership, so an agent who had switched
+  // themselves off stays off.
   const available = legacyColumns(db, "users").includes("is_available")
     ? "COALESCE(is_available, 1)"
     : "1";
@@ -220,22 +193,22 @@ function migrateMemberships(db: Database, tenantId: string): void {
 }
 
 /**
- * Sessions predating tenancy carry no active tenant, and a session with none is
- * unscoped: `requireTenantScope` answers 403, and the dashboard only offers a
- * tenant picker to someone who belongs to more than one. An ordinary user
- * logged in across the deployment would have found the application shut to them
- * with no way back in but to log out - so the migration gives every carried-over
- * session the scope a fresh login would have given it.
+ * Gives every carried-over session the scope a fresh login would give it. A
+ * member's session with no active tenant has no scope, so `requireTenantScope`
+ * answers 403. The dashboard shows the tenant picker to any user who has a
+ * membership to pin (`showTenantSelector`).
  *
- * The rule is `defaultTenantForUser`, restated in SQL and deliberately
- * identical: a platform operator gets none (their scope is chosen, not
- * implied), somebody with exactly one membership gets that one, and somebody
- * with several gets none because only they can say which. Migrating from a
- * single-business database means everyone is in the middle case, but the rule
- * is written out in full rather than assumed, so it stays right if this ever
- * runs against a database that already has more than one tenant. It is
- * exported so that rule can be tested against each of its three cases, which a
- * single-business legacy database cannot produce on its own.
+ * The rule is `defaultTenantForUser` restated in SQL. A platform operator gets
+ * none because their scope is chosen. A user with exactly one membership gets
+ * that one. A user with several gets none because only they can say which. The
+ * SQL counts memberships in suspended tenants too, where `defaultTenantForUser`
+ * counts only open ones. A pin on a suspended tenant is dropped when the
+ * session is next validated, and an unpinned user picks a tenant.
+ *
+ * A single-business legacy database only produces the middle case. The function
+ * is exported so the other two cases can be tested, and the rule is written out
+ * in full so it stays correct against a database that already has several
+ * tenants.
  */
 export function backfillSessionTenants(db: Database): void {
   const updated = db
@@ -271,11 +244,6 @@ export function backfillSessionTenants(db: Database): void {
  * moves a table back. SQLite cannot drop NOT NULL in place, so the table is
  * rebuilt from schema.sql with its rows copied across.
  *
- * Every process runs this at boot, so the rebuild takes the write lock first and
- * checks the shape again inside it. A process that waited for the lock finds the
- * work done and returns. The rebuild is one transaction, so a failure leaves the
- * legacy table as it was.
- *
  * Every insert must supply `actor` once the shape is current. A build that omits
  * it fails on the NOT NULL constraint, so it cannot run against a migrated file.
  */
@@ -299,6 +267,9 @@ export function migrateAuditLogActor(
   let rebuilt = false;
 
   try {
+    // The backend, the seed and the account command each run this at startup.
+    // `.immediate()` takes the write lock before the check inside, and one
+    // transaction means a failure leaves the legacy table as it was.
     rebuilt = db
       .transaction(() => {
         // A process that waited for the lock finds the rebuild already done.
@@ -319,8 +290,8 @@ export function migrateAuditLogActor(
         db.run("ALTER TABLE audit_log RENAME TO audit_log_legacy");
         runSchema(db);
 
-        // The schema recreates its own indexes. Any other one was added by hand
-        // and moves to the new table with its definition.
+        // The schema recreates its own indexes. Any index it does not recreate,
+        // such as one added by hand, moves to the new table with its definition.
         for (const index of indexes) {
           if (!indexExists(db, index.name)) db.run(index.sql);
         }
@@ -347,7 +318,10 @@ export function migrateAuditLogActor(
   }
 }
 
-/** Converts text `last_activity_at` values SQLite can parse to epoch ms; any other value stays, since the column is NOT NULL and boot must not fail. */
+/**
+ * Converts text `last_activity_at` values that SQLite can parse to epoch ms.
+ * Any other value stays, because the column is NOT NULL and boot must not fail.
+ */
 export function backfillTextActivityTimestamps(db: Database): void {
   const converted = db
     .prepare(
@@ -373,19 +347,6 @@ type CopiedUpload = { from: string; storageKey: string };
 /**
  * A legacy upload's absolute path, or null when the stored value escapes the
  * directory legacy uploads live in.
- *
- * `recording_contract_path` and `recording_audio_path` were never validated on
- * the way in, so their contents are input, not data: an absolute path or one
- * with enough `../` resolves anywhere the process can read. This is the same
- * containment check `privateFilePath` makes on the writing side, applied to the
- * reading side.
- *
- * A path that stays inside by its spelling can still leave through a symbolic
- * link, in the file itself or in any directory above it, and copying follows
- * links. So a file that exists is contained only if its real path is inside the
- * real legacy root, and the real path is what is returned for copying. A path
- * that does not exist has nothing to read and is returned as spelled, for the
- * caller to report missing.
  */
 export function resolveLegacyUpload(
   legacyRoot: string,
@@ -393,9 +354,19 @@ export function resolveLegacyUpload(
 ): string | null {
   const resolved = path.resolve(legacyRoot, legacyPath);
 
+  // `recording_contract_path` and `recording_audio_path` are unvalidated, so
+  // they are input, not data. An absolute path or enough `../` resolves
+  // anywhere the process can read. `privateFilePath` makes the same containment
+  // check on the writing side.
   if (!isInside(legacyRoot, resolved)) return null;
+  // A path that does not exist has nothing to read. It is returned as spelled
+  // for the caller to report missing.
   if (!fs.existsSync(resolved)) return resolved;
 
+  // A path that stays inside by its spelling can still leave through a
+  // symbolic link, in the file or in any directory above it, and copying
+  // follows links. The real path must be inside the real legacy root, and the
+  // real path is what the caller copies.
   const real = fs.realpathSync(resolved);
   return isInside(fs.realpathSync(legacyRoot), real) ? real : null;
 }
@@ -405,31 +376,16 @@ function isInside(root: string, candidate: string): boolean {
 }
 
 /**
- * Contracts used to be tracked as bare paths on the conversation and written
- * under `data/contracts/<phone>/`. They become private assets under the
+ * Converts the contract and recording paths kept on `conversations_legacy`,
+ * written under `data/contracts/<phone>/`, into private assets under the
  * tenant's private prefix.
  *
- * The file is **copied**, not moved, and the copy is verified before the asset
- * row claims it. Two failures used to be swallowed here, and both ended with a
- * row asserting that a signed contract lived at a key holding nothing:
- *
- *  - a failed copy (permissions, a full disk, a transient fault) was logged and
- *    the migration carried on to drop the legacy tables, so the only remaining
- *    record of where the bytes actually were went with them;
- *  - even a clean move is wrong inside a transaction that can still roll back -
- *    the database would return to the legacy shape while the file it names had
- *    already been renamed away.
- *
- * So a copy that fails throws, which aborts the whole migration with the legacy
- * tables and the legacy files both untouched and the run repeatable. The
- * originals are deleted by `removeLegacyOriginals` once the transaction has
- * committed.
- *
- * A source file that is *already* missing is the one case that does not abort:
- * the bytes were gone before this ran, the asset row is the surviving record
- * that the upload happened, and refusing to migrate would make the deployment
- * permanently unmigratable over damage that predates it. It is logged as an
- * error, not a warning.
+ * Each file is copied, not moved, and the copy is verified before its asset row
+ * is written. A failed copy throws, which aborts the migration with the legacy
+ * tables and files untouched, so the run can be repeated. A move would be wrong
+ * inside a transaction that can still roll back, because the database would
+ * return to the legacy shape while the file it names had been renamed away.
+ * `removeLegacyOriginals` deletes the originals after the transaction commits.
  */
 function migrateRecordings(
   db: Database,
@@ -476,10 +432,10 @@ function migrateRecordings(
     ): string | null => {
       if (!legacyPath) return null;
 
-      // The same key builder every other write to private storage uses. The
-      // legacy path is a column nothing ever validated, so each of its segments
-      // is sanitised rather than pasted into a path: `..` and anything else
-      // that could climb out of the tenant's directory becomes an underscore.
+      // This is the key builder every other write to private storage uses. The
+      // legacy path is unvalidated, so each segment is sanitised: `..` and
+      // anything else that could climb out of the tenant's directory becomes an
+      // underscore.
       const storageKey = privateStorageKey(
         tenantId,
         "legacy",
@@ -487,11 +443,10 @@ function migrateRecordings(
       );
       const id = crypto.randomUUID();
 
-      // The destination is sanitised above; the source has to be too, and
-      // before anything touches the filesystem. `legacyPath` is the same
-      // unvalidated column, and `path.join` happily walks out of `data/` on
-      // enough `../` - which would copy an arbitrary readable host file into
-      // the tenant's private storage and hand it back from /api/assets/:id.
+      // The source path needs the same containment as the destination key, and
+      // before anything is copied. Enough `../` would walk out of
+      // `data/` and copy an arbitrary readable host file into the tenant's
+      // private storage, where /api/assets/:id would serve it.
       const from = resolveLegacyUpload(legacyRoot, legacyPath);
 
       if (from === null) {
@@ -504,6 +459,10 @@ function migrateRecordings(
         return null;
       }
 
+      // A source that is already missing does not abort the migration. The
+      // asset row is the surviving record that the upload happened, and
+      // refusing to migrate would leave the deployment unmigratable over damage
+      // that predates it.
       if (!fs.existsSync(from)) {
         logger.error(
           { from, assetId: id, phoneNumber: row.phone_number, kind },
@@ -546,14 +505,10 @@ function migrateRecordings(
 }
 
 /**
- * Copy one legacy upload to its private storage key, and prove it arrived.
- *
- * Everything here throws rather than logs. The caller runs inside the migration
- * transaction, so a throw rolls the database back to the legacy shape - which
- * is the correct outcome, because the legacy file is still where it was and the
- * whole migration can simply be run again once the cause is dealt with. The
- * alternative this replaced was an asset row pointing at a key with nothing
- * behind it, and no legacy table left to say where the bytes really went.
+ * Copies one legacy upload to its private storage key and verifies that it
+ * arrived. Every failure throws, which rolls the migration transaction back to
+ * the legacy shape with the legacy file still in place. Logging and continuing
+ * would leave an asset row pointing at a key with nothing behind it.
  */
 function copyIntoPrivateStorage(from: string, storageKey: string): void {
   const to = privateFilePath(storageKey);
@@ -589,9 +544,8 @@ function copyIntoPrivateStorage(from: string, storageKey: string): void {
 }
 
 /**
- * Drop the legacy copies once the migration has committed. Best-effort by
- * design: every one of these files is now duplicated at a key the database
- * knows about, so failing to remove one costs disk and nothing else.
+ * Best-effort by design. Each file is already duplicated at a key the database
+ * knows about, so a failed removal costs disk and nothing else.
  */
 function removeLegacyOriginals(copied: CopiedUpload[]): void {
   for (const { from, storageKey } of copied) {
@@ -608,9 +562,9 @@ function removeLegacyOriginals(copied: CopiedUpload[]): void {
 }
 
 /**
- * Column-by-column copy. New columns absent from the legacy table are filled:
- * `tenant_id` / `channel_account_id` with the single tenant's ids, everything
- * else by its schema default.
+ * Columns absent from the legacy table are filled: `tenant_id` and
+ * `channel_account_id` with the single tenant's ids, `audit_log.actor` from the
+ * row's user, and everything else by its schema default.
  */
 function copyTable(
   db: Database,
@@ -633,9 +587,8 @@ function copyTable(
   const targets: string[] = [...shared];
   const sources: string[] = [...shared.map((c) => `l.${c}`)];
 
-  // The ids are bound, not pasted into the statement: they are values, and the
-  // rest of this file binds its values too. Nothing here is attacker-supplied
-  // today, and this is not the place to depend on that staying true.
+  // The ids are bound as parameters, not pasted into the statement. Nothing
+  // here is attacker-supplied today, but the copy must not depend on that.
   const params: string[] = [];
 
   if (newCols.includes("tenant_id") && !shared.includes("tenant_id")) {

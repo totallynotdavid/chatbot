@@ -46,9 +46,9 @@ export function parseIncomingMessage(webhookMessage: any): IncomingMessage {
 
 /** Which of our numbers the message arrived on, and under which WABA. */
 export type InboundRouting = {
-  /** Meta's `metadata.phone_number_id` - the account key we route on. */
+  /** Meta's `metadata.phone_number_id`, the account key we route on. */
   phoneNumberId: string | null;
-  /** Human-readable number, useful for first-time account registration. */
+  /** Human-readable number. Routing does not use it. */
   displayPhoneNumber: string | null;
   /** `entry[].id` is the WhatsApp Business Account id. */
   wabaId: string | null;
@@ -62,17 +62,10 @@ export type ParsedChange = {
 };
 
 /**
- * Flatten a Cloud API webhook body into its changes.
- *
- * Every level of the payload is an array because one POST can batch events for
- * several WhatsApp Business Accounts and several numbers - which, now that one
- * endpoint serves every tenant, routinely means several tenants at once. Taking
- * `entry[0].changes[0].messages[0]` silently dropped everything else while still
- * answering 200, so Meta never redelivered it. Nothing is dropped here; the
- * caller routes and handles each change on its own account.
- *
- * Routing is returned even for a change with no messages, so callers can log
- * deliveries from numbers we do not know about.
+ * Flattens a Cloud API webhook body into its changes. The entries, the changes
+ * and the messages are each arrays, because one POST can batch several WhatsApp
+ * Business Accounts and numbers. Reading only the first message would drop the
+ * rest while still answering 200, and Meta would not redeliver them.
  */
 export function parseWebhookBody(body: any): ParsedChange[] {
   const entries: any[] = Array.isArray(body?.entry) ? body.entry : [];
@@ -87,6 +80,8 @@ export function parseWebhookBody(body: any): ParsedChange[] {
         : [];
 
       return {
+        // Routing is returned even for a change with no messages, so callers
+        // can log deliveries from numbers we do not know about.
         routing: {
           phoneNumberId: value?.metadata?.phone_number_id ?? null,
           displayPhoneNumber: value?.metadata?.display_phone_number ?? null,

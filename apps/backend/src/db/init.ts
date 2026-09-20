@@ -18,9 +18,9 @@ function applySchema(db: Database) {
 }
 
 export function initializeDatabase(db: Database) {
-  // A database written before tenancy has to be rebuilt before the new schema
-  // can be applied over it; a fresh or already-migrated one just gets the
-  // CREATE TABLE IF NOT EXISTS pass.
+  // A legacy database is rebuilt before the schema is applied over it. A fresh
+  // or already migrated database gets the CREATE TABLE IF NOT EXISTS pass, then
+  // the `audit_log` rebuild and the timestamp backfill where they are needed.
   if (needsTenantMigration(db)) {
     migrateToMultiTenant(db, applySchema);
     backfillTextActivityTimestamps(db);
@@ -34,16 +34,9 @@ export function initializeDatabase(db: Database) {
 }
 
 /**
- * Every table carrying `tenant_id` and `channel_account_id` references the pair
- * on `channel_accounts(id, tenant_id)`, so a row cannot name one tenant beside
- * another tenant's number. `CREATE TABLE IF NOT EXISTS` cannot add that to a
- * database whose tables already exist, though, so a database created from an
- * earlier build of this schema keeps the old independent references and gets
- * no complaint from SQLite about it.
- *
- * Rebuilding it is the fix, and this says so rather than letting the deployment
- * believe in a constraint it does not have. The data this applies to is
- * pre-launch, so there is nothing to preserve.
+ * Every table with `tenant_id` and `channel_account_id` references the pair on
+ * `channel_accounts(id, tenant_id)`, so a row cannot name one tenant beside
+ * another tenant's number.
  */
 function warnIfChannelPairUnenforced(db: Database): void {
   const foreignKeys = db
@@ -56,6 +49,10 @@ function warnIfChannelPairUnenforced(db: Database): void {
 
   if (enforced) return;
 
+  // `CREATE TABLE IF NOT EXISTS` cannot add the composite reference to an
+  // existing table, so an older database keeps independent references and
+  // SQLite reports nothing. Only a rebuild fixes it. The data is pre-launch, so
+  // this logs an error instead of migrating.
   logger.error(
     "Database predates composite (channel_account_id, tenant_id) foreign key. " +
       "A row may pair one tenant with another's WhatsApp number without error. " +
