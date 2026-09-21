@@ -23,6 +23,7 @@
 import { describe, it, expect } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
+import { stripComments } from "./helpers/source-text.ts";
 
 const BACKEND = join(import.meta.dir, "..");
 
@@ -114,23 +115,6 @@ function relative(file: string): string {
   return file.slice(BACKEND.length + 1);
 }
 
-/**
- * The file with its comments blanked out, so the rules match code and not the
- * comments that name a forbidden path while explaining it.
- */
-function codeOnly(text: string): string {
-  // String literals come before comment openers in the alternation, so a `//`
-  // inside a string is read as part of that string and not as a comment.
-  const TOKENS =
-    /("(?:[^"\\\n]|\\.)*")|('(?:[^'\\\n]|\\.)*')|(`(?:[^`\\]|\\.)*`)|(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g;
-
-  return text.replace(TOKENS, (_match, dq, sq, tpl, comment) => {
-    // Newlines inside a stripped comment are kept so line numbers stay correct.
-    if (comment !== undefined) return comment.replace(/[^\n]/g, " ");
-    return dq ?? sq ?? tpl;
-  });
-}
-
 type Finding = { file: string; line: number; detail: string };
 
 /**
@@ -139,7 +123,7 @@ type Finding = { file: string; line: number; detail: string };
  * can stop at the first string argument.
  */
 function scan(text: string, file: string, pattern: RegExp): Finding[] {
-  const code = codeOnly(text);
+  const code = stripComments(text);
   const lines = text.split("\n");
   const global = new RegExp(pattern.source, "g");
 
@@ -405,10 +389,19 @@ describe("storage path guard", () => {
       });
 
       it("does not let a comment marker inside a string hide the code", () => {
-        // The stripper matches strings first, so the `//` here stays inside the
-        // string it belongs to and the assignment after it is still read.
+        // The `//` here is inside a string, not a comment, so the assignment
+        // after it is still read.
         const sample =
           "const docs = 'https://example.test/x'; const root = './data/private';";
+
+        expect(scan(sample, "sample.ts", LITERAL_ROOT)).toHaveLength(1);
+      });
+
+      it("does not let a slash pair inside a regex hide the code", () => {
+        // The `//` in `\\//` is an escaped slash and the slash that ends the
+        // regex, not a comment.
+        const sample =
+          "const re = /^images\\//; const root = './data/private';";
 
         expect(scan(sample, "sample.ts", LITERAL_ROOT)).toHaveLength(1);
       });
