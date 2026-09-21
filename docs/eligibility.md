@@ -42,14 +42,17 @@ queries both providers in parallel for every DNI. Then
 picks one answer:
 
 ```text
-FNB answered (eligible or not)       -> FNB's answer
-FNB failed, Power BI answered        -> Power BI's answer
+FNB approves                         -> FNB's answer
+FNB refused or failed, Power BI
+approves                             -> Power BI's answer
 both failed                          -> system outage
+otherwise                            -> not eligible
 ```
 
-An FNB "not eligible" wins over a Power BI approval. A customer who qualifies
-only for GASO is refused whenever FNB answers for their DNI. A provider "fails"
-when it throws, times out, is switched off, or has its circuit breaker open.
+An FNB approval wins over a Power BI approval, and a Power BI approval wins over
+an FNB refusal. When one provider fails and the other refuses, the customer is
+not eligible; that is not an outage. A provider "fails" when it throws, times
+out, is switched off, or has its circuit breaker open.
 
 ## The result
 
@@ -80,7 +83,7 @@ and
 | FNB, credit S/ 100 or more | congratulates them on the amount and lists the product groups they can afford         |
 | FNB, credit under S/ 100   | says they do not qualify and closes                                                   |
 | GASO                       | asks their age; under 25 it closes, otherwise it lists the categories they can afford |
-| not eligible               | offers to try another DNI. After the second DNI that fails, it closes                 |
+| not eligible               | offers to try another DNI. After the third DNI that fails, it closes                  |
 | system outage              | says nothing. The conversation waits in `waiting_for_recovery`                        |
 | the check threw            | sends a holding message and escalates to a person                                     |
 

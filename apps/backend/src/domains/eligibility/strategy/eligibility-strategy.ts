@@ -1,7 +1,11 @@
 import type { Result } from "../../../shared/result/index.ts";
 import { Ok, Err, isErr } from "../../../shared/result/index.ts";
 import type { ProviderCheckResult } from "@vendeya/types";
-import type { ProviderResults, EligibilityEvaluation } from "./types.ts";
+import type {
+  DegradationWarning,
+  EligibilityEvaluation,
+  ProviderResults,
+} from "./types.ts";
 import { SystemOutageError } from "./types.ts";
 import type { ProviderError } from "../providers/provider.ts";
 
@@ -34,53 +38,52 @@ export function evaluateResults(
     );
   }
 
-  // Case 2: FNB available
-  if (!fnbFailed && results.fnb.ok) {
-    const warnings = powerbiFailed
-      ? [
-          {
-            failedProvider: "PowerBI",
-            workingProvider: "FNB",
-            errors: isProviderError(results.powerbi)
-              ? [results.powerbi.error.message]
-              : ["Unknown error"],
-          },
-        ]
-      : undefined;
+  const fnbWarning = fnbFailed
+    ? degradation("FNB", "PowerBI", results.fnb)
+    : undefined;
+  const powerbiWarning = powerbiFailed
+    ? degradation("PowerBI", "FNB", results.powerbi)
+    : undefined;
 
+  // Case 2: FNB approves
+  if (results.fnb.ok && !fnbFailed && results.fnb.value.eligible) {
     return Ok({
       result: results.fnb.value,
       source: "fnb" as const,
-      warnings,
+      warnings: powerbiWarning && [powerbiWarning],
     });
   }
 
-  // Case 3: PowerBI available (FNB failed or not eligible)
-  if (!powerbiFailed && results.powerbi.ok) {
-    const warnings = fnbFailed
-      ? [
-          {
-            failedProvider: "FNB",
-            workingProvider: "PowerBI",
-            errors: isProviderError(results.fnb)
-              ? [results.fnb.error.message]
-              : ["Unknown error"],
-          },
-        ]
-      : undefined;
-
+  // Case 3: Power BI approves (FNB failed or refused)
+  if (results.powerbi.ok && !powerbiFailed && results.powerbi.value.eligible) {
     return Ok({
       result: results.powerbi.value,
       source: "powerbi" as const,
-      warnings,
+      warnings: fnbWarning && [fnbWarning],
     });
   }
 
-  // Case 4: Both returned not eligible
+  // Case 4: whoever answered refused. One provider down is not an outage here.
+  const warning = fnbWarning ?? powerbiWarning;
   return Ok({
     result: { eligible: false, credit: 0, reason: "not_qualified" },
-    source: "fnb" as const,
+    source: fnbFailed ? ("powerbi" as const) : ("fnb" as const),
+    warnings: warning && [warning],
   });
+}
+
+function degradation(
+  failedProvider: string,
+  workingProvider: string,
+  result: Result<ProviderCheckResult, ProviderError>,
+): DegradationWarning {
+  return {
+    failedProvider,
+    workingProvider,
+    errors: isProviderError(result)
+      ? [result.error.message]
+      : [`${failedProvider} answered ${result.value.reason}`],
+  };
 }
 
 function isTechnicalFailure(result: Result<ProviderCheckResult, any>): boolean {
