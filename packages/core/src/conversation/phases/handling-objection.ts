@@ -4,9 +4,9 @@ import type {
   EnrichmentResult,
   ConversationMetadata,
 } from "../types.ts";
-import { createTraceId } from "@vendeya/utils";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import * as S from "../../templates/sales.ts";
+import { isAffirmative } from "../../validation/affirmation.ts";
 
 type HandlingObjectionPhase = Extract<
   ConversationPhase,
@@ -14,6 +14,11 @@ type HandlingObjectionPhase = Extract<
 >;
 
 const MAX_OBJECTIONS = 2;
+
+// Anchored at the start: "nada que ver, está caro" contains "ver" and is a
+// rejection.
+const ASKS_TO_SEE =
+  /^((s[ií]|ok|claro|dale|bueno|ya)[\s,.!]+)*(mu[eé]strame|quiero\s+ver|a\s+ver|ver|veamos)(?![\p{L}])/u;
 
 export function transitionHandlingObjection(
   phase: HandlingObjectionPhase,
@@ -23,7 +28,9 @@ export function transitionHandlingObjection(
 ): TransitionResult {
   const lower = message.toLowerCase();
 
-  // Handle LLM question detection/answering first
+  // An enrichment means the message matched nothing below on the first pass.
+  // Every branch here ends the turn or asks for a different enrichment, so the
+  // loop never comes back with the same request.
   if (enrichment) {
     if (enrichment.type === "question_answered") {
       return {
@@ -39,29 +46,47 @@ export function transitionHandlingObjection(
       };
     }
 
-    if (enrichment.type === "escalation_needed" && enrichment.shouldEscalate) {
+    if (enrichment.type === "question_detected" && enrichment.isQuestion) {
       return {
-        type: "update",
-        nextPhase: {
-          phase: "escalated",
-          reason: "customer_question_during_objection",
-        },
-        commands: [],
-        events: [
-          {
-            type: "escalation_triggered",
-            traceId: createTraceId(),
-            timestamp: Date.now(),
-            payload: {
-              reason: "customer_question_during_objection",
-              phoneNumber:
-                _metadata?.phoneNumber?.replace(/\D/g, "") || "unknown",
-              context: { message },
-            },
-          },
-        ],
+        type: "need_enrichment",
+        enrichment: { type: "should_escalate", message },
       };
     }
+
+    if (enrichment.type === "escalation_needed") {
+      if (enrichment.shouldEscalate) {
+        return {
+          type: "update",
+          nextPhase: {
+            phase: "escalated",
+            reason: "customer_question_during_objection",
+          },
+          commands: [],
+        };
+      }
+
+      return {
+        type: "need_enrichment",
+        enrichment: {
+          type: "answer_question",
+          message,
+          context: {
+            segment: phase.segment,
+            creditLine: phase.credit,
+            phase: "handling_objection",
+            availableCategories: [],
+          },
+        },
+      };
+    }
+
+    return {
+      type: "update",
+      nextPhase: phase,
+      commands: [
+        { type: "SEND_MESSAGE", text: "¿Te gustaría ver alguna otra opción?" },
+      ],
+    };
   }
 
   // Too many objections, escalate
@@ -73,26 +98,10 @@ export function transitionHandlingObjection(
         reason: "multiple_objections",
       },
       commands: [],
-      events: [
-        {
-          type: "escalation_triggered",
-          traceId: createTraceId(),
-          timestamp: Date.now(),
-          payload: {
-            reason: "multiple_objections",
-            phoneNumber:
-              _metadata?.phoneNumber?.replace(/\D/g, "") || "unknown",
-            context: { objectionCount: phase.objectionCount },
-          },
-        },
-      ],
     };
   }
 
-  // User accepts
-  if (
-    /\b(s[ií]|ok|claro|dale|bueno|ver|muestrame|quiero\s+ver)\b/.test(lower)
-  ) {
+  if (isAffirmative(message) || ASKS_TO_SEE.test(lower)) {
     return {
       type: "update",
       nextPhase: {
