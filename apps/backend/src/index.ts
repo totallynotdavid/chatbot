@@ -9,6 +9,11 @@ import {
   stopAggregatorWorker,
 } from "./conversation/aggregator-worker.ts";
 import { purgeProcessedMessages } from "./conversation/processed-retention.ts";
+import { purgeFinishedOutbox } from "./conversation/outbox.ts";
+import {
+  startOutboxWorker,
+  stopOutboxWorker,
+} from "./conversation/outbox-worker.ts";
 
 const logger = createLogger("app");
 
@@ -68,6 +73,7 @@ if (!process.env.WHATSAPP_APP_SECRET) {
 initializeApplication();
 
 startAggregatorWorker();
+startOutboxWorker();
 
 setInterval(async () => {
   checkAndReassignTimeouts();
@@ -76,6 +82,7 @@ setInterval(async () => {
 setInterval(
   () => {
     purgeProcessedMessages();
+    purgeFinishedOutbox();
   },
   60 * 60 * 1000,
 );
@@ -165,12 +172,14 @@ const port = Number(process.env.PORT) || 3000;
 process.on("SIGINT", async () => {
   logger.info("Shutting down (SIGINT)");
   await stopAggregatorWorker();
+  await stopOutboxWorker();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
   logger.info("Shutting down (SIGTERM)");
   await stopAggregatorWorker();
+  await stopOutboxWorker();
   process.exit(0);
 });
 

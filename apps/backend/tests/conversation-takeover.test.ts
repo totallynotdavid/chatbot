@@ -17,7 +17,7 @@ import {
   insertConversation,
   type TenantFixture,
 } from "./helpers/tenancy.ts";
-import { signedWebhookRequest } from "./helpers/webhook.ts";
+import { customerWrites as writeIn } from "./helpers/turn.ts";
 
 import type { ConversationPhase } from "@totem/core";
 import type { ConversationRef } from "@totem/types";
@@ -44,7 +44,6 @@ import {
   generateSessionToken,
 } from "../src/platform/auth/session.ts";
 import conversationRoutes from "../src/routes/conversations.ts";
-import webhook from "../src/routes/webhook.ts";
 
 const CUSTOMER = "51900555001";
 const HOUR = 60 * 60 * 1000;
@@ -135,46 +134,8 @@ describe("a person takes over a conversation", () => {
     };
   }
 
-  /** The customer writes in. The message is old enough for the aggregator and past the pacing delay. */
   async function customerWrites(text: string): Promise<void> {
-    const sentAt = Math.floor((Date.now() - 11 * 60 * 1000) / 1000);
-    const response = await webhook.request(
-      "/",
-      signedWebhookRequest({
-        object: "whatsapp_business_account",
-        entry: [
-          {
-            id: "waba-takeover",
-            changes: [
-              {
-                field: "messages",
-                value: {
-                  messaging_product: "whatsapp",
-                  metadata: {
-                    display_phone_number: "51900000000",
-                    phone_number_id: tenant.phoneNumberId,
-                  },
-                  messages: [
-                    {
-                      from: CUSTOMER,
-                      id: `wamid-${crypto.randomUUID()}`,
-                      timestamp: String(sentAt),
-                      type: "text",
-                      text: { body: text },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    expect(response.status).toBe(200);
-
-    db.prepare(
-      "UPDATE message_inbox SET created_at = created_at - 60000 WHERE channel_account_id = ?",
-    ).run(tenant.channelAccountId);
+    await writeIn(tenant, CUSTOMER, text);
   }
 
   function inboxStatuses(): string[] {

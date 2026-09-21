@@ -8,6 +8,7 @@ import {
 } from "../../adapters/whatsapp/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
 import { withLock } from "../../conversation/locks.ts";
+import { cancelPending } from "../../conversation/outbox.ts";
 import {
   findConversation,
   getOrCreateConversation,
@@ -49,12 +50,17 @@ export async function takeoverConversation(
       {},
     );
 
+    // Replies the bot still owed are dropped, because the person now answers.
+    // A bot escalation does not come through here, so the "an advisor will
+    // contact you" text it queued still goes out.
+    const cancelledReplies = cancelPending(ref);
+
     logAction(
       { userId, tenantId: ref.tenantId },
       "takeover",
       "conversation",
       ref.phoneNumber,
-      {},
+      { cancelledReplies },
     );
   });
 

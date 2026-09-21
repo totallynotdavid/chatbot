@@ -68,8 +68,12 @@ export async function sendBundleImages(
         `images/${bundle.image_id}.jpg`,
         caption,
         bundle.id, // Pass product ID for tracking
+        { retry: true },
       );
-      if (!outcome.ok) continue;
+      // A queued image counts as shown. The outbox row is the durable record
+      // of that reply and the worker delivers it in order, so the phase must
+      // name the product the customer is about to see.
+      if (!outcome.ok && !outcome.queued) continue;
     }
 
     sentProducts.push({
@@ -93,7 +97,7 @@ export async function sendBundleImages(
   if (isSimulation) {
     WhatsAppService.logMessage(ref, "outbound", "text", followUp, "sent");
   } else {
-    await WhatsAppService.sendMessage(ref, followUp);
+    await WhatsAppService.sendMessage(ref, followUp, { retry: true });
   }
 
   return { success: true, products: sentProducts };
