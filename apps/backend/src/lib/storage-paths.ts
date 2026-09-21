@@ -1,7 +1,6 @@
 /**
  * Roots for every store that holds uploaded bytes. Nothing outside this module
- * builds a path under `data/uploads` or `data/private`, and
- * tests/storage-path-guard.test.ts enforces that.
+ * builds a path under `data/uploads` or `data/private`.
  */
 
 import path from "node:path";

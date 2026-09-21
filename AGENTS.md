@@ -27,8 +27,8 @@ only the rules those documents do not.
 - **Schema.** A change to an existing table needs a step in
   `apps/backend/src/db/migrations.ts`. `schema.sql` alone never alters a table
   that exists.
-- **A new workspace** needs an entry in the CI typecheck matrix, which a test
-  enforces, and a step in the CI `test` job, which nothing enforces.
+- **A new workspace** needs an entry in the CI typecheck matrix and a step in
+  the CI `test` job. Nothing checks either.
 - **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
   The repository is still named `chatbot`. Totem is the default tenant, a client
   business, and its slug `totem` is a lookup key for an existing row, so it is

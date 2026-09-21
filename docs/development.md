@@ -45,9 +45,8 @@ force pushes.
 Every job installs with `bun install --frozen-lockfile`. A `package.json` change
 without its `bun.lock` update fails CI.
 
-The `test` job names its workspaces by hand. A new workspace's tests do not run
-in CI until a step is added. A new workspace's typecheck is enforced: see
-`typecheck-coverage.test.ts` below.
+The `typecheck` matrix and the `test` job name their workspaces by hand. A new
+workspace is neither typechecked nor tested in CI until it is added to both.
 
 ## Where the pins live
 
@@ -61,9 +60,6 @@ in CI until a step is added. A new workspace's typecheck is enforced: see
 `mise install` installs the pinned tools. Dependabot
 ([`dependabot.yml`](../.github/dependabot.yml)) updates the bun dependencies
 daily and the actions weekly. It does not update `mise.toml`.
-[`toolchain-pins.test.ts`](../apps/backend/tests/toolchain-pins.test.ts) fails
-when the bun in `mise.toml` and the `@types/bun` range differ in major or minor
-version.
 
 ## How the tests are laid out
 
@@ -86,7 +82,7 @@ never touches the development database.
 
 Some backend tests boot the real server or open the database from several
 processes (`boot-safety`, `concurrent-startup`). Some read frontend files
-(`webhook-proxy`, `lima-date-contract`, `timestamp-type-guard`).
+(`webhook-proxy`, `lima-date-contract`).
 
 `packages/core/tests/` is not typechecked: core's `tsconfig.json` includes `src`
 only.
@@ -96,7 +92,8 @@ The tests that hold the architecture's boundaries are listed in
 
 ## Conventions
 
-These are what the code does today. The guard tests enforce the first two.
+These are what the code does today. `tenant-scope-guard.test.ts` checks the
+first.
 
 - **Tenant scope.** A read function takes `tenantId: string | null` and filters
   with `tenantPredicate`, not a hand-built `if (tenantId)` branch, from

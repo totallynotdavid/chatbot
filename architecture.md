@@ -179,19 +179,15 @@ never changes a table that already exists.
 These tests fail the build when a boundary above is crossed. All are in
 [`apps/backend/tests/`](./apps/backend/tests/).
 
-| Test                           | What it holds                                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `tenant-scope-guard.test.ts`   | No hand-built conditional tenant filter, and every SELECT of a tenant-owned table names a tenant predicate. |
-| `storage-path-guard.test.ts`   | Upload paths come from `lib/storage-paths.ts`, never `process.cwd()` or a literal.                          |
-| `typecheck-coverage.test.ts`   | Every workspace with a `tsconfig.json` has an entry in the CI typecheck matrix.                             |
-| `toolchain-pins.test.ts`       | The bun pinned in `mise.toml` has the major and minor version of `@types/bun`.                              |
-| `timestamp-type-guard.test.ts` | A `*_at` type matches its column: `number` over INTEGER. The frontend never types one as `string`.          |
-| `created-at-contract.test.ts`  | Each INTEGER `*_at` field reaches the client as milliseconds.                                               |
-| `lima-date-contract.test.ts`   | The dashboard and the server name the same Lima calendar day for every instant.                             |
-| `foreign-keys.test.ts`         | The app's connection turns on `PRAGMA foreign_keys`.                                                        |
-| `webhook-proxy.test.ts`        | The frontend's webhook proxy passes a backend refusal on to Meta.                                           |
-| `maintenance-freeze.test.ts`   | The API, not only the dashboard, refuses to answer held messages during a freeze.                           |
-| `boot-safety.test.ts`          | Boot creates no account, warns with no operator, and a throwing seed stops boot before the port is bound.   |
+| Test                          | What it holds                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `tenant-scope-guard.test.ts`  | No hand-built conditional tenant filter, and every SELECT of a tenant-owned table names a tenant predicate. |
+| `created-at-contract.test.ts` | Each INTEGER `*_at` field reaches the client as milliseconds.                                               |
+| `lima-date-contract.test.ts`  | The dashboard and the server name the same Lima calendar day for every instant.                             |
+| `foreign-keys.test.ts`        | The app's connection turns on `PRAGMA foreign_keys`.                                                        |
+| `webhook-proxy.test.ts`       | The frontend's webhook proxy passes a backend refusal on to Meta.                                           |
+| `maintenance-freeze.test.ts`  | The API, not only the dashboard, refuses to answer held messages during a freeze.                           |
+| `boot-safety.test.ts`         | Boot creates no account, warns with no operator, and a throwing seed stops boot before the port is bound.   |
 
 The full list of checks and what CI runs is in
 [Development](./docs/development.md).
