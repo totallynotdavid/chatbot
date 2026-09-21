@@ -1,6 +1,6 @@
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 import type { IntentResult } from "../types";
-import { buildExtractBundleIntentPrompt } from "@totem/core";
+import { buildExtractBundleIntentPrompt } from "@vendeya/core";
 import { MODEL_CONFIG } from "../config";
 import { getTextClient } from "./client";
 import { parseLLMResponse } from "./shared";

@@ -1,11 +1,11 @@
 import { isOk } from "../../../shared/result/index.ts";
 import type { CheckEligibilityHandler } from "../../eligibility/handlers/check-eligibility-handler.ts";
 import { executeCommands } from "../../../conversation/handler/command-executor.ts";
-import { transitionCheckingEligibility } from "@totem/core";
-import { createTraceId } from "@totem/utils";
+import { transitionCheckingEligibility } from "@vendeya/core";
+import { createTraceId } from "@vendeya/utils";
 import { createLogger } from "../../../lib/logger.ts";
-import type { ConversationPhase, ConversationMetadata } from "@totem/core";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationPhase, ConversationMetadata } from "@vendeya/core";
+import type { ConversationRef } from "@vendeya/types";
 import type { WaitingConversation } from "../store/recovery-store.ts";
 
 const logger = createLogger("recovery-processor");

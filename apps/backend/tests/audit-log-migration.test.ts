@@ -57,7 +57,7 @@ describe("rebuilding audit_log with an actor", () => {
     ).map((index) => index.name);
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-audit-migration-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-audit-migration-"));
     db = createTestDatabase(join(dir, "audit.sqlite"));
     db.run("PRAGMA foreign_keys = ON;");
     initializeDatabase(db);
@@ -270,7 +270,7 @@ describe("two processes booting on a database with the old audit_log", () => {
   let dbPath: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-audit-race-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-audit-race-"));
     dbPath = join(dir, "race.sqlite");
 
     const db = createTestDatabase(dbPath);

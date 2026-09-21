@@ -26,11 +26,11 @@ import {
 describe("resolving the private storage root", () => {
   it("puts it beside a production UPLOAD_DIR, not under the working directory", () => {
     const resolved = resolvePrivateDir({
-      uploadDir: "/var/lib/totem/uploads",
+      uploadDir: "/var/lib/vendeya/uploads",
       privateDir: undefined,
     });
 
-    expect(resolved).toBe("/var/lib/totem/private");
+    expect(resolved).toBe("/var/lib/vendeya/private");
     // A deploy replaces the working directory, so the root must not be under it.
     expect(resolved.startsWith(process.cwd() + sep)).toBe(false);
   });
@@ -45,7 +45,7 @@ describe("resolving the private storage root", () => {
   it("lets PRIVATE_DIR override it outright", () => {
     expect(
       resolvePrivateDir({
-        uploadDir: "/var/lib/totem/uploads",
+        uploadDir: "/var/lib/vendeya/uploads",
         privateDir: "/mnt/contracts",
       }),
     ).toBe("/mnt/contracts");
@@ -60,7 +60,7 @@ describe("resolving the private storage root", () => {
   });
 
   it("never nests the private store inside the served uploads directory", () => {
-    for (const uploadDir of ["/var/lib/totem/uploads", "./data/uploads"]) {
+    for (const uploadDir of ["/var/lib/vendeya/uploads", "./data/uploads"]) {
       const uploads = join(uploadDir, "");
       const resolved = resolvePrivateDir({ uploadDir, privateDir: undefined });
 
@@ -73,8 +73,8 @@ describe("resolving the catalog image root", () => {
   it("sits inside a production UPLOAD_DIR", () => {
     // Catalog images are the one thing served statically (/media/images), so
     // unlike the private store this root belongs *under* the uploads volume.
-    expect(resolveImagesDir("/var/lib/totem/uploads")).toBe(
-      "/var/lib/totem/uploads/images",
+    expect(resolveImagesDir("/var/lib/vendeya/uploads")).toBe(
+      "/var/lib/vendeya/uploads/images",
     );
   });
 
@@ -138,10 +138,10 @@ function runProbe(source: string, uploadDir: string, cwd: string): string {
 
 describe("the private store under a production-shaped environment", () => {
   it("writes onto the UPLOAD_DIR volume rather than the working directory", () => {
-    const volume = mkdtempSync(join(tmpdir(), "totem-volume-"));
+    const volume = mkdtempSync(join(tmpdir(), "vendeya-volume-"));
     // A working directory of its own, so the `data` check below is about a
     // directory this test owns and starts empty.
-    const workdir = mkdtempSync(join(tmpdir(), "totem-cwd-"));
+    const workdir = mkdtempSync(join(tmpdir(), "vendeya-cwd-"));
 
     const written = runProbe(
       `import { privateFileStorage, privateFilePath } from ${JSON.stringify(
@@ -172,8 +172,8 @@ describe("the private store under a production-shaped environment", () => {
 
 describe("the catalog image store under a production-shaped environment", () => {
   it("writes onto the UPLOAD_DIR volume rather than the working directory", async () => {
-    const volume = mkdtempSync(join(tmpdir(), "totem-images-volume-"));
-    const workdir = mkdtempSync(join(tmpdir(), "totem-images-cwd-"));
+    const volume = mkdtempSync(join(tmpdir(), "vendeya-images-volume-"));
+    const workdir = mkdtempSync(join(tmpdir(), "vendeya-images-cwd-"));
 
     // `store()` runs the bytes through sharp, so they must be a real JPEG. The
     // probe cannot resolve `sharp` by bare name, so the JPEG is encoded here and

@@ -16,7 +16,7 @@ import type {
   ConversationMessage,
   ConversationRef,
   IncomingMessage,
-} from "@totem/types";
+} from "@vendeya/types";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { WhatsAppService } from "../src/adapters/whatsapp/index.ts";
 declare const ref: ConversationRef;

@@ -1,6 +1,6 @@
 import { eventBus } from "../shared/events/index.ts";
 import { AsyncEventEmitter } from "../shared/events/async-emitter.ts";
-import type { DomainEvent } from "@totem/types";
+import type { DomainEvent } from "@vendeya/types";
 import { evaluateNotifications } from "../domains/notifications/evaluator.ts";
 import { notificationRules } from "../domains/notifications/config.ts";
 import { dispatchNotifications } from "../domains/notifications/dispatcher.ts";

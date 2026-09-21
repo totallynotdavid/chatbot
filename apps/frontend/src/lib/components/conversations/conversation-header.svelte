@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Conversation } from "@totem/types";
+import type { Conversation } from "@vendeya/types";
 import Button from "$lib/components/ui/button.svelte";
 import { formatPhone, formatPrice } from "$lib/utils/formatters";
 import { auth } from "$lib/state/auth.svelte";

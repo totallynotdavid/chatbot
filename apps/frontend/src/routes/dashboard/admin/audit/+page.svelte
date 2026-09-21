@@ -2,7 +2,7 @@
 import { onMount } from "svelte";
 import { fetchApi } from "$lib/utils/api";
 import { formatDateTime } from "$lib/utils/formatters";
-import type { AuditLog } from "@totem/types";
+import type { AuditLog } from "@vendeya/types";
 import SectionShell from "$lib/components/ui/section-shell.svelte";
 import DataTable from "$lib/components/ui/data-table.svelte";
 import Button from "$lib/components/ui/button.svelte";

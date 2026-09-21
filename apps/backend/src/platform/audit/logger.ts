@@ -1,7 +1,7 @@
 import { db } from "../../db/index.ts";
 import { getAll, tenantOrPlatformPredicate } from "../../db/query.ts";
 import type { Database, SQLQueryBindings } from "bun:sqlite";
-import type { AuditLog } from "@totem/types";
+import type { AuditLog } from "@vendeya/types";
 
 /**
  * Who did it and inside which tenant. `tenantId` is null only for actions taken

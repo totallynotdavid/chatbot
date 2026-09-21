@@ -31,7 +31,7 @@ describe("installing the seeded catalog images", () => {
   let volume: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-seed-images-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-seed-images-"));
     volume = join(dir, "uploads", "images");
   });
 
@@ -113,7 +113,7 @@ function freePort(): number {
 // installed the images it asks for.
 describe("booting with UPLOAD_DIR on a volume of its own", () => {
   it("serves every seeded bundle's image from that volume", async () => {
-    const root = mkdtempSync(join(tmpdir(), "totem-seed-images-boot-"));
+    const root = mkdtempSync(join(tmpdir(), "vendeya-seed-images-boot-"));
     // Three different places, as in production: the volume the uploads live
     // on, the database, and a working directory that is neither of them nor
     // the repository.

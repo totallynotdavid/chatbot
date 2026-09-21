@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { db } from "../src/db/index.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 import {
   applySchema,

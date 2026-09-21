@@ -15,7 +15,7 @@ import type {
   Order,
   Product,
   User,
-} from "@totem/types";
+} from "@vendeya/types";
 
 import {
   applySchema,

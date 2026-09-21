@@ -14,29 +14,32 @@ apps/backend           Hono on Bun with bun:sqlite. Webhook intake, the inbox
 apps/frontend          SvelteKit 2 with Svelte 5, built with svelte-adapter-bun.
                        The dashboard, and the public URL Meta posts webhooks
                        to, which it relays to the backend.
-apps/notifier          totem-notifier: whatsapp-web.js on one linked WhatsApp
+apps/notifier          @vendeya/notifier: whatsapp-web.js on one linked WhatsApp
                        account. The backend sends through it only when
                        NODE_ENV is "development".
-packages/core          @totem/core: the conversation state machine. Phases,
+packages/core          @vendeya/core: the conversation state machine. Phases,
                        copy, intent matching, LLM prompt text. No I/O.
-packages/intelligence  @totem/intelligence: the OpenAI calls behind
+packages/intelligence  @vendeya/intelligence: the OpenAI calls behind
                        IntelligenceProvider.
-packages/types         @totem/types: types shared by the apps.
-packages/utils         @totem/utils: service URLs and trace ids.
-packages/logger        @totem/logger: the pino root logger.
-packages/tsconfig      @totem/tsconfig: tsconfig bases.
+packages/types         @vendeya/types: types shared by the apps.
+packages/utils         @vendeya/utils: service URLs and trace ids.
+packages/logger        @vendeya/logger: the pino root logger.
+packages/tsconfig      @vendeya/tsconfig: tsconfig bases.
 ```
 
 Workspace dependencies run one way:
 
 ```text
-@totem/types, @totem/utils, @totem/logger, @totem/tsconfig   no workspace deps
-@totem/core            -> types, utils
-@totem/intelligence    -> core, types
-backend                -> core, intelligence, logger, types, utils
-frontend               -> types, utils
-totem-notifier         -> logger, types, utils
+@vendeya/types, @vendeya/utils, @vendeya/logger, @vendeya/tsconfig   no workspace deps
+@vendeya/core          -> types, utils
+@vendeya/intelligence  -> core, types
+@vendeya/backend       -> core, intelligence, logger, types, utils
+@vendeya/frontend      -> types, utils
+@vendeya/notifier      -> logger, types, utils
 ```
+
+Every workspace member is named `@vendeya/<directory>`, and the root package is
+`vendeya`. The arrows drop the scope.
 
 The frontend never imports the backend or core. It reaches the backend over HTTP
 only.
@@ -53,7 +56,7 @@ apps/backend   routes/webhook.ts                  signature, route by
   message_inbox row  (held_messages row during maintenance)
   conversation/aggregator-worker.ts               polls every 100 ms
   conversation/handler/orchestrator.ts            one turn, under the lock
-    handler/enrichment-loop.ts  <->  @totem/core transition()
+    handler/enrichment-loop.ts  <->  @vendeya/core transition()
       conversation/enrichment/handlers/*          LLM and eligibility calls
     handler/command-executor.ts                   sends, then persists
       adapters/whatsapp/index.ts                  WhatsAppService

@@ -17,7 +17,7 @@ import {
   sendResolved,
 } from "../adapters/whatsapp/index.ts";
 import type { SendOutcome } from "../adapters/whatsapp/types.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("outbox-worker");

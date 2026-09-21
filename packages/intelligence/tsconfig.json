@@ -1,9 +1,9 @@
 {
-    "extends": "@totem/tsconfig/backend.json",
+    "extends": "@vendeya/tsconfig/backend.json",
     "compilerOptions": {
         "paths": {
-            "@totem/core": ["../core/src"],
-            "@totem/types": ["../types/src"]
+            "@vendeya/core": ["../core/src"],
+            "@vendeya/types": ["../types/src"]
         }
     },
     "include": ["src/**/*"],

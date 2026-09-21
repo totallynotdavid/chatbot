@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getAll, getOne } from "../../db/query.ts";
-import type { ProviderCheckResult } from "@totem/types";
+import type { ProviderCheckResult } from "@vendeya/types";
 
 type TestPersona = {
   id: string;

@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getOne } from "../../db/query.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import type { SendOutcome } from "../../adapters/whatsapp/types.ts";
 import {
   ChannelUnavailableError,

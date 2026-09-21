@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto, invalidateAll } from "$app/navigation";
-import type { OrderStatus } from "@totem/types";
+import type { OrderStatus } from "@vendeya/types";
 import { fetchApi } from "$lib/utils/api";
 import { toast } from "$lib/state/toast.svelte";
 import { auth } from "$lib/state/auth.svelte";

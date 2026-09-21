@@ -22,7 +22,7 @@ describe("the test environment", () => {
   let probe: string;
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-test-env-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-test-env-"));
     probe = join(dir, "probe.test.ts");
     writeFileSync(probe, PROBE);
   });

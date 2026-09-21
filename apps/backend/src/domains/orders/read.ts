@@ -1,6 +1,6 @@
 import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { ConversationRef, Order } from "@totem/types";
+import type { ConversationRef, Order } from "@vendeya/types";
 import type { OrderFilters, OrderMetrics } from "./types.ts";
 
 /**

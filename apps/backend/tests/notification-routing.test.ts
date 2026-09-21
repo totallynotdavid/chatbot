@@ -17,7 +17,7 @@ import {
 } from "../src/domains/notifications/dispatcher.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import { SystemSettings } from "../src/domains/settings/system.ts";
-import type { DomainEvent } from "@totem/types";
+import type { DomainEvent } from "@vendeya/types";
 
 const CUSTOMER = "51987654321";
 const CHANNEL = "ch-notifications-fixture";

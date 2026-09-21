@@ -6,7 +6,7 @@ import type {
   ChannelAccount,
   ConversationRef,
   IncomingMessage,
-} from "@totem/types";
+} from "@vendeya/types";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
 import { ChannelAccountService } from "../domains/channels/accounts.ts";
 import { isMaintenanceMode } from "../domains/settings/system.ts";

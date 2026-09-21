@@ -3,7 +3,7 @@ import { onMount } from "svelte";
 import { fetchApi } from "$lib/utils/api";
 import Button from "$lib/components/ui/button.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
-import type { TestPersona } from "@totem/types";
+import type { TestPersona } from "@vendeya/types";
 
 let personas = $state<TestPersona[]>([]);
 let loading = $state(false);

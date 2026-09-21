@@ -1,4 +1,4 @@
-import { createRootLogger, type Logger } from "@totem/logger";
+import { createRootLogger, type Logger } from "@vendeya/logger";
 import process from "node:process";
 
 const DATA_PATH = process.env.NOTIFIER_DATA_PATH || "./data";

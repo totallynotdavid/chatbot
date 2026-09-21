@@ -17,7 +17,7 @@ import {
   type TenantFixture,
 } from "./helpers/tenancy.ts";
 
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { WhatsAppService } from "../src/adapters/whatsapp/index.ts";

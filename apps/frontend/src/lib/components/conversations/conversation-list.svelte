@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Conversation } from "@totem/types";
+import type { Conversation } from "@vendeya/types";
 import ConversationItem from "./conversation-item.svelte";
 
 type Props = {

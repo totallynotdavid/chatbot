@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { formatConversationDetails } from "../src/domains/conversations/notifications.ts";
-import type { ConversationMetadata, ConversationPhase } from "@totem/core";
+import type { ConversationMetadata, ConversationPhase } from "@vendeya/core";
 
 describe("formatConversationDetails", () => {
   const baseMetadata: ConversationMetadata = {

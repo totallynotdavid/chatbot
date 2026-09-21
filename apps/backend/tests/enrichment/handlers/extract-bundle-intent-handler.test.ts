@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { createMockProvider } from "@totem/intelligence";
+import { createMockProvider } from "@vendeya/intelligence";
 import { ExtractBundleIntentHandler } from "../../../src/conversation/enrichment/handlers/extract-bundle-intent-handler.ts";
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 
 const TEST_REF = {
   tenantId: "tenant-test",

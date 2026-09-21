@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import type { OrderStatus } from "@totem/types";
+import type { OrderStatus } from "@vendeya/types";
 import PageHeader from "$lib/components/shared/page-header.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 import {

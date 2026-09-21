@@ -4,7 +4,7 @@ import { channelAccountsOn } from "../../domains/channels/accounts.ts";
 import { tenantsOn } from "../../domains/tenants/index.ts";
 import { isEncryptionAvailable } from "../../platform/crypto/secrets.ts";
 import { createLogger } from "../../lib/logger.ts";
-import type { ChannelAccount, Tenant } from "@totem/types";
+import type { ChannelAccount, Tenant } from "@vendeya/types";
 
 const logger = createLogger("seed-tenants");
 

@@ -1,7 +1,7 @@
 import { MODEL_CONFIG } from "../../config";
 import { getTextClient } from "../client";
 import { parseLLMResponse } from "../shared";
-import { buildSuggestAlternativePrompt } from "@totem/core";
+import { buildSuggestAlternativePrompt } from "@vendeya/core";
 
 export async function suggestAlternative(
   requestedCategory: string,

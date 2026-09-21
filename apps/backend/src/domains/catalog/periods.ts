@@ -1,7 +1,7 @@
 import { db } from "../../db/index.ts";
 import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
 import { tenantScopedId } from "./ids.ts";
-import type { CatalogPeriod, PeriodStatus } from "@totem/types";
+import type { CatalogPeriod, PeriodStatus } from "@vendeya/types";
 
 type CreatePeriodData = {
   tenantId: string;

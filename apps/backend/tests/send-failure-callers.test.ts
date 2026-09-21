@@ -17,8 +17,8 @@ import {
   type TenantFixture,
 } from "./helpers/tenancy.ts";
 
-import type { ConversationMetadata, ConversationPhase } from "@totem/core";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationMetadata, ConversationPhase } from "@vendeya/core";
+import type { ConversationRef } from "@vendeya/types";
 
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { executeCommands } from "../src/conversation/handler/command-executor.ts";

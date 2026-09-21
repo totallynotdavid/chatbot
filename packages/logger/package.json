@@ -1,5 +1,5 @@
 {
-    "name": "@totem/logger",
+    "name": "@vendeya/logger",
     "version": "1.0.0",
     "type": "module",
     "exports": {

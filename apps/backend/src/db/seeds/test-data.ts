@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import type { ConversationStatus, SaleStatus, Segment } from "@totem/types";
+import type { ConversationStatus, SaleStatus, Segment } from "@vendeya/types";
 
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;

@@ -3,11 +3,11 @@ import type {
   ConversationPhase,
   EnrichmentResult,
   TransitionResult,
-} from "@totem/core";
-import { transition } from "@totem/core";
-import type { IntelligenceProvider } from "@totem/intelligence";
-import type { CatalogSnapshot, ConversationRef } from "@totem/types";
-import { createTraceId } from "@totem/utils";
+} from "@vendeya/core";
+import { transition } from "@vendeya/core";
+import type { IntelligenceProvider } from "@vendeya/intelligence";
+import type { CatalogSnapshot, ConversationRef } from "@vendeya/types";
+import { createTraceId } from "@vendeya/utils";
 import { createLogger } from "../../lib/logger.ts";
 import { enrichmentRegistry } from "../enrichment/index.ts";
 import { applyEnrichmentToMetadata } from "../enrichment/metadata-manager.ts";

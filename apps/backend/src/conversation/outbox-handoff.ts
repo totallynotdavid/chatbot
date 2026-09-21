@@ -1,4 +1,4 @@
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import { createLogger } from "../lib/logger.ts";
 import { createEvent, eventBus } from "../shared/events/index.ts";
 import { ConversationBusyError, LockTimeoutError, withLock } from "./locks.ts";

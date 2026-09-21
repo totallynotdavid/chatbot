@@ -3,8 +3,8 @@ import type {
   ConversationMetadata,
   ConversationPhase,
   TransitionResult,
-} from "@totem/core";
-import type { ConversationRef } from "@totem/types";
+} from "@vendeya/core";
+import type { ConversationRef } from "@vendeya/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";

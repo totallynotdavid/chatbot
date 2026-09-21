@@ -36,7 +36,7 @@ import { accountsOn } from "../src/domains/accounts/index.ts";
 import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
 import { PRIVATE_DIR } from "../src/lib/storage-paths.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
-import type { ChannelAccount, Tenant } from "@totem/types";
+import type { ChannelAccount, Tenant } from "@vendeya/types";
 import { setAccountEnv } from "./helpers/account-env.ts";
 import { createTestDatabase } from "./helpers/database.ts";
 import { LEGACY_SCHEMA } from "./helpers/legacy-schema.ts";
@@ -146,7 +146,7 @@ describe("legacy database migration", () => {
   let db: Database;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-migration-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-migration-"));
     db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
@@ -466,7 +466,7 @@ describe("migrating a database with WhatsApp credentials configured", () => {
     process.env.WHATSAPP_TOKEN = ACCESS_TOKEN;
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
 
-    dir = mkdtempSync(join(tmpdir(), "totem-migration-creds-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-migration-creds-"));
     db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
@@ -582,7 +582,7 @@ describe("seeding a database the seed was handed", () => {
   beforeEach(() => {
     restoreEnv = setAccountEnv();
 
-    dir = mkdtempSync(join(tmpdir(), "totem-seed-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-seed-"));
     db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
 
@@ -656,7 +656,7 @@ describe("re-seeding a channel account that was left pending", () => {
     process.env.WHATSAPP_TOKEN = ACCESS_TOKEN;
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
 
-    dir = mkdtempSync(join(tmpdir(), "totem-reseed-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-reseed-"));
     db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
   });
@@ -782,7 +782,7 @@ describe("seeding channel accounts with no WhatsApp number configured", () => {
     savedPhoneId = process.env.WHATSAPP_PHONE_ID;
     delete process.env.WHATSAPP_PHONE_ID;
 
-    dir = mkdtempSync(join(tmpdir(), "totem-unconfigured-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-unconfigured-"));
     db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
   });
@@ -877,7 +877,7 @@ describe("migrating uploads that exist on disk", () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-uploads-migration-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-uploads-migration-"));
     legacyRoot = join(process.cwd(), "data");
     legacyDir = join(legacyRoot, "contracts", UPLOAD_CUSTOMER);
     privateRoots = [];
@@ -1225,7 +1225,7 @@ describe("the scope a carried-over session is given", () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-session-backfill-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-session-backfill-"));
     db = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(db);
 
@@ -1310,7 +1310,7 @@ describe("migrating a legacy database", () => {
   beforeEach(() => {
     restoreEnv = setAccountEnv();
 
-    dir = mkdtempSync(join(tmpdir(), "totem-operator-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-operator-"));
     db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);
@@ -1408,7 +1408,7 @@ describe("giving a database that already has users a platform operator", () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-operator-seed-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-operator-seed-"));
     db = createTestDatabase(join(dir, "legacy.sqlite"));
     db.run(LEGACY_SCHEMA);
     seedLegacyData(db);

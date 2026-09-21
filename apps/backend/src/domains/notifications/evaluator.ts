@@ -1,4 +1,4 @@
-import type { DomainEvent } from "@totem/types";
+import type { DomainEvent } from "@vendeya/types";
 import type { NotificationRule } from "./config.ts";
 
 export type NotificationDecision =

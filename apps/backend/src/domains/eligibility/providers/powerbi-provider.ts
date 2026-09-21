@@ -10,7 +10,7 @@ import { getSimulationPersona } from "../shared.ts";
 import { PersonasService } from "../../personas/index.ts";
 import type { EligibilityProvider } from "./provider.ts";
 import { ProviderError } from "./provider.ts";
-import type { ConversationRef, ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@vendeya/types";
 import { createLogger } from "../../../lib/logger.ts";
 
 const logger = createLogger("powerbi-provider");

@@ -9,7 +9,7 @@
 
 import { createLogger } from "../lib/logger.ts";
 import { TIMEOUTS } from "../config/timeouts.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("locks");
 

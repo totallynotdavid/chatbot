@@ -2,7 +2,7 @@ import type {
   IncomingMessage,
   InboundMessageType,
   QuotedMessageContext,
-} from "@totem/types";
+} from "@vendeya/types";
 
 function mapCloudApiType(cloudApiType: string): InboundMessageType {
   switch (cloudApiType) {

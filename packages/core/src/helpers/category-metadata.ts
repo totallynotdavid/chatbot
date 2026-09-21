@@ -1,4 +1,4 @@
-import { CATEGORIES } from "@totem/types";
+import { CATEGORIES } from "@vendeya/types";
 
 export type CategoryMetadata = {
   key: string;

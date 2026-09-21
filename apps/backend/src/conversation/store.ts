@@ -9,8 +9,8 @@
 
 import { db } from "../db/index.ts";
 import { getOne } from "../db/query.ts";
-import type { Conversation, ConversationRef } from "@totem/types";
-import type { ConversationPhase, ConversationMetadata } from "@totem/core";
+import type { Conversation, ConversationRef } from "@vendeya/types";
+import type { ConversationPhase, ConversationMetadata } from "@vendeya/core";
 
 type ConversationData = {
   ref: ConversationRef;

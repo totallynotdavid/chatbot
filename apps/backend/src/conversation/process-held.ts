@@ -9,7 +9,7 @@ import { LockTimeoutError } from "./locks.ts";
 import { ChannelUnavailableError } from "../adapters/whatsapp/index.ts";
 import { isMaintenanceMode } from "../domains/settings/system.ts";
 import { createLogger } from "../lib/logger.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("held-messages");
 

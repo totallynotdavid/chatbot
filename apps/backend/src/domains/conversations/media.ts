@@ -8,7 +8,7 @@ import {
   privateStorageKey,
 } from "../../adapters/storage/private-files.ts";
 import { createLogger } from "../../lib/logger.ts";
-import type { Asset, ConversationRef } from "@totem/types";
+import type { Asset, ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("conversation-media");
 

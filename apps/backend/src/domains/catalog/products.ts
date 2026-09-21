@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
-import type { Product } from "@totem/types";
+import type { Product } from "@vendeya/types";
 import type { SQLQueryBindings } from "bun:sqlite";
 
 /**

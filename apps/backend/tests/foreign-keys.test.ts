@@ -33,7 +33,7 @@ import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import webhook from "../src/routes/webhook.ts";
 import { signedWebhookRequest } from "./helpers/webhook.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import { createTestDatabase } from "./helpers/database.ts";
 
 describe("foreign key enforcement", () => {
@@ -492,7 +492,7 @@ describe("the composite reference itself", () => {
   let fresh: Database;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-fk-shape-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-fk-shape-"));
     fresh = createTestDatabase(join(dir, "fresh.sqlite"));
     initializeDatabase(fresh);
   });
@@ -614,7 +614,7 @@ describe("migration under an enforcing connection", () => {
   let legacy: Database;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-fk-migration-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-fk-migration-"));
     legacy = createTestDatabase(join(dir, "legacy.sqlite"));
     legacy.run("PRAGMA foreign_keys = ON;");
     legacy.run(`

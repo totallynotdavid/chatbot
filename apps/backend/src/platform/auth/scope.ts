@@ -1,4 +1,4 @@
-import type { TenantRole } from "@totem/types";
+import type { TenantRole } from "@vendeya/types";
 import { TenantService } from "../../domains/tenants/index.ts";
 
 /**

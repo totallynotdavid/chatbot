@@ -1,6 +1,6 @@
 <script lang="ts">
     import { goto } from "$app/navigation";
-    import type { Bundle, SnapshotProduct, Product } from "@totem/types";
+    import type { Bundle, SnapshotProduct, Product } from "@vendeya/types";
     import Button from "$lib/components/ui/button.svelte";
     import ImageUploadSimple from "$lib/components/catalog/image-upload-simple.svelte";
     import FormField from "$lib/components/ui/form-field.svelte";

@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { db } from "../../src/db/index.ts";
 import { initializeDatabase } from "../../src/db/init.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 // The fixtures write through the application's own connection, so it must be
 // a throwaway database. `tests/setup.ts` points DB_PATH at a temp file before

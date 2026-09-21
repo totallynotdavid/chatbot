@@ -3,8 +3,8 @@ import type {
   Bundle,
   CategoryGroup,
   CatalogSnapshot,
-} from "@totem/types";
-import type { DomainEvent } from "@totem/types";
+} from "@vendeya/types";
+import type { DomainEvent } from "@vendeya/types";
 
 export type ConversationPhase =
   | { phase: "greeting" }

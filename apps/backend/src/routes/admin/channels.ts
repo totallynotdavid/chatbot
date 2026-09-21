@@ -9,7 +9,7 @@ import {
   requireActiveTenant,
   requirePlatformOperator,
 } from "../../middleware/auth.ts";
-import type { ChannelAccount } from "@totem/types";
+import type { ChannelAccount } from "@vendeya/types";
 
 const channels = new Hono();
 

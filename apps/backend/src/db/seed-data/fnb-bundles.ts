@@ -1,4 +1,4 @@
-import type { BundleComposition, InstallmentSchedule } from "@totem/types";
+import type { BundleComposition, InstallmentSchedule } from "@vendeya/types";
 import { BASE_PRODUCTS } from "./products.ts";
 
 /** Helper to get product snapshot from BASE_PRODUCTS */

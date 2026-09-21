@@ -19,7 +19,7 @@
  * an image here.
  */
 
-import type { AssetKind } from "@totem/types";
+import type { AssetKind } from "@vendeya/types";
 
 const DEFAULT_CONTENT_TYPE = "application/octet-stream";
 

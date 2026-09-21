@@ -3,7 +3,7 @@ import { currentPeriodId } from "./periods.ts";
 import { tenantScopedId } from "../../domains/catalog/ids.ts";
 import { BUNDLES_SEED } from "../seed-data/bundles.ts";
 import { FNB_BUNDLES_SEED } from "../seed-data/fnb-bundles.ts";
-import type { BundleComposition, SnapshotProduct } from "@totem/types";
+import type { BundleComposition, SnapshotProduct } from "@vendeya/types";
 
 const BUNDLE_NOTES =
   "01 año de garantía, delivery gratuito, cero cuota inicial";

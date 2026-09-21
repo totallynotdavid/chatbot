@@ -16,13 +16,13 @@ import {
   type TenantFixture,
 } from "./helpers/tenancy.ts";
 
-import { GREETING } from "@totem/core";
+import { GREETING } from "@vendeya/core";
 import type {
   ConversationMetadata,
   ConversationPhase,
   TransitionResult,
-} from "@totem/core";
-import type { ChannelAccount, ConversationRef } from "@totem/types";
+} from "@vendeya/core";
+import type { ChannelAccount, ConversationRef } from "@vendeya/types";
 
 import { getReadyForAggregation } from "../src/conversation/message-inbox.ts";
 import {

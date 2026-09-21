@@ -1,6 +1,6 @@
 {
     "extends": [
-        "@totem/tsconfig/sveltekit.json",
+        "@vendeya/tsconfig/sveltekit.json",
         "./.svelte-kit/tsconfig.json"
     ],
     "compilerOptions": {

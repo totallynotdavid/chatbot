@@ -1,4 +1,4 @@
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 
 export type IntentResult = {
   bundle: Bundle | null;

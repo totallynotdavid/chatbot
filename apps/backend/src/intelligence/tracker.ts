@@ -1,7 +1,7 @@
 import { db } from "../db/index.ts";
 import { getAll, tenantPredicate } from "../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("llm-tracker");

@@ -11,7 +11,7 @@ import {
 import { handleMessage } from "./handler/index.ts";
 import { ConversationBusyError, LockTimeoutError } from "./locks.ts";
 import { ChannelUnavailableError } from "../adapters/whatsapp/index.ts";
-import type { ConversationRef, QuotedMessageContext } from "@totem/types";
+import type { ConversationRef, QuotedMessageContext } from "@vendeya/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("aggregator");

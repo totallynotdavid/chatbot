@@ -9,7 +9,7 @@ import {
   isTenantRole,
 } from "../../domains/tenants/index.ts";
 import { activeTenantId, requireActiveTenant } from "../../middleware/auth.ts";
-import { MIN_PASSWORD_LENGTH, type TenantRole } from "@totem/types";
+import { MIN_PASSWORD_LENGTH, type TenantRole } from "@vendeya/types";
 
 const users = new Hono();
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import type { Conversation } from "@totem/types";
+import type { Conversation } from "@vendeya/types";
 import { fetchApi } from "$lib/utils/api";
 import ConversationList from "$lib/components/conversations/conversation-list.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";

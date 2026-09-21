@@ -1,10 +1,10 @@
 {
-    "extends": "@totem/tsconfig/backend.json",
+    "extends": "@vendeya/tsconfig/backend.json",
     "compilerOptions": {
         "paths": {
-            "@totem/logger": ["../../packages/logger/src"],
-            "@totem/types": ["../../packages/types/src"],
-            "@totem/utils": ["../../packages/utils/src"]
+            "@vendeya/logger": ["../../packages/logger/src"],
+            "@vendeya/types": ["../../packages/types/src"],
+            "@vendeya/utils": ["../../packages/utils/src"]
         }
     },
     "include": ["src/**/*"],

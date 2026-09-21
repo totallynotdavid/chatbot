@@ -1,5 +1,5 @@
 {
-    "name": "@totem/core",
+    "name": "@vendeya/core",
     "version": "1.0.0",
     "type": "module",
     "exports": {
@@ -11,7 +11,7 @@
         "test:coverage": "bun test --coverage"
     },
     "dependencies": {
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*"
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*"
     }
 }

@@ -14,7 +14,7 @@ import {
   encryptSecret,
   type EncryptedValue,
 } from "../../platform/crypto/secrets.ts";
-import type { ChannelAccount, ChannelType } from "@totem/types";
+import type { ChannelAccount, ChannelType } from "@vendeya/types";
 
 const logger = createLogger("channel-accounts");
 

@@ -1,4 +1,4 @@
-import { getFrontendUrl } from "@totem/utils";
+import { getFrontendUrl } from "@vendeya/utils";
 
 export type NotificationContext = {
   phoneNumber: string;

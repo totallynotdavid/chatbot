@@ -18,8 +18,8 @@ import {
 } from "./helpers/tenancy.ts";
 import { customerWrites } from "./helpers/turn.ts";
 
-import type { ConversationMetadata, ConversationPhase } from "@totem/core";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationMetadata, ConversationPhase } from "@vendeya/core";
+import type { ConversationRef } from "@vendeya/types";
 
 import { processReadyMessages } from "../src/conversation/aggregator-worker.ts";
 import { executeCommands } from "../src/conversation/handler/command-executor.ts";

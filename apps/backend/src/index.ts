@@ -3,7 +3,7 @@ import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import process from "node:process";
 import { createLogger } from "./lib/logger.ts";
-import { getFrontendUrl } from "@totem/utils";
+import { getFrontendUrl } from "@vendeya/utils";
 import {
   startAggregatorWorker,
   stopAggregatorWorker,

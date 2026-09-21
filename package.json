@@ -1,5 +1,5 @@
 {
-    "name": "totem-workspace",
+    "name": "vendeya",
     "private": "true",
     "workspaces": [
         "apps/*",
@@ -24,7 +24,7 @@
         "format:md": "bun x prettier \"**/*.{md,yml,yaml}\" --write --print-width=80 --prose-wrap=always"
     },
     "devDependencies": {
-        "@totem/tsconfig": "workspace:*",
+        "@vendeya/tsconfig": "workspace:*",
         "@types/bun": "^1.4.1",
         "@types/node": "^26.4.1",
         "minimatch": "^5.1.8",

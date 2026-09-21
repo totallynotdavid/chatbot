@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { StockStatus } from "@totem/types";
+import type { StockStatus } from "@vendeya/types";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
 import Dropdown from "$lib/components/ui/dropdown.svelte";

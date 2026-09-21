@@ -1,5 +1,5 @@
 import { createLogger } from "../../lib/logger.ts";
-import { getNotifierUrl } from "@totem/utils";
+import { getNotifierUrl } from "@vendeya/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
 
 const logger = createLogger("notifier");

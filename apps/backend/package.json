@@ -1,5 +1,5 @@
 {
-    "name": "backend",
+    "name": "@vendeya/backend",
     "module": "index.ts",
     "type": "module",
     "private": true,
@@ -13,16 +13,16 @@
         "test:llm": "bun test --env-file=../../.env tests/llm-service.test.ts"
     },
     "devDependencies": {
-        "@totem/tsconfig": "workspace:*"
+        "@vendeya/tsconfig": "workspace:*"
     },
     "dependencies": {
         "@oslojs/crypto": "^1.0.1",
         "@oslojs/encoding": "^1.1.0",
-        "@totem/core": "workspace:*",
-        "@totem/intelligence": "workspace:*",
-        "@totem/logger": "workspace:*",
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*",
+        "@vendeya/core": "workspace:*",
+        "@vendeya/intelligence": "workspace:*",
+        "@vendeya/logger": "workspace:*",
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*",
         "@types/jsonwebtoken": "^9.0.10",
         "bcryptjs": "^3.0.3",
         "hono": "^4.13.7",

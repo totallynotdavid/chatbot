@@ -6,7 +6,7 @@ import {
   openTenantsOnly,
   tenantPredicate,
 } from "../db/query.ts";
-import type { ConversationRef, IncomingMessage } from "@totem/types";
+import type { ConversationRef, IncomingMessage } from "@vendeya/types";
 
 /*
  * The statuses of an inbox row, and who moves each one.

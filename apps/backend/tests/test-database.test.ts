@@ -67,7 +67,7 @@ function testFiles(dir: string): string[] {
 
 describe("the databases tests create for themselves", () => {
   it("skip the fsync after every statement", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "totem-test-db-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "vendeya-test-db-"));
     const database = createTestDatabase(path.join(dir, "scratch.sqlite"));
 
     try {

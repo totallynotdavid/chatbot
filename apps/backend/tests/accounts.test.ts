@@ -24,7 +24,7 @@ describe("accounts", () => {
   let accounts: ReturnType<typeof accountsOn>;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-accounts-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-accounts-"));
     db = createTestDatabase(join(dir, "accounts.sqlite"));
     db.run("PRAGMA foreign_keys = ON;");
     initializeDatabase(db);

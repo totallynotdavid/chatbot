@@ -12,7 +12,7 @@ import process from "node:process";
 import { TEST_APP_SECRET } from "./helpers/webhook.ts";
 
 // A temp directory per run keeps the tests' own cleanup away from real files.
-const dir = mkdtempSync(join(tmpdir(), "totem-test-"));
+const dir = mkdtempSync(join(tmpdir(), "vendeya-test-"));
 
 // The suite mocks Cloud API responses. NODE_ENV=development would select the
 // dev adapter instead, so it is set to `test`.

@@ -6,7 +6,7 @@ import {
   openTenantsOnly,
 } from "../db/query.ts";
 import { createLogger } from "../lib/logger.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import type {
   OutboundMessage,
   SendOutcome,

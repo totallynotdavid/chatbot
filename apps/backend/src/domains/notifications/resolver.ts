@@ -1,7 +1,7 @@
 import { getOne } from "../../db/query.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { TenantSettings } from "../settings/system.ts";
-import type { DomainEvent } from "@totem/types";
+import type { DomainEvent } from "@vendeya/types";
 
 const logger = createLogger("notification-resolver");
 

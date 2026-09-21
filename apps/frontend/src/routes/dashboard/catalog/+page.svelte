@@ -6,7 +6,7 @@
     Bundle,
     CatalogPeriod,
     StockStatus,
-  } from "@totem/types";
+  } from "@vendeya/types";
   import { auth } from "$lib/state/auth.svelte";
   import { fetchApi } from "$lib/utils/api";
   import PageHeader from "$lib/components/shared/page-header.svelte";

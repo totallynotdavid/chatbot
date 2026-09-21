@@ -1,12 +1,12 @@
-import type { EnrichmentResult } from "@totem/core";
+import type { EnrichmentResult } from "@vendeya/core";
 import { BundleService } from "../catalog/index.ts";
 import { getCategoryDisplayNames } from "../../adapters/catalog/display.ts";
-import { CATEGORIES, CATEGORY_GROUPS } from "@totem/types";
+import { CATEGORIES, CATEGORY_GROUPS } from "@vendeya/types";
 import type {
   CategoryGroup,
   CategoryKey,
   ProviderCheckResult,
-} from "@totem/types";
+} from "@vendeya/types";
 
 type EligibilityResult = ProviderCheckResult & {
   needsHuman?: boolean;

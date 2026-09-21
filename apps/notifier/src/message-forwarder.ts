@@ -1,7 +1,7 @@
 import type { Message } from "whatsapp-web.js";
 import { parseIncomingMessage } from "./adapters/webjs-parser.ts";
 import { createLogger } from "./logger.ts";
-import { getBackendUrl } from "@totem/utils";
+import { getBackendUrl } from "@vendeya/utils";
 
 const logger = createLogger("forwarder");
 

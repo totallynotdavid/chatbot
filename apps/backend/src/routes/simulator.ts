@@ -17,7 +17,7 @@ import {
   requireActiveTenant,
   requireRole,
 } from "../middleware/auth.ts";
-import type { Conversation, ConversationRef } from "@totem/types";
+import type { Conversation, ConversationRef } from "@vendeya/types";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("simulator");

@@ -7,7 +7,7 @@
 
 import { db } from "../../db/index.ts";
 import { getAll, getOne, tenantPredicate } from "../../db/query.ts";
-import type { Asset, AssetKind, AssetVisibility } from "@totem/types";
+import type { Asset, AssetKind, AssetVisibility } from "@vendeya/types";
 
 export const AssetService = {
   create: (data: {

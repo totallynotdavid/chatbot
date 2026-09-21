@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Bundle } from "@totem/types";
+  import type { Bundle } from "@vendeya/types";
   import { formatPrice } from "$lib/utils/formatters";
   import StockBadge from "./stock-badge.svelte";
 

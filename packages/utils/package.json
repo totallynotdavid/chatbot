@@ -1,5 +1,5 @@
 {
-    "name": "@totem/utils",
+    "name": "@vendeya/utils",
     "version": "1.0.0",
     "type": "module",
     "exports": {

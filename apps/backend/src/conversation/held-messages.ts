@@ -6,7 +6,7 @@ import {
   tenantPredicate,
 } from "../db/query.ts";
 import { createLogger } from "../lib/logger.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("held-messages");
 

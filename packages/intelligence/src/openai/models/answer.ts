@@ -2,7 +2,7 @@ import type { AnswerContext } from "../../types";
 import { MODEL_CONFIG } from "../../config";
 import { getTextClient } from "../client";
 import { parseLLMResponse } from "../shared";
-import { buildAnswerQuestionPrompt } from "@totem/core";
+import { buildAnswerQuestionPrompt } from "@vendeya/core";
 
 export async function answerQuestion(
   message: string,

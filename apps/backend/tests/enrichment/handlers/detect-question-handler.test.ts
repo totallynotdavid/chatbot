@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { createMockProvider } from "@totem/intelligence";
+import { createMockProvider } from "@vendeya/intelligence";
 import { DetectQuestionHandler } from "../../../src/conversation/enrichment/handlers/detect-question-handler.ts";
 
 const TEST_REF = {

@@ -7,7 +7,7 @@ import { sha256 } from "@oslojs/crypto/sha2";
 import type { Context } from "hono";
 import { setCookie, deleteCookie } from "hono/cookie";
 import process from "node:process";
-import type { TenantMembership, TenantRole } from "@totem/types";
+import type { TenantMembership, TenantRole } from "@vendeya/types";
 import { MembershipService } from "../../domains/tenants/index.ts";
 import type { AuthScope } from "./scope.ts";
 import { sessionRole } from "./scope.ts";

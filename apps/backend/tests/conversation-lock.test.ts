@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import process from "node:process";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 import { db } from "../src/db/index.ts";
 import {

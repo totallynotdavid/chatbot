@@ -2,7 +2,7 @@ import type {
   ChannelAccount,
   ConversationMessage,
   StoredMessageType,
-} from "@totem/types";
+} from "@vendeya/types";
 
 /**
  * What a send did. Repeating a `permanent` failure will not help. A `transient`

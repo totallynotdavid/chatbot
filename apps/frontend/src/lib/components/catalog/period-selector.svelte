@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { CatalogPeriod } from "@totem/types";
+import type { CatalogPeriod } from "@vendeya/types";
 
 type Props = {
   periods: CatalogPeriod[];

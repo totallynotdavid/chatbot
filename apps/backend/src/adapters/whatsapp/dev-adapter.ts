@@ -1,7 +1,7 @@
 import type { ChannelAccount, SendOutcome, WhatsAppAdapter } from "./types.ts";
 import { classifyHttpFailure, classifyThrown } from "./cloud-api.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { getNotifierUrl, getPublicUrl } from "@totem/utils";
+import { getNotifierUrl, getPublicUrl } from "@vendeya/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
 
 const logger = createLogger("whatsapp");

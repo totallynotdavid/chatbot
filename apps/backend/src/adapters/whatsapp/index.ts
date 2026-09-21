@@ -1,5 +1,5 @@
 import process from "node:process";
-import type { ChannelAccount, ConversationRef } from "@totem/types";
+import type { ChannelAccount, ConversationRef } from "@vendeya/types";
 import type {
   ConversationMessage,
   OutboundMessage,

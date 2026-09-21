@@ -29,9 +29,10 @@ only the rules those documents do not.
   that exists.
 - **A new workspace** needs an entry in the CI typecheck matrix, which a test
   enforces, and a step in the CI `test` job, which nothing enforces.
-- **Names.** The product is VendeYa. The packages are `@totem/*`, the notifier
-  is `totem-notifier`, the repository is `chatbot`. Totem is a tenant, the
-  default one. Do not rename in passing.
+- **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
+  The repository is still named `chatbot`. Totem is the default tenant, a client
+  business, and its slug `totem` is a lookup key for an existing row, so it is
+  never renamed. Do not rename in passing.
 - **Business rules.** Implement what the code and the owner say. Credit tiers,
   NSE limits and bundle rules found in old notes or dead code (`gaso-logic.ts`)
   are not live rules.

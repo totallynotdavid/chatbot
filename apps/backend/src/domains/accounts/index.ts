@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
-import { MIN_PASSWORD_LENGTH } from "@totem/types";
+import { MIN_PASSWORD_LENGTH } from "@vendeya/types";
 import { queriesOn } from "../../db/query.ts";
 import { auditOn, type CliOperator } from "../../platform/audit/logger.ts";
 import { Err, Ok, type Result } from "../../shared/result/index.ts";

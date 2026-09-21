@@ -31,7 +31,7 @@ describe("seeding a catalog", () => {
   let db: Database;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-seeding-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-seeding-"));
     db = createTestDatabase(join(dir, "fresh.sqlite"));
     db.run("PRAGMA foreign_keys = ON;");
     initializeDatabase(db);

@@ -1,5 +1,5 @@
 import type { Handle } from "@sveltejs/kit";
-import { getBackendUrl } from "@totem/utils";
+import { getBackendUrl } from "@vendeya/utils";
 
 /**
  * Server hook that runs on every request

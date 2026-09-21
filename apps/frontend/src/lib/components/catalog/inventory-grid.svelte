@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Product } from "@totem/types";
+import type { Product } from "@vendeya/types";
 
 type Props = {
   products: Product[];

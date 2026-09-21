@@ -1,7 +1,7 @@
 import type { DomainEvent } from "./types.ts";
 import type { EventBus } from "./event-bus.ts";
 import { createLogger } from "../../lib/logger.ts";
-import type { Logger } from "@totem/logger";
+import type { Logger } from "@vendeya/logger";
 
 export class AsyncEventEmitter {
   private logger: Logger;

@@ -19,8 +19,8 @@ import {
 } from "./helpers/tenancy.ts";
 import { customerWrites as writeIn } from "./helpers/turn.ts";
 
-import type { ConversationPhase } from "@totem/core";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationPhase } from "@vendeya/core";
+import type { ConversationRef } from "@vendeya/types";
 
 import { TIMEOUTS } from "../src/config/timeouts.ts";
 import { processReadyMessages } from "../src/conversation/aggregator-worker.ts";

@@ -2,7 +2,7 @@ import type {
   EnrichmentHandler,
   EnrichmentContext,
 } from "../handler-interface.ts";
-import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
+import type { EnrichmentRequest, EnrichmentResult } from "@vendeya/core";
 import type { CheckEligibilityHandler } from "../../../domains/eligibility/handlers/check-eligibility-handler.ts";
 import { isOk } from "../../../shared/result/index.ts";
 import { createLogger } from "../../../lib/logger.ts";

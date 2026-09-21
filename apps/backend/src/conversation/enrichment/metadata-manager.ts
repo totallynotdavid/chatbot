@@ -2,7 +2,7 @@ import type {
   EnrichmentRequest,
   EnrichmentResult,
   ConversationMetadata,
-} from "@totem/core";
+} from "@vendeya/core";
 import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("enrichment");

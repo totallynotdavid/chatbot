@@ -1,6 +1,6 @@
 <script lang="ts">
   import MessageBubble from "./message-bubble.svelte";
-  import type { ConversationMessage } from "@totem/types";
+  import type { ConversationMessage } from "@vendeya/types";
 
   type Props = {
     messages: ConversationMessage[];

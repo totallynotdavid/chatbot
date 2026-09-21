@@ -1,4 +1,4 @@
-import type { ConversationMetadata, ConversationPhase } from "@totem/core";
+import type { ConversationMetadata, ConversationPhase } from "@vendeya/core";
 
 export function formatConversationDetails(
   metadata: Partial<ConversationMetadata>,

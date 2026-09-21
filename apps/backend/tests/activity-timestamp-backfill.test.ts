@@ -151,7 +151,7 @@ describe("the warning about replaced activity timestamps", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-backfill-log-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-backfill-log-"));
   });
 
   afterEach(() => {

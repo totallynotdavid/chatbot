@@ -3,7 +3,7 @@ import { onMount } from "svelte";
 import { page } from "$app/state";
 import { goto } from "$app/navigation";
 import { fetchApi } from "$lib/utils/api";
-import { MIN_PASSWORD_LENGTH } from "@totem/types";
+import { MIN_PASSWORD_LENGTH } from "@vendeya/types";
 import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
 import { toast } from "$lib/state/toast.svelte";
 import { auth } from "$lib/state/auth.svelte";

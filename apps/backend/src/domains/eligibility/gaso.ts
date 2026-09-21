@@ -1,4 +1,4 @@
-import type { ConversationRef, ProviderCheckResult } from "@totem/types";
+import type { ConversationRef, ProviderCheckResult } from "@vendeya/types";
 import { PowerBIClient } from "../../adapters/providers/powerbi-client.ts";
 import { isAvailable, markBlocked } from "../../adapters/providers/health.ts";
 import { PersonasService } from "../../domains/personas/index.ts";

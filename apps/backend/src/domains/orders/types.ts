@@ -1,4 +1,4 @@
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 export interface OrderItem {
   productId: string;

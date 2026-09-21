@@ -3,8 +3,8 @@ import {
   CATEGORY_GROUPS,
   type CatalogSnapshot,
   type CategoryKey,
-} from "@totem/types";
-import { createTraceId } from "@totem/utils";
+} from "@vendeya/types";
+import { createTraceId } from "@vendeya/utils";
 import { matchCategory } from "../../matching/category-matcher.ts";
 import { matchGroup } from "../../matching/group-matcher.ts";
 import {

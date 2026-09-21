@@ -1,7 +1,7 @@
 import { db } from "../../db/index.ts";
-import type { Order } from "@totem/types";
+import type { Order } from "@vendeya/types";
 import { eventBus } from "../../shared/events/index.ts";
-import { createTraceId } from "@totem/utils";
+import { createTraceId } from "@vendeya/utils";
 import { generateOrderNumber } from "./utils.ts";
 import { getOrderById } from "./read.ts";
 import type { CreateOrderInput } from "./types.ts";

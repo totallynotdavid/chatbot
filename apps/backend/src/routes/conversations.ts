@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { pathParam } from "../lib/http.ts";
 import type { Context } from "hono";
-import type { Conversation } from "@totem/types";
+import type { Conversation } from "@vendeya/types";
 import * as ConversationRead from "../domains/conversations/read.ts";
 import {
   ConversationBusyError,

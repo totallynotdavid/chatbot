@@ -1,7 +1,7 @@
 import { getAll, tenantPredicate } from "../../db/query.ts";
 import { refOf } from "../../conversation/store.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { Conversation } from "@totem/types";
+import type { Conversation } from "@vendeya/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { getEventsByConversation } from "../../domains/analytics/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
@@ -9,7 +9,7 @@ import {
   assignedAgentScope,
   type AuthScope,
 } from "../../platform/auth/scope.ts";
-import type { ReplayData, ReplayMetadata } from "@totem/types";
+import type { ReplayData, ReplayMetadata } from "@vendeya/types";
 
 /**
  * A sales agent reaches a conversation assigned to them or to nobody, never one

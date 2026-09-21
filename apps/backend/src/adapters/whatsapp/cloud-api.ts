@@ -1,6 +1,6 @@
 import type { ChannelAccount, SendOutcome, WhatsAppAdapter } from "./types.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { getPublicUrl } from "@totem/utils";
+import { getPublicUrl } from "@vendeya/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
 import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 

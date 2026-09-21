@@ -1,5 +1,5 @@
-export type { DomainEvent } from "@totem/types";
-import { createTraceId } from "@totem/utils";
+export type { DomainEvent } from "@vendeya/types";
+import { createTraceId } from "@vendeya/utils";
 
 export function createEvent<T extends string, P>(
   type: T,

@@ -36,7 +36,7 @@ import {
 } from "../src/adapters/whatsapp/index.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
-import type { ChannelAccount, ConversationRef } from "@totem/types";
+import type { ChannelAccount, ConversationRef } from "@vendeya/types";
 
 const CUSTOMER = "51900444555";
 

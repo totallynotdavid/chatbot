@@ -1,4 +1,4 @@
-import { CATEGORIES } from "@totem/types";
+import { CATEGORIES } from "@vendeya/types";
 
 export function formatCategoryList(categoryKeys: string[]): string {
   if (!categoryKeys || categoryKeys.length === 0) {

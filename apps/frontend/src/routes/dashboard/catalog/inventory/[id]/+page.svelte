@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import type { Product } from "@totem/types";
+import type { Product } from "@vendeya/types";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
 import { validateRequired, hasErrors, type ValidationErrors } from "$lib/utils/validation";

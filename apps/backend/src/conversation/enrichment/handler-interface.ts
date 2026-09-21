@@ -1,6 +1,6 @@
-import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
-import type { IntelligenceProvider } from "@totem/intelligence";
-import type { ConversationRef } from "@totem/types";
+import type { EnrichmentRequest, EnrichmentResult } from "@vendeya/core";
+import type { IntelligenceProvider } from "@vendeya/intelligence";
+import type { ConversationRef } from "@vendeya/types";
 
 /**
  * Context passed to all enrichment handlers.

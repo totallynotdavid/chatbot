@@ -1,6 +1,6 @@
 import { PersonasService } from "../../domains/personas/index.ts";
 import { getOne } from "../../db/query.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 type ConversationRow = {
   is_simulation: number;

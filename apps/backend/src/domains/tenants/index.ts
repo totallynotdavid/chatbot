@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { db } from "../../db/index.ts";
 import { queriesOn } from "../../db/query.ts";
-import type { Tenant, TenantMembership, TenantRole } from "@totem/types";
+import type { Tenant, TenantMembership, TenantRole } from "@vendeya/types";
 
 export const TENANT_ROLES: TenantRole[] = [
   "admin",

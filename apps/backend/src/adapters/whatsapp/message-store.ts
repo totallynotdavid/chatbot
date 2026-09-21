@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getAll, getOne } from "../../db/query.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 import type {
   ConversationMessage,
   MessageDirection,

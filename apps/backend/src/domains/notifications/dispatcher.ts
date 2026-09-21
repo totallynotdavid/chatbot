@@ -4,7 +4,7 @@ import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { ChannelAccountService } from "../channels/accounts.ts";
 import { NotificationResolver } from "./resolver.ts";
 import type { NotificationDecision } from "./evaluator.ts";
-import type { ChannelAccount, DomainEvent } from "@totem/types";
+import type { ChannelAccount, DomainEvent } from "@vendeya/types";
 
 const logger = createLogger("notification-dispatcher");
 

@@ -25,7 +25,7 @@ import {
 import simulatorRoutes from "../src/routes/simulator.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 const CUSTOMER = "51987651234";
 const SIMULATOR_PHONE = "51999999999";

@@ -1,12 +1,12 @@
-import { getProvider, MODEL_CONFIG } from "@totem/intelligence";
+import { getProvider, MODEL_CONFIG } from "@vendeya/intelligence";
 import { trackLLMCall } from "./tracker";
 import { classifyLLMError } from "./llm-errors";
 import type {
   AnswerContext,
   RecoveryContext,
   IntentResult,
-} from "@totem/intelligence";
-import type { ConversationRef } from "@totem/types";
+} from "@vendeya/intelligence";
+import type { ConversationRef } from "@vendeya/types";
 import { BundleService } from "../domains/catalog/bundles";
 
 function withObservability<T>(

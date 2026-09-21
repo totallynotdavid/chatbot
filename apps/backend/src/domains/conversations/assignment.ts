@@ -8,7 +8,7 @@ import {
 import { createLogger } from "../../lib/logger.ts";
 import { eventBus, createEvent } from "../../shared/events/index.ts";
 import { TenantSettings } from "../settings/system.ts";
-import type { ConversationRef } from "@totem/types";
+import type { ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("assignment");
 

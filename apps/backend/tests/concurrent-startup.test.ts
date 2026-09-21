@@ -30,7 +30,7 @@ describe("processes booting on a database from before tenancy", () => {
   let dbPath: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-tenant-race-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-tenant-race-"));
     dbPath = join(dir, "race.sqlite");
 
     const db = createTestDatabase(dbPath);
@@ -157,7 +157,7 @@ describe("processes creating a database that does not exist", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-fresh-race-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-fresh-race-"));
   });
 
   afterEach(() => {
@@ -244,7 +244,7 @@ describe("switching a file to WAL while another connection holds the write lock"
   let switching: Database;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-wal-lock-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-wal-lock-"));
     const path = join(dir, "wal.sqlite");
     holder = createTestDatabase(path);
     switching = createTestDatabase(path);

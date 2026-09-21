@@ -1,7 +1,7 @@
 <script lang="ts">
   import { formatTime } from "$lib/utils/formatters";
   import type { Snippet } from "svelte";
-  import type { StoredMessageType } from "@totem/types";
+  import type { StoredMessageType } from "@vendeya/types";
 
   type Props = {
     direction: "inbound" | "outbound";

@@ -4,7 +4,7 @@ import type {
   EnrichmentResult,
   ConversationMetadata,
 } from "../types.ts";
-import { createTraceId } from "@totem/utils";
+import { createTraceId } from "@vendeya/utils";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import * as S from "../../templates/sales.ts";
 

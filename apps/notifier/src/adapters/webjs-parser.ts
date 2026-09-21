@@ -3,7 +3,7 @@ import type {
   IncomingMessage,
   InboundMessageType,
   QuotedMessageContext,
-} from "@totem/types";
+} from "@vendeya/types";
 import { extractPhoneNumber } from "../lib/whatsapp-formatters.ts";
 import { createLogger } from "../logger.ts";
 

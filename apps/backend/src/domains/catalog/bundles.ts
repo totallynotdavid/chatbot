@@ -1,7 +1,7 @@
 import { db } from "../../db/index.ts";
 import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 import { imageStorage } from "../../adapters/storage/images.ts";
 import { AssetService } from "../assets/index.ts";
 

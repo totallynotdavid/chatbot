@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { transitionOfferingProducts } from "./offering-products.ts";
 import type { ConversationMetadata } from "../types.ts";
-import type { CatalogSnapshot } from "@totem/types";
+import type { CatalogSnapshot } from "@vendeya/types";
 
 describe("Offering Products Phase - Context Projection", () => {
   const mockPhase: any = {

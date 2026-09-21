@@ -1,5 +1,5 @@
 import type { RequestHandler } from "./$types";
-import { getBackendUrl } from "@totem/utils";
+import { getBackendUrl } from "@vendeya/utils";
 
 const backendUrl = getBackendUrl();
 const BACKEND_TIMEOUT_MS = 10_000;

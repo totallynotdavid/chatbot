@@ -2,7 +2,7 @@ import {
   buildIsQuestionPrompt,
   buildIsProductRequestPrompt,
   buildShouldEscalatePrompt,
-} from "@totem/core";
+} from "@vendeya/core";
 import { MODEL_CONFIG } from "../config";
 import { getTextClient } from "./client";
 import { parseLLMResponse } from "./shared";

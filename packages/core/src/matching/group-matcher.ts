@@ -1,4 +1,4 @@
-import { CATEGORY_GROUPS, type CategoryGroup } from "@totem/types";
+import { CATEGORY_GROUPS, type CategoryGroup } from "@vendeya/types";
 
 /**
  * Match user input to a category group for progressive disclosure.

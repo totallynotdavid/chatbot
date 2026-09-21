@@ -1,6 +1,6 @@
 import type { Result } from "../../../shared/result/index.ts";
 import { Ok, Err, isErr } from "../../../shared/result/index.ts";
-import type { ProviderCheckResult } from "@totem/types";
+import type { ProviderCheckResult } from "@vendeya/types";
 import type { ProviderResults, EligibilityEvaluation } from "./types.ts";
 import { SystemOutageError } from "./types.ts";
 import type { ProviderError } from "../providers/provider.ts";

@@ -17,7 +17,7 @@ import {
   type TenantFixture,
 } from "./helpers/tenancy.ts";
 
-import type { ChannelAccount, ConversationRef } from "@totem/types";
+import type { ChannelAccount, ConversationRef } from "@vendeya/types";
 
 import { CloudApiAdapter } from "../src/adapters/whatsapp/cloud-api.ts";
 import { WhatsAppService } from "../src/adapters/whatsapp/index.ts";

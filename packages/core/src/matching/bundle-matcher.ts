@@ -1,4 +1,4 @@
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 
 /**
  * Match user message to bundles using category-based regex patterns.

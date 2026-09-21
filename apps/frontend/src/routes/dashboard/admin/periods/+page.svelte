@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import type { CatalogPeriod } from "@totem/types";
+import type { CatalogPeriod } from "@vendeya/types";
 import { fetchApi } from "$lib/utils/api";
 import { toast } from "$lib/state/toast.svelte";
 import Button from "$lib/components/ui/button.svelte";

@@ -5,7 +5,7 @@ import type {
   ConversationMessage,
   SaleStatus,
   Order,
-} from "@totem/types";
+} from "@vendeya/types";
 import { fetchApi } from "$lib/utils/api";
 import {
   formatPhone,

@@ -10,7 +10,7 @@ import process from "node:process";
 import { Hono } from "hono";
 import bcrypt from "bcryptjs";
 import { db } from "../src/db/index.ts";
-import type { Bundle } from "@totem/types";
+import type { Bundle } from "@vendeya/types";
 
 import {
   addChannelAccount,

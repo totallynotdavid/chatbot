@@ -75,7 +75,7 @@ async function boot(
     prepare,
   }: { stopWhenServing: boolean; prepare?: (db: Database) => void },
 ): Promise<BootResult> {
-  const dir = mkdtempSync(join(tmpdir(), "totem-boot-"));
+  const dir = mkdtempSync(join(tmpdir(), "vendeya-boot-"));
   const dbPath = join(dir, "boot.sqlite");
   const port = freePort();
 

@@ -6,7 +6,7 @@ import {
   tenantPredicate,
 } from "../../db/query.ts";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { AnalyticsEvent, ConversationRef } from "@totem/types";
+import type { AnalyticsEvent, ConversationRef } from "@vendeya/types";
 
 export function trackEvent(
   ref: ConversationRef,

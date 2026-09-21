@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { createMockProvider } from "@totem/intelligence";
+import { createMockProvider } from "@vendeya/intelligence";
 
 describe("MockProvider", () => {
   test("returns configured response for isQuestion", async () => {

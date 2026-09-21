@@ -5,7 +5,7 @@ import Select from "$lib/components/ui/select.svelte";
 import Button from "$lib/components/ui/button.svelte";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
-import { MIN_PASSWORD_LENGTH } from "@totem/types";
+import { MIN_PASSWORD_LENGTH } from "@vendeya/types";
 import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
 
 type Props = {

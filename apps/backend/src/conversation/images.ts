@@ -1,4 +1,4 @@
-import type { ConversationRef, Segment } from "@totem/types";
+import type { ConversationRef, Segment } from "@vendeya/types";
 import { BundleService } from "../domains/catalog/index.ts";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
 

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { createMockProvider } from "@totem/intelligence";
+import { createMockProvider } from "@vendeya/intelligence";
 import { RecoverUnclearResponseHandler } from "../../../src/conversation/enrichment/handlers/recover-unclear-response-handler.ts";
 
 const TEST_REF = {

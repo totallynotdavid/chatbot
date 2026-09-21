@@ -1,4 +1,4 @@
-import type { EnrichmentRequest, EnrichmentResult } from "@totem/core";
+import type { EnrichmentRequest, EnrichmentResult } from "@vendeya/core";
 import type {
   EnrichmentHandler,
   EnrichmentContext,

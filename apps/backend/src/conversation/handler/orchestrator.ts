@@ -1,5 +1,5 @@
-import { getProvider } from "@totem/intelligence";
-import type { ConversationRef, QuotedMessageContext } from "@totem/types";
+import { getProvider } from "@vendeya/intelligence";
+import type { ConversationRef, QuotedMessageContext } from "@vendeya/types";
 import {
   ChannelUnavailableError,
   WhatsAppService,

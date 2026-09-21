@@ -7,7 +7,7 @@
   import MessageBubble from "$lib/components/conversations/message-bubble.svelte";
   import ConversationItem from "$lib/components/conversations/conversation-item.svelte";
   import PageTitle from "$lib/components/shared/page-title.svelte";
-  import type { ReplayData, Conversation, TestPersona } from "@totem/types";
+  import type { ReplayData, Conversation, TestPersona } from "@vendeya/types";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

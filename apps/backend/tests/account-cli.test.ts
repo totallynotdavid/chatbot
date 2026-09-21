@@ -155,7 +155,7 @@ describe("the account command", () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "totem-account-cli-"));
+    dir = mkdtempSync(join(tmpdir(), "vendeya-account-cli-"));
     dbPath = join(dir, "cli.sqlite");
 
     const db = open();

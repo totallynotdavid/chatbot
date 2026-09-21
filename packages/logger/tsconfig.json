@@ -1,5 +1,5 @@
 {
-    "extends": "@totem/tsconfig/base.json",
+    "extends": "@vendeya/tsconfig/base.json",
     "compilerOptions": {
         "outDir": "./dist",
         "rootDir": "./src"

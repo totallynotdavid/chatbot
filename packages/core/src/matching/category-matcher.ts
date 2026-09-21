@@ -1,4 +1,4 @@
-import { CATEGORIES, type CategoryKey } from "@totem/types";
+import { CATEGORIES, type CategoryKey } from "@vendeya/types";
 
 /**
  * Fast category matching using aliases and brands.

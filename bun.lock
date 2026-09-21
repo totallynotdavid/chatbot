@@ -3,11 +3,11 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "totem-workspace",
+      "name": "vendeya",
       "devDependencies": {
-        "@totem/tsconfig": "workspace:*",
         "@types/bun": "^1.4.1",
         "@types/node": "^26.4.1",
+        "@vendeya/tsconfig": "workspace:*",
         "minimatch": "^5.1.8",
         "picomatch": "^2.3.2",
         "shx": "^0.4.0",
@@ -15,16 +15,16 @@
       },
     },
     "apps/backend": {
-      "name": "backend",
+      "name": "@vendeya/backend",
       "dependencies": {
         "@oslojs/crypto": "^1.0.1",
         "@oslojs/encoding": "^1.1.0",
-        "@totem/core": "workspace:*",
-        "@totem/intelligence": "workspace:*",
-        "@totem/logger": "workspace:*",
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*",
         "@types/jsonwebtoken": "^9.0.10",
+        "@vendeya/core": "workspace:*",
+        "@vendeya/intelligence": "workspace:*",
+        "@vendeya/logger": "workspace:*",
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*",
         "bcryptjs": "^3.0.3",
         "hono": "^4.13.7",
         "jsonwebtoken": "^9.0.3",
@@ -33,15 +33,15 @@
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
       },
       "devDependencies": {
-        "@totem/tsconfig": "workspace:*",
+        "@vendeya/tsconfig": "workspace:*",
       },
     },
     "apps/frontend": {
-      "name": "frontend",
+      "name": "@vendeya/frontend",
       "version": "0.0.1",
       "dependencies": {
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*",
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*",
       },
       "devDependencies": {
         "@sveltejs/adapter-auto": "^7.0.1",
@@ -50,7 +50,7 @@
         "@tailwindcss/forms": "^0.5.11",
         "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.3.3",
-        "@totem/tsconfig": "workspace:*",
+        "@vendeya/tsconfig": "workspace:*",
         "svelte": "^5.57.0",
         "svelte-adapter-bun": "^1.0.1",
         "svelte-check": "^4.7.6",
@@ -61,12 +61,12 @@
       },
     },
     "apps/notifier": {
-      "name": "totem-notifier",
+      "name": "@vendeya/notifier",
       "version": "1.0.0",
       "dependencies": {
-        "@totem/logger": "workspace:*",
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*",
+        "@vendeya/logger": "workspace:*",
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*",
         "hono": "^4.13.7",
         "pino-pretty": "^13.1.3",
         "qrcode-terminal": "^0.12.0",
@@ -77,24 +77,24 @@
       },
     },
     "packages/core": {
-      "name": "@totem/core",
+      "name": "@vendeya/core",
       "version": "1.0.0",
       "dependencies": {
-        "@totem/types": "workspace:*",
-        "@totem/utils": "workspace:*",
+        "@vendeya/types": "workspace:*",
+        "@vendeya/utils": "workspace:*",
       },
     },
     "packages/intelligence": {
-      "name": "@totem/intelligence",
+      "name": "@vendeya/intelligence",
       "version": "0.1.0",
       "dependencies": {
-        "@totem/core": "workspace:*",
-        "@totem/types": "workspace:*",
+        "@vendeya/core": "workspace:*",
+        "@vendeya/types": "workspace:*",
         "openai": "^7.10.0",
       },
     },
     "packages/logger": {
-      "name": "@totem/logger",
+      "name": "@vendeya/logger",
       "version": "1.0.0",
       "dependencies": {
         "pino": "^10.3.1",
@@ -102,15 +102,15 @@
       },
     },
     "packages/tsconfig": {
-      "name": "@totem/tsconfig",
+      "name": "@vendeya/tsconfig",
       "version": "0.0.1",
     },
     "packages/types": {
-      "name": "@totem/types",
+      "name": "@vendeya/types",
       "version": "1.0.0",
     },
     "packages/utils": {
-      "name": "@totem/utils",
+      "name": "@vendeya/utils",
       "version": "1.0.0",
     },
   },
@@ -307,18 +307,6 @@
 
     "@tootallnate/quickjs-emscripten": ["@tootallnate/quickjs-emscripten@0.23.0", "", {}, "sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA=="],
 
-    "@totem/core": ["@totem/core@workspace:packages/core"],
-
-    "@totem/intelligence": ["@totem/intelligence@workspace:packages/intelligence"],
-
-    "@totem/logger": ["@totem/logger@workspace:packages/logger"],
-
-    "@totem/tsconfig": ["@totem/tsconfig@workspace:packages/tsconfig"],
-
-    "@totem/types": ["@totem/types@workspace:packages/types"],
-
-    "@totem/utils": ["@totem/utils@workspace:packages/utils"],
-
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
     "@types/bun": ["@types/bun@1.4.1", "", { "dependencies": { "bun-types": "1.4.1" } }, "sha512-0AVGiTXGajf1rgKom3N+c5L7CBxuoyyv1i44M0nX4UDK0G/fnRAMiri93nHuVPIb429KKtAgj7HatVmmOjeQLA=="],
@@ -336,6 +324,24 @@
     "@types/qrcode-terminal": ["@types/qrcode-terminal@0.12.2", "", {}, "sha512-v+RcIEJ+Uhd6ygSQ0u5YYY7ZM+la7GgPbs0V/7l/kFs2uO4S8BcIUEMoP7za4DNIqNnUD5npf0A/7kBhrCKG5Q=="],
 
     "@types/yauzl": ["@types/yauzl@2.10.3", "", { "dependencies": { "@types/node": "*" } }, "sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q=="],
+
+    "@vendeya/backend": ["@vendeya/backend@workspace:apps/backend"],
+
+    "@vendeya/core": ["@vendeya/core@workspace:packages/core"],
+
+    "@vendeya/frontend": ["@vendeya/frontend@workspace:apps/frontend"],
+
+    "@vendeya/intelligence": ["@vendeya/intelligence@workspace:packages/intelligence"],
+
+    "@vendeya/logger": ["@vendeya/logger@workspace:packages/logger"],
+
+    "@vendeya/notifier": ["@vendeya/notifier@workspace:apps/notifier"],
+
+    "@vendeya/tsconfig": ["@vendeya/tsconfig@workspace:packages/tsconfig"],
+
+    "@vendeya/types": ["@vendeya/types@workspace:packages/types"],
+
+    "@vendeya/utils": ["@vendeya/utils@workspace:packages/utils"],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
@@ -364,8 +370,6 @@
     "axobject-query": ["axobject-query@4.1.0", "", {}, "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="],
 
     "b4a": ["b4a@1.7.3", "", { "peerDependencies": { "react-native-b4a": "*" }, "optionalPeers": ["react-native-b4a"] }, "sha512-5Q2mfq2WfGuFp3uS//0s6baOJLMoVduPYVeNmDYxu5OUA1/cBfvr2RIS7vi62LdNj/urk1hfmj867I3qt6uZ7Q=="],
-
-    "backend": ["backend@workspace:apps/backend"],
 
     "balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
 
@@ -508,8 +512,6 @@
     "fluent-ffmpeg": ["fluent-ffmpeg@2.1.3", "", { "dependencies": { "async": "^0.2.9", "which": "^1.1.1" } }, "sha512-Be3narBNt2s6bsaqP6Jzq91heDgOEaDCJAXcE3qcma/EJBSy5FB4cvO31XBInuAuKBx8Kptf8dkhjK0IOru39Q=="],
 
     "foreground-child": ["foreground-child@3.3.1", "", { "dependencies": { "cross-spawn": "^7.0.6", "signal-exit": "^4.0.1" } }, "sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw=="],
-
-    "frontend": ["frontend@workspace:apps/frontend"],
 
     "fs-extra": ["fs-extra@11.3.4", "", { "dependencies": { "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-CTXd6rk/M3/ULNQj8FBqBWHYBVYybQ3VPBw0xGKFe3tuH7ytT6ACnvzpIQ3UZtB8yvUKC2cXn1a+x+5EVQLovA=="],
 
@@ -850,8 +852,6 @@
     "to-regex-range": ["to-regex-range@5.0.1", "", { "dependencies": { "is-number": "^7.0.0" } }, "sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ=="],
 
     "totalist": ["totalist@3.0.1", "", {}, "sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ=="],
-
-    "totem-notifier": ["totem-notifier@workspace:apps/notifier"],
 
     "tr46": ["tr46@0.0.3", "", {}, "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="],
 
