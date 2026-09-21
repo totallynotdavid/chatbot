@@ -102,7 +102,8 @@ runs one turn for one grouped message:
    no delay.
 5. Execute the commands.
 6. Emit the transition's events, then `escalation_triggered` if the new phase is
-   `escalated`.
+   `escalated`. Core and the enrichment loop never put `escalation_triggered` in
+   the events, so an escalation alerts once.
 
 The simulator and the maintenance sweep call the same `handleMessage`.
 
@@ -144,13 +145,13 @@ folds the result into metadata, and calls core again with it.
 
 Core requests five kinds:
 
-| Request                    | Handler calls                                      |
-| -------------------------- | -------------------------------------------------- |
-| `check_eligibility`        | FNB and GASO. See [Eligibility](./eligibility.md). |
-| `detect_question`          | The LLM: is this a question?                       |
-| `should_escalate`          | The LLM: does this need a person?                  |
-| `answer_question`          | The LLM: answer it from the catalog.               |
-| `recover_unclear_response` | The LLM: a reply that asks again.                  |
+| Request                    | Handler calls                                       |
+| -------------------------- | --------------------------------------------------- |
+| `check_eligibility`        | FNB and GASO. See [Eligibility](./eligibility.md).  |
+| `detect_question`          | The LLM: is this a question?                        |
+| `should_escalate`          | The LLM: does this need a person?                   |
+| `answer_question`          | The LLM: answer it from the catalog and the credit. |
+| `recover_unclear_response` | The LLM: a reply that asks again.                   |
 
 Three more are registered and never requested. The LLM is OpenAI
 `gpt-5-nano-2025-08-07`, set in
@@ -276,7 +277,7 @@ greeting -> confirming_client -> collecting_dni -> checking_eligibility
 | `confirming_client`    | yes, no, or a DNI                                    | `collecting_dni`; `closing` on no; `checking_eligibility` on a DNI                                          |
 | `collecting_dni`       | an 8-digit DNI                                       | `checking_eligibility`                                                                                      |
 | `checking_eligibility` | the provider result                                  | `offering_products`, `collecting_age`, `offering_dni_retry`, `closing`, `waiting_for_recovery`, `escalated` |
-| `offering_dni_retry`   | yes or no                                            | `collecting_dni`, `closing`                                                                                 |
+| `offering_dni_retry`   | yes, no, or a DNI                                    | `collecting_dni`; `closing` on no; `checking_eligibility` on a new DNI                                      |
 | `collecting_age`       | an age                                               | `offering_products`; `closing` below 25                                                                     |
 | `offering_products`    | a category, a product, a question, a price complaint | `confirming_selection`, `handling_objection`, `closing`, `escalated`                                        |
 | `handling_objection`   | a reply to the objection                             | `offering_products`; `escalated` after a second rejection, or on a question for a person                    |
@@ -284,6 +285,10 @@ greeting -> confirming_client -> collecting_dni -> checking_eligibility
 | `closing`              | anything                                             | answers questions; `offering_products` on a new purchase intent                                             |
 | `escalated`            | nothing: the bot stays silent                        | `greeting` on release or the idle reset                                                                     |
 | `waiting_for_recovery` | an operator's eligibility retry                      | the result of the retry, or `greeting` on the idle reset                                                    |
+
+A reply to an objection that the regexes do not recognize costs one LLM call to
+ask whether it is a question. A question is answered or escalated. Anything else
+gets "¿Te gustaría ver alguna otra opción?" and the phase stays.
 
 A confirmed selection emits `purchase_confirmed`, which creates an order with
 quantity 1 and address "Pendiente de coordinación"

@@ -93,7 +93,8 @@ export async function runEnrichmentLoop(
     applyEnrichmentToMetadata(enrichment, result.enrichment, metadata);
   }
 
-  // Safety: too many loops, escalate
+  // Safety: too many loops, escalate. The orchestrator emits
+  // `escalation_triggered` for this, as for every escalated phase.
   logger.error(
     {
       tenantId: ref.tenantId,
@@ -117,19 +118,6 @@ export async function runEnrichmentLoop(
         payload: {
           phoneNumber: ref.phoneNumber,
           lastPhase: currentPhase.phase,
-        },
-      },
-      {
-        type: "escalation_triggered",
-        traceId: createTraceId(),
-        timestamp: Date.now(),
-        payload: {
-          phoneNumber: ref.phoneNumber,
-          reason: "enrichment_loop_exceeded",
-          context: {
-            iterations,
-            lastPhase: currentPhase.phase,
-          },
         },
       },
     ],

@@ -104,6 +104,8 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         }
       }
 
+      // The only place a turn emits `escalation_triggered`. Core and the
+      // enrichment loop leave it out of `result.events`, so it goes out once.
       if (result.type === "update" && result.nextPhase.phase === "escalated") {
         eventBus.emit(
           createEvent(
