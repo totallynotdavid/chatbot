@@ -27,7 +27,7 @@
         "@vendeya/tsconfig": "workspace:*",
         "@types/bun": "^1.4.1",
         "@types/node": "^26.4.1",
-        "minimatch": "^5.1.8",
+        "minimatch": "^10.2.6",
         "picomatch": "^2.3.2",
         "shx": "^0.4.0",
         "typescript": "^6.0.3"
