@@ -31,7 +31,10 @@ export function getPublicUrl(): string {
   return readTunnelUrl() ?? process.env.PUBLIC_URL ?? "http://localhost:5173";
 }
 
-/** Notifier base URL used by the backend for messaging. */
+/**
+ * Notifier base URL used by the backend for messaging. The notifier listens on
+ * 127.0.0.1 only, and `localhost` may resolve to `::1`, which nothing listens on.
+ */
 export function getNotifierUrl(): string {
-  return "http://localhost:3001";
+  return "http://127.0.0.1:3001";
 }

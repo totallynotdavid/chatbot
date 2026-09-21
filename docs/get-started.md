@@ -85,7 +85,7 @@ starts three processes. The backend and the frontend restart on change:
 | -------- | ----------------------- | --------------------------------------------------- |
 | backend  | `http://localhost:3000` | the API, the workers and the bot                    |
 | frontend | `http://localhost:5173` | the dashboard                                       |
-| notifier | `http://localhost:3001` | development sends through a linked WhatsApp account |
+| notifier | `http://127.0.0.1:3001` | development sends through a linked WhatsApp account |
 
 The notifier prints a QR code. Scan it from WhatsApp to link an account if you
 want development sends to reach a real phone. The simulator does not need it.

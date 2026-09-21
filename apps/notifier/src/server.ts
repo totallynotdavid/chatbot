@@ -84,10 +84,12 @@ app.get("/health", (c) => {
 export async function startServer() {
   const port = parseInt(process.env.NOTIFIER_PORT || "3001", 10);
 
+  // The endpoints above take no credential, so only this machine may reach them.
   Bun.serve({
+    hostname: "127.0.0.1",
     port,
     fetch: app.fetch,
   });
 
-  logger.info({ port }, "HTTP server listening");
+  logger.info({ hostname: "127.0.0.1", port }, "HTTP server listening");
 }

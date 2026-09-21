@@ -18,8 +18,10 @@ PORT=5173 BODY_SIZE_LIMIT=3M bun apps/frontend/dist/index.js
 - The built frontend also reads `PORT`, and its default is 3000 too. Give it
   another port. `BODY_SIZE_LIMIT` must be `3M` for Meta's webhook (see
   [Connecting WhatsApp](./whatsapp.md#body-size)).
-- The notifier is not run. With `NODE_ENV` other than `development`, the backend
-  sends through the Cloud API.
+- The notifier is not run, so a production `.env` needs none of its variables.
+  With `NODE_ENV` other than `development`, the backend sends through the Cloud
+  API. In development the notifier listens on `127.0.0.1` only, because its
+  endpoints take no credential.
 - Run one backend per database. Its locks and workers live in memory
   ([Architecture](../architecture.md#where-state-lives)).
 
@@ -56,7 +58,7 @@ or `PUBLIC_URL` shows up when it is first used.
 | `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                 |
 | `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                         |
 | `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                        |
-| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target                                     |
+| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)              |
 | `CALIDDA_*`, `POWERBI_*`                                               | backend           | that eligibility provider fails at every check                                                 |
 | `OPENAI_API_KEY`                                                       | backend           | any message the regexes miss gets no reply                                                     |
 | `BOT_RESPONSE_DELAY_MS`                                                | backend           | 2300                                                                                           |
@@ -64,7 +66,7 @@ or `PUBLIC_URL` shows up when it is first used.
 | `PORT`                                                                 | backend, frontend | 3000                                                                                           |
 | `BODY_SIZE_LIMIT`                                                      | built frontend    | 512K                                                                                           |
 | `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all               | `info`                                                                                         |
-| `NOTIFIER_DATA_PATH`, `CHROME_PATH`, `NOTIFIER_PORT`                   | notifier          | `./data`, puppeteer's Chromium, 3001. The backend always calls 3001                            |
+| `NOTIFIER_DATA_PATH`, `CHROME_PATH`, `NOTIFIER_PORT`                   | notifier          | `./data`, puppeteer's Chromium, 3001. The backend always calls `127.0.0.1:3001`                |
 
 `JWT_SECRET`, `SESSION_SECRET` and `API_KEY` are read by nothing, although
 `scripts/generate-token.ts` has presets for them. `GEMINI_API_KEY` is read only
@@ -206,6 +208,12 @@ curl -X POST -b "session=<token>" -H 'content-type: application/json' \
 An alert goes out on the event's own number, else the tenant's default number,
 else the platform operations number. Every decision is recorded in
 `notification_traces`.
+
+`WHATSAPP_GROUP_AGENT` and `WHATSAPP_GROUP_DEV` are VendeYa's own operations
+groups. They receive the alerts of every tenant that has no setting of its own,
+and those alerts carry the customer's name, phone and DNI, so they must hold
+only VendeYa staff. A business that wants its own alerts gets
+`whatsapp_group_sales` and `whatsapp_group_dev` set.
 
 Alert links are built from `getFrontendUrl()`
 ([`packages/utils/src/url.ts`](../packages/utils/src/url.ts)), which ignores
