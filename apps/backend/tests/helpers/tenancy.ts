@@ -96,6 +96,7 @@ export function dropTenantFixture(fixture: TenantFixture | undefined): void {
   if (!fixture) return;
   const { tenantId } = fixture;
   for (const table of [
+    "outbox",
     "messages",
     "message_inbox",
     "held_messages",

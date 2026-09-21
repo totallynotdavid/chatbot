@@ -541,7 +541,7 @@ describe("the composite reference itself", () => {
         ).some((key) => key.table === "conversations"),
       );
 
-    expect(referencing.sort()).toEqual(["messages", "orders"]);
+    expect(referencing.sort()).toEqual(["messages", "orders", "outbox"]);
 
     for (const table of referencing) {
       const keys = (
@@ -573,6 +573,7 @@ describe("the composite reference itself", () => {
       "message_inbox",
       "messages",
       "orders",
+      "outbox",
     ]);
 
     for (const table of tables) {

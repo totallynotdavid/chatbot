@@ -2,7 +2,9 @@ import process from "node:process";
 import type { ChannelAccount, ConversationRef } from "@totem/types";
 import type {
   ConversationMessage,
+  OutboundMessage,
   SendOutcome,
+  SendResult,
   StoredMessageType,
 } from "./types.ts";
 import { CloudApiAdapter } from "./cloud-api.ts";
@@ -10,6 +12,12 @@ import { DevAdapter } from "./dev-adapter.ts";
 import { MessageStore } from "./message-store.ts";
 import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 import { TenantService } from "../../domains/tenants/index.ts";
+import {
+  enqueue,
+  hasQueuedReply,
+  queuedBehind,
+  stepOutbox,
+} from "../../conversation/outbox.ts";
 import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("whatsapp");
@@ -122,42 +130,135 @@ function logFailure(
   );
 }
 
+/** What the send methods pass the adapter, from either a caller or an outbox row. */
+async function callAdapter(
+  account: ChannelAccount,
+  to: string,
+  message: OutboundMessage,
+): Promise<SendOutcome> {
+  if (message.type === "image") {
+    return adapter.sendImage(account, to, message.content, message.caption);
+  }
+  return adapter.sendMessage(account, to, message.content);
+}
+
+/**
+ * Resolve the conversation's account and send, writing nothing to `messages`.
+ * The outbox worker uses it, because it already owns the row a retry updates.
+ * A refusal `resolveAccount` reports comes back as a `permanent` outcome.
+ *
+ * @throws ChannelUnavailableError when the number is switched off
+ */
+export async function sendResolved(
+  ref: ConversationRef,
+  message: OutboundMessage,
+): Promise<SendOutcome> {
+  const target = resolveAccount(ref);
+  if (!("account" in target)) {
+    if (target.unsendable) {
+      throw new ChannelUnavailableError(ref, target.unsendable.status);
+    }
+    return { ok: false, kind: "permanent", reason: target.reason };
+  }
+
+  const outcome = await callAdapter(target.account, ref.phoneNumber, message);
+  if (!outcome.ok) {
+    logFailure(ref, outcome, message.type === "image" ? "image" : "message");
+  }
+  return outcome;
+}
+
+/** The reply queued behind one the conversation already owes. No attempt was made. */
+const QUEUED_BEHIND: Extract<SendOutcome, { ok: false }> = {
+  ok: false,
+  kind: "transient",
+  reason: "queued_behind",
+};
+
+/**
+ * Send one message and write the `messages` row for it. With `retry` on, a
+ * failure a later attempt could fix goes on the outbox instead of being lost,
+ * and the row this writes is the one the worker moves.
+ */
+async function deliver(
+  ref: ConversationRef,
+  message: OutboundMessage,
+  retry: boolean,
+): Promise<SendResult> {
+  const productId = message.type === "image" ? message.productId : undefined;
+  const store = (status: string, whatsappMessageId?: string) =>
+    MessageStore.log(
+      ref,
+      "outbound",
+      message.type,
+      message.content,
+      status,
+      whatsappMessageId,
+      productId,
+    );
+
+  // Replies to one conversation go out in the order the bot produced them, so
+  // once one is queued the rest of the turn queues behind it unattempted.
+  if (retry && hasQueuedReply(ref)) {
+    const now = Date.now();
+    const messageId = store("queued");
+    enqueue({ ref, messageId, message, state: queuedBehind(now), now });
+    return { ...QUEUED_BEHIND, queued: true };
+  }
+
+  const target = resolveAccount(ref);
+  if (!("account" in target)) {
+    store("failed");
+    if (target.unsendable) {
+      throw new ChannelUnavailableError(ref, target.unsendable.status);
+    }
+    return { ok: false, kind: "permanent", reason: target.reason };
+  }
+
+  const outcome = await callAdapter(target.account, ref.phoneNumber, message);
+
+  if (outcome.ok) {
+    store("sent", outcome.messageId);
+    return outcome;
+  }
+
+  logFailure(ref, outcome, message.type === "image" ? "image" : "message");
+
+  if (!retry) {
+    store("failed");
+    return outcome;
+  }
+
+  const now = Date.now();
+  const state = stepOutbox(
+    { attempts: 0, ambiguousAttempts: 0, createdAt: now },
+    outcome,
+    now,
+  );
+  const queued = state.status === "pending";
+  const messageId = store(queued ? "queued" : "failed");
+  enqueue({ ref, messageId, message, state, now });
+
+  return queued ? { ...outcome, queued: true } : outcome;
+}
+
 export const WhatsAppService = {
   /**
    * Returns what the send did. A refusal `resolveAccount` reports as
    * `unsendable: null` comes back as a `permanent` outcome after its `failed`
    * row is written. An inactive account of an open tenant still throws
    * `ChannelUnavailableError`.
+   *
+   * `retry` puts a reply the send could not deliver on the outbox, where the
+   * worker sends it again. Only the bot's turn passes it. An agent's manual
+   * reply does not, because the agent is shown the error instead.
    */
   async sendMessage(
     ref: ConversationRef,
     content: string,
-  ): Promise<SendOutcome> {
-    const target = resolveAccount(ref);
-    if (!("account" in target)) {
-      MessageStore.log(ref, "outbound", "text", content, "failed");
-      if (target.unsendable) {
-        throw new ChannelUnavailableError(ref, target.unsendable.status);
-      }
-      return { ok: false, kind: "permanent", reason: target.reason };
-    }
-    const { account } = target;
-
-    const outcome = await adapter.sendMessage(
-      account,
-      ref.phoneNumber,
-      content,
-    );
-    MessageStore.log(
-      ref,
-      "outbound",
-      "text",
-      content,
-      outcome.ok ? "sent" : "failed",
-      outcome.ok ? outcome.messageId : undefined,
-    );
-    if (!outcome.ok) logFailure(ref, outcome, "message");
-    return outcome;
+    options: { retry?: boolean } = {},
+  ): Promise<SendResult> {
+    return deliver(ref, { type: "text", content }, options.retry === true);
   },
 
   async sendImage(
@@ -165,42 +266,13 @@ export const WhatsAppService = {
     imagePath: string,
     caption?: string,
     productId?: string,
-  ): Promise<SendOutcome> {
-    const target = resolveAccount(ref);
-    if (!("account" in target)) {
-      MessageStore.log(
-        ref,
-        "outbound",
-        "image",
-        imagePath,
-        "failed",
-        undefined,
-        productId,
-      );
-      if (target.unsendable) {
-        throw new ChannelUnavailableError(ref, target.unsendable.status);
-      }
-      return { ok: false, kind: "permanent", reason: target.reason };
-    }
-    const { account } = target;
-
-    const outcome = await adapter.sendImage(
-      account,
-      ref.phoneNumber,
-      imagePath,
-      caption,
-    );
-    MessageStore.log(
+    options: { retry?: boolean } = {},
+  ): Promise<SendResult> {
+    return deliver(
       ref,
-      "outbound",
-      "image",
-      imagePath,
-      outcome.ok ? "sent" : "failed",
-      outcome.ok ? outcome.messageId : undefined,
-      productId,
+      { type: "image", content: imagePath, caption, productId },
+      options.retry === true,
     );
-    if (!outcome.ok) logFailure(ref, outcome, "image");
-    return outcome;
   },
 
   /**
