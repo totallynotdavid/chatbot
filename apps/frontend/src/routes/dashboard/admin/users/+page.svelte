@@ -39,57 +39,26 @@ const roleLabels: Record<string, string> = {
   sales_agent: "Agente de ventas",
 };
 
-function renderBadge(label: string, variant: string) {
-  const colors = {
-    error: "bg-red-100 text-red-800",
-    warning: "bg-yellow-100 text-yellow-800",
-    success: "bg-green-100 text-green-800",
-    default: "bg-gray-100 text-gray-800",
-  };
-  const colorClass = colors[variant as keyof typeof colors] || colors.default;
-  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${label}</span>`;
-}
+const roleVariants: Record<string, string> = {
+  admin: "error",
+  developer: "warning",
+  supervisor: "default",
+  sales_agent: "success",
+};
+
+const badgeColors: Record<string, string> = {
+  error: "bg-red-100 text-red-800",
+  warning: "bg-yellow-100 text-yellow-800",
+  success: "bg-green-100 text-green-800",
+  default: "bg-gray-100 text-gray-800",
+};
 
 const columns = [
-  {
-    header: "Nombre / Usuario",
-    render: (u: User) =>
-      `<div><div class="font-serif font-medium text-ink-900">${u.name}</div><div class="text-xs text-ink-500 font-mono">@${u.username}</div></div>`,
-  },
-  {
-    header: "Rol",
-    render: (u: User) => {
-      const variantMap = {
-        admin: "error",
-        developer: "warning",
-        supervisor: "default",
-        sales_agent: "success",
-      };
-      return renderBadge(
-        roleLabels[u.role] || u.role,
-        variantMap[u.role as keyof typeof variantMap] || "default",
-      );
-    },
-  },
-  {
-    header: "Estado",
-    render: (u: User) =>
-      renderBadge(
-        u.is_active ? "ACTIVO" : "INACTIVO",
-        u.is_active ? "success" : "default",
-      ),
-  },
-  {
-    header: "Creado",
-    render: (u: User) =>
-      `<span class="text-ink-500 font-mono text-xs">${formatDate(u.created_at)}</span>`,
-  },
-  {
-    header: "Acciones",
-    align: "right" as const,
-    render: (u: User) =>
-      `<a href="/dashboard/admin/users/${u.id}" class="text-xs font-bold uppercase tracking-wider text-ink-900 hover:text-ink-600 hover:underline">Gestionar &rarr;</a>`,
-  },
+  { header: "Nombre / Usuario", cell: nameCell },
+  { header: "Rol", cell: roleCell },
+  { header: "Estado", cell: statusCell },
+  { header: "Creado", cell: createdCell },
+  { header: "Acciones", align: "right" as const, cell: actionsCell },
 ];
 </script>
 
@@ -112,4 +81,37 @@ const columns = [
     <Button href="/dashboard/admin/users/create">
         + Nuevo Usuario
     </Button>
+{/snippet}
+
+{#snippet badge(label: string, variant: string)}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {badgeColors[variant] || badgeColors.default}">{label}</span>
+{/snippet}
+
+{#snippet nameCell(u: User)}
+    <div>
+        <div class="font-serif font-medium text-ink-900">{u.name}</div>
+        <div class="text-xs text-ink-500 font-mono">@{u.username}</div>
+    </div>
+{/snippet}
+
+{#snippet roleCell(u: User)}
+    {@render badge(roleLabels[u.role] || u.role, roleVariants[u.role] || "default")}
+{/snippet}
+
+{#snippet statusCell(u: User)}
+    {@render badge(
+        u.is_active ? "ACTIVO" : "INACTIVO",
+        u.is_active ? "success" : "default",
+    )}
+{/snippet}
+
+{#snippet createdCell(u: User)}
+    <span class="text-ink-500 font-mono text-xs">{formatDate(u.created_at)}</span>
+{/snippet}
+
+{#snippet actionsCell(u: User)}
+    <a
+        href="/dashboard/admin/users/{u.id}"
+        class="text-xs font-bold uppercase tracking-wider text-ink-900 hover:text-ink-600 hover:underline"
+    >Gestionar &rarr;</a>
 {/snippet}

@@ -44,51 +44,12 @@ async function loadLogs() {
 
 onMount(loadLogs);
 
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 const columns = [
-  {
-    header: "Fecha",
-    render: (item: AuditLogWithName) =>
-      `<span class="font-mono text-xs text-ink-500">${formatDateTime(item.created_at)}</span>`,
-  },
-  {
-    header: "Usuario",
-    render: (item: AuditLogWithName) => {
-      const name = escapeHtml(item.user_name || item.actor);
-      const sub = item.user_username
-        ? `<br><span class="text-xs text-ink-400 font-mono">@${escapeHtml(item.user_username)}</span>`
-        : "";
-      return `<div class="leading-tight">${name}${sub}</div>`;
-    },
-  },
-  {
-    header: "Acción",
-    render: (item: AuditLogWithName) => {
-      const label = actionLabels[item.action] || item.action;
-      return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 shadow-sm">${label}</span>`;
-    },
-  },
-  {
-    header: "Recurso",
-    render: (item: AuditLogWithName) =>
-      `<div class="text-xs text-ink-500">${item.resource_type}<br>${item.resource_id || "-"}</div>`,
-  },
-  {
-    header: "Detalles",
-    render: (item: AuditLogWithName) => {
-      if (!item.metadata || item.metadata === "{}")
-        return '<span class="text-ink-300">-</span>';
-      return `<code class="text-[10px] bg-cream-50 p-1 rounded border border-cream-100 block max-w-xs truncate" title='${item.metadata}'>${item.metadata}</code>`;
-    },
-  },
+  { header: "Fecha", cell: dateCell },
+  { header: "Usuario", cell: userCell },
+  { header: "Acción", cell: actionCell },
+  { header: "Recurso", cell: resourceCell },
+  { header: "Detalles", cell: detailsCell },
 ];
 </script>
 
@@ -113,4 +74,30 @@ const columns = [
             Actualizar
         {/if}
     </Button>
+{/snippet}
+
+{#snippet dateCell(item: AuditLogWithName)}
+    <span class="font-mono text-xs text-ink-500">{formatDateTime(item.created_at)}</span>
+{/snippet}
+
+{#snippet userCell(item: AuditLogWithName)}
+    <div class="leading-tight">
+        {item.user_name || item.actor}{#if item.user_username}<br><span class="text-xs text-ink-400 font-mono">@{item.user_username}</span>{/if}
+    </div>
+{/snippet}
+
+{#snippet actionCell(item: AuditLogWithName)}
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 shadow-sm">{actionLabels[item.action] || item.action}</span>
+{/snippet}
+
+{#snippet resourceCell(item: AuditLogWithName)}
+    <div class="text-xs text-ink-500">{item.resource_type}<br>{item.resource_id || "-"}</div>
+{/snippet}
+
+{#snippet detailsCell(item: AuditLogWithName)}
+    {#if !item.metadata || item.metadata === "{}"}
+        <span class="text-ink-300">-</span>
+    {:else}
+        <code class="text-[10px] bg-cream-50 p-1 rounded border border-cream-100 block max-w-xs truncate" title={item.metadata}>{item.metadata}</code>
+    {/if}
 {/snippet}

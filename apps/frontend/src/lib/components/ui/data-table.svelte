@@ -1,8 +1,12 @@
 <script lang="ts" generics="T extends Record<string, any>">
+import type { Snippet } from "svelte";
+
 type Column<T> = {
   header: string;
   key?: keyof T;
-  render?: (item: T) => string | any;
+  // A snippet, not a string: Svelte escapes every value the snippet
+  // interpolates, so a stored value can never reach the DOM as markup.
+  cell?: Snippet<[T]>;
   class?: string;
   align?: "left" | "center" | "right";
 };
@@ -64,8 +68,8 @@ let {
                     >
                         {#each columns as col}
                             <td class="px-6 py-4 relative {col.class || ''} text-{col.align || 'left'}">
-                                {#if col.render}
-                                    {@html col.render(item)}
+                                {#if col.cell}
+                                    {@render col.cell(item)}
                                 {:else if col.key}
                                      <!-- Default: treat as string -->
                                      {item[col.key]}

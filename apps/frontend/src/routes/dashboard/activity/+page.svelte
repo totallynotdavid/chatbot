@@ -34,30 +34,15 @@
         {
             header: "Estado",
             class: "w-16 text-center",
-            render: (item: any) => {
-                const color =
-                    item.status === "success"
-                        ? "bg-emerald-500"
-                        : item.status === "error"
-                          ? "bg-red-500"
-                          : "bg-blue-400";
-                const pulse = item.status === "error" ? "animate-pulse" : "";
-                return `<div class="w-2.5 h-2.5 rounded-full ${color} ${pulse} mx-auto" title="${item.status}"></div>`;
-            },
+            cell: statusCell,
         },
         {
             header: "Hora",
-            render: (item: any) =>
-                `<span class="text-ink-500 whitespace-nowrap">${formatDateTime(item.timestamp)}</span>`,
+            cell: timeCell,
         },
         {
             header: "Fuente",
-            render: (item: any) =>
-                `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    item.source === "llm"
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-gray-100 text-gray-800"
-                }">${item.source.toUpperCase()}</span>`,
+            cell: sourceCell,
         },
         {
             header: "Evento",
@@ -66,8 +51,7 @@
         },
         {
             header: "Resumen",
-            render: (item: any) =>
-                `<span class="text-ink-600 truncate max-w-md block" title="${item.summary}">${item.summary}</span>`,
+            cell: summaryCell,
         },
         {
             header: "Actor",
@@ -200,4 +184,31 @@
             Actualizar
         {/if}
     </Button>
+{/snippet}
+
+{#snippet statusCell(item: any)}
+    <div
+        class="w-2.5 h-2.5 rounded-full {item.status === 'success'
+            ? 'bg-emerald-500'
+            : item.status === 'error'
+              ? 'bg-red-500'
+              : 'bg-blue-400'} {item.status === 'error' ? 'animate-pulse' : ''} mx-auto"
+        title={item.status}
+    ></div>
+{/snippet}
+
+{#snippet timeCell(item: any)}
+    <span class="text-ink-500 whitespace-nowrap">{formatDateTime(item.timestamp)}</span>
+{/snippet}
+
+{#snippet sourceCell(item: any)}
+    <span
+        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {item.source === 'llm'
+            ? 'bg-purple-100 text-purple-800'
+            : 'bg-gray-100 text-gray-800'}"
+    >{item.source.toUpperCase()}</span>
+{/snippet}
+
+{#snippet summaryCell(item: any)}
+    <span class="text-ink-600 truncate max-w-md block" title={item.summary}>{item.summary}</span>
 {/snippet}
