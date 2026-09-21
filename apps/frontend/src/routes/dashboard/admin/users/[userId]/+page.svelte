@@ -6,6 +6,7 @@ import { fetchApi } from "$lib/utils/api";
 import { MIN_PASSWORD_LENGTH } from "@totem/types";
 import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
 import { toast } from "$lib/state/toast.svelte";
+import { auth } from "$lib/state/auth.svelte";
 import Button from "$lib/components/ui/button.svelte";
 import FormField from "$lib/components/ui/form-field.svelte";
 import Select from "$lib/components/ui/select.svelte";
@@ -18,6 +19,12 @@ let originalRole = $state<string>("");
 let saving = $state(false);
 
 const userId = page.params.userId;
+
+// A platform operator's account reaches every business, so the API lets only
+// another platform operator deactivate it or reset its password.
+const accountLocked = $derived(
+  user?.is_platform_operator === 1 && !auth.isPlatformOperator,
+);
 
 async function loadUser() {
   try {
@@ -141,6 +148,11 @@ onMount(loadUser);
             <div class="bg-white border border-cream-200 shadow-sm p-8">
                 <h2 class="text-lg font-serif mb-6 border-b border-cream-100 pb-2">Seguridad y acceso</h2>
                 
+                {#if accountLocked}
+                <p class="text-sm text-ink-500 py-4">
+                    Esta cuenta pertenece al equipo de VendeYa. Solo el equipo de VendeYa puede desactivarla o restablecer su contraseña.
+                </p>
+                {:else}
                 <div class="flex items-center justify-between py-4 border-b border-cream-100">
                     <div>
                         <p class="font-bold text-ink-900">Estado de la cuenta</p>
@@ -164,6 +176,7 @@ onMount(loadUser);
                         Restablecer
                     </Button>
                 </div>
+                {/if}
             </div>
 
             <!-- Actions -->
