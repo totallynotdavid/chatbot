@@ -9,6 +9,7 @@ import {
   requireTenantScope,
 } from "../middleware/auth.ts";
 import { lookupConversation } from "../domains/conversations/read.ts";
+import { assignedAgentScope } from "../platform/auth/scope.ts";
 import { refOf } from "../conversation/store.ts";
 
 const app = new Hono();
@@ -61,7 +62,11 @@ function canUpdateOrderStatus(
 
 // Get order metrics
 app.get("/metrics", async (c) => {
-  const metrics = ordersModule.getOrderMetrics(c.get("scope").tenantId);
+  const scope = c.get("scope");
+  const metrics = ordersModule.getOrderMetrics(
+    scope.tenantId,
+    assignedAgentScope(scope),
+  );
   return c.json(metrics);
 });
 
@@ -121,11 +126,13 @@ app.get("/", async (c) => {
   const limit = queryLimit(c, 50);
   const offset = queryOffset(c);
 
-  const ordersData = ordersModule.getOrders(c.get("scope").tenantId, {
+  const scope = c.get("scope");
+  const ordersData = ordersModule.getOrders(scope.tenantId, {
     status,
     startMs,
     endMs,
     assignedAgent,
+    conversationAgent: assignedAgentScope(scope),
     limit,
     offset,
   });
@@ -135,8 +142,9 @@ app.get("/", async (c) => {
 
 // Get order by conversation phone
 app.get("/by-conversation/:phone", async (c) => {
+  const scope = c.get("scope");
   const lookup = lookupConversation(
-    c.get("scope"),
+    scope,
     pathParam(c, "phone"),
     c.req.query("channel") ?? null,
   );
@@ -148,7 +156,12 @@ app.get("/by-conversation/:phone", async (c) => {
     return c.json({ order: null });
   }
 
-  const order = ordersModule.getOrderByConversation(refOf(lookup.conversation));
+  // A sales agent may open an unassigned conversation, but its order is theirs
+  // only once the conversation is assigned to them.
+  const order = ordersModule.getOrderByConversation(
+    refOf(lookup.conversation),
+    assignedAgentScope(scope),
+  );
 
   if (!order) {
     return c.json({ order: null });
@@ -160,7 +173,12 @@ app.get("/by-conversation/:phone", async (c) => {
 // Get order by ID
 app.get("/:id", async (c) => {
   const id = pathParam(c, "id");
-  const order = ordersModule.getOrderById(c.get("scope").tenantId, id);
+  const scope = c.get("scope");
+  const order = ordersModule.getOrderById(
+    scope.tenantId,
+    id,
+    assignedAgentScope(scope),
+  );
 
   if (!order) {
     return c.json({ error: "Order not found" }, 404);

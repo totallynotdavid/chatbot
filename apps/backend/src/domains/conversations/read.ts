@@ -5,20 +5,26 @@ import type { Conversation } from "@totem/types";
 import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { getEventsByConversation } from "../../domains/analytics/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
-import type { AuthScope } from "../../platform/auth/scope.ts";
+import {
+  assignedAgentScope,
+  type AuthScope,
+} from "../../platform/auth/scope.ts";
 import type { ReplayData, ReplayMetadata } from "@totem/types";
 
-export type Role = "admin" | "developer" | "sales_agent";
+/**
+ * A sales agent reaches a conversation assigned to them or to nobody, never one
+ * assigned to another agent. Nothing assigns conversations yet, so an agent who
+ * follows an escalation alert must still reach the unassigned conversation.
+ */
+const AGENT_CONVERSATIONS = "(assigned_agent = ? OR assigned_agent IS NULL)";
 
-/** A null role, held by a member who has not pinned a tenant, is not valid. */
-export function isValidRole(role: string | null): role is Role {
-  return role === "admin" || role === "developer" || role === "sales_agent";
-}
-
+/**
+ * Every tenant role may list conversations. A sales agent sees the ones
+ * assigned to them or to nobody, the rule `lookupConversation` applies to one.
+ */
 export function listConversations(
   scope: AuthScope,
   status: string | null | undefined,
-  role: Role,
 ) {
   const conditions = ["is_simulation = 0"];
   const params: SQLQueryBindings[] = [];
@@ -27,9 +33,10 @@ export function listConversations(
   conditions.push(tenantPredicate(scope.tenantId));
   if (scope.tenantId) params.push(scope.tenantId);
 
-  if (role === "sales_agent") {
-    conditions.push("assigned_agent = ?");
-    params.push(scope.userId);
+  const agent = assignedAgentScope(scope);
+  if (agent) {
+    conditions.push(AGENT_CONVERSATIONS);
+    params.push(agent);
   }
 
   if (status) {
@@ -56,7 +63,8 @@ export type ConversationLookup =
 
 /**
  * Resolve a conversation the caller is allowed to see. A caller pinned to a
- * tenant gets another tenant's conversation reported as not found. An unpinned
+ * tenant gets another tenant's conversation reported as not found, and a sales
+ * agent gets one assigned to another agent reported the same way. An unpinned
  * platform operator can find a conversation in any open tenant.
  */
 export function lookupConversation(
@@ -74,6 +82,14 @@ export function lookupConversation(
 
   conditions.push(tenantPredicate(scope.tenantId));
   if (scope.tenantId) params.push(scope.tenantId);
+
+  // A conversation assigned to another agent is not found, like one in another
+  // tenant, so every route that resolves `:phone` applies the rule.
+  const agent = assignedAgentScope(scope);
+  if (agent) {
+    conditions.push(AGENT_CONVERSATIONS);
+    params.push(agent);
+  }
 
   if (channelAccountId) {
     conditions.push("channel_account_id = ?");

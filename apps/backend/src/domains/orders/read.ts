@@ -4,6 +4,20 @@ import type { ConversationRef, Order } from "@totem/types";
 import type { OrderFilters, OrderMetrics } from "./types.ts";
 
 /**
+ * A sales agent's orders: the ones they created, and the ones from a
+ * conversation assigned to them. `orders.assigned_agent` names whoever created
+ * the order through the API and is null for an order the bot files. An order
+ * reaches its conversation by (tenant, channel account, phone), the composite
+ * foreign key on `orders`. Both placeholders take the agent's id.
+ */
+const AGENT_ORDERS = `(orders.assigned_agent = ? OR EXISTS (
+  SELECT 1 FROM conversations c
+  WHERE c.tenant_id = orders.tenant_id
+    AND c.channel_account_id = orders.channel_account_id
+    AND c.phone_number = orders.conversation_phone
+    AND c.assigned_agent = ?))`;
+
+/**
  * A null `tenantId` reads across open tenants. Route handlers pass the caller's
  * scope, so only an unpinned platform operator reaches that case.
  */
@@ -37,6 +51,11 @@ export function getOrders(
     params.push(filters.assignedAgent);
   }
 
+  if (filters.conversationAgent) {
+    query += ` AND ${AGENT_ORDERS}`;
+    params.push(filters.conversationAgent, filters.conversationAgent);
+  }
+
   query += " ORDER BY created_at DESC";
 
   const limit = filters.limit || 50;
@@ -48,35 +67,64 @@ export function getOrders(
   return rows;
 }
 
+/** `conversationAgent` narrows to that sales agent's orders. */
 export function getOrderById(
   tenantId: string | null,
   id: string,
+  conversationAgent: string | null = null,
 ): Order | null {
-  return (
-    getOne<Order>(
-      `SELECT * FROM orders WHERE id = ? AND ${tenantPredicate(tenantId)}`,
-      tenantId ? [id, tenantId] : [id],
-    ) ?? null
-  );
+  let query = `SELECT * FROM orders WHERE id = ? AND ${tenantPredicate(tenantId)}`;
+  const params: SQLQueryBindings[] = tenantId ? [id, tenantId] : [id];
+
+  if (conversationAgent) {
+    query += ` AND ${AGENT_ORDERS}`;
+    params.push(conversationAgent, conversationAgent);
+  }
+
+  return getOne<Order>(query, params) ?? null;
 }
 
-export function getOrderByConversation(ref: ConversationRef): Order | null {
+/** `conversationAgent` narrows to that sales agent's orders. */
+export function getOrderByConversation(
+  ref: ConversationRef,
+  conversationAgent: string | null = null,
+): Order | null {
+  const params: SQLQueryBindings[] = [
+    ref.tenantId,
+    ref.channelAccountId,
+    ref.phoneNumber,
+  ];
+  let agentClause = "";
+  if (conversationAgent) {
+    agentClause = ` AND ${AGENT_ORDERS}`;
+    params.push(conversationAgent, conversationAgent);
+  }
+
   return (
     getOne<Order>(
       `SELECT * FROM orders
-       WHERE tenant_id = ? AND channel_account_id = ? AND conversation_phone = ?
+       WHERE tenant_id = ? AND channel_account_id = ? AND conversation_phone = ?${agentClause}
        ORDER BY created_at DESC LIMIT 1`,
-      [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
+      params,
     ) ?? null
   );
 }
 
-export function getOrderMetrics(tenantId: string | null): OrderMetrics {
+/** `conversationAgent` narrows to that sales agent's orders. */
+export function getOrderMetrics(
+  tenantId: string | null,
+  conversationAgent: string | null = null,
+): OrderMetrics {
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-  const scope = tenantPredicate(tenantId);
+  let scope = tenantPredicate(tenantId);
   const scopeParams: SQLQueryBindings[] = tenantId ? [tenantId] : [];
+
+  if (conversationAgent) {
+    scope += ` AND ${AGENT_ORDERS}`;
+    scopeParams.push(conversationAgent, conversationAgent);
+  }
 
   const count = (extra: string, params: SQLQueryBindings[] = []): number =>
     getOne<{ count: number }>(

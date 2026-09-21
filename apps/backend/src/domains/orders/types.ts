@@ -24,7 +24,13 @@ export interface OrderFilters {
   /** Inclusive bounds on `created_at`, in ms. */
   startMs?: number;
   endMs?: number;
+  /** The agent recorded on the order itself, as a filter the caller picks. */
   assignedAgent?: string;
+  /**
+   * Only orders whose conversation is assigned to this user. This is the
+   * sales agent's scope, set by the route from the caller, not a filter.
+   */
+  conversationAgent?: string | null;
   limit?: number;
   offset?: number;
 }

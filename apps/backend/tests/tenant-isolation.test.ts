@@ -138,7 +138,7 @@ describe("tenant isolation", () => {
       insertConversation(betaRef, { clientName: "Beta Client" });
 
       const alphaAdmin = createMember(alpha, "admin");
-      const rows = listConversations(alphaAdmin.scope, null, "admin");
+      const rows = listConversations(alphaAdmin.scope, null);
 
       expect(rows.every((r) => r.tenant_id === alpha.tenantId)).toBe(true);
       expect(rows.map((r) => r.client_name)).not.toContain("Beta Client");
@@ -166,7 +166,7 @@ describe("tenant isolation", () => {
         assignedAgent: betaAgent.userId,
       });
 
-      const rows = listConversations(alphaAgent.scope, null, "sales_agent");
+      const rows = listConversations(alphaAgent.scope, null);
 
       expect(rows).toHaveLength(1);
       expect(rows[0]!.tenant_id).toBe(alpha.tenantId);
@@ -328,7 +328,7 @@ describe("tenant isolation", () => {
         isPlatformOperator: true,
       };
 
-      const acrossTenants = listConversations(unpinned, null, "admin")
+      const acrossTenants = listConversations(unpinned, null)
         .filter((r) => [alpha.tenantId, beta.tenantId].includes(r.tenant_id))
         .map((r) => r.tenant_id);
 
@@ -337,7 +337,7 @@ describe("tenant isolation", () => {
       );
 
       const pinned = { ...unpinned, tenantId: alpha.tenantId };
-      const scoped = listConversations(pinned, null, "admin");
+      const scoped = listConversations(pinned, null);
 
       expect(scoped.every((r) => r.tenant_id === alpha.tenantId)).toBe(true);
     });

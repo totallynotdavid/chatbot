@@ -3,7 +3,6 @@ import { pathParam } from "../lib/http.ts";
 import type { Context } from "hono";
 import type { Conversation } from "@totem/types";
 import * as ConversationRead from "../domains/conversations/read.ts";
-import { isValidRole } from "../domains/conversations/read.ts";
 import {
   ConversationBusyError,
   LockTimeoutError,
@@ -80,15 +79,10 @@ function refuseIfBusy(c: Context, error: unknown): Response {
 }
 
 conversations.get("/", (c) => {
-  const user = c.get("user");
   const scope = c.get("scope");
   const status = c.req.query("status");
 
-  if (!isValidRole(user.role)) {
-    return c.json({ error: "Invalid role" }, 403);
-  }
-
-  const rows = ConversationRead.listConversations(scope, status, user.role);
+  const rows = ConversationRead.listConversations(scope, status);
   return c.json(rows);
 });
 
