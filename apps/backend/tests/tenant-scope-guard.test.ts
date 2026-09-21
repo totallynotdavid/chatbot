@@ -7,6 +7,7 @@
 import { describe, it, expect } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { stringLiterals, stripComments } from "./helpers/source-text.ts";
 
 const SRC = join(import.meta.dir, "..", "src");
 const SCHEMA = join(SRC, "db", "schema.sql");
@@ -70,6 +71,9 @@ function relative(file: string): string {
   return file.slice(SRC.length + 1);
 }
 
+// Both rules read the source with its comments blanked out, so prose and
+// commented-out code neither hide a query nor stand in for a predicate.
+
 // Rule 1: nobody builds a conditional tenant filter by hand. Written that way,
 // the null branch means every tenant instead of every open tenant.
 
@@ -93,7 +97,8 @@ const TENANT_COLUMN_STRING =
 
 type Finding = { file: string; line: number; detail: string; sql?: string };
 
-function handBuiltFilters(text: string, file: string): Finding[] {
+function handBuiltFilters(source: string, file: string): Finding[] {
+  const text = stripComments(source);
   const found: Finding[] = [];
 
   for (const pattern of TERNARY_PATTERNS) {
@@ -145,9 +150,6 @@ function tenantOwnedTables(): Set<string> {
   return tables;
 }
 
-/** Any string literal, of any of the three kinds. */
-const STRING_LITERAL = /`([^`]*)`|"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
-
 /**
  * The spellings of a tenant predicate that the backend uses: written out,
  * interpolated from a helper, or assembled into a `conditions` array above the
@@ -180,14 +182,15 @@ function functionStart(text: string, position: number): number {
 }
 
 function unscopedReads(
-  text: string,
+  source: string,
   file: string,
   owned: Set<string>,
 ): Finding[] {
+  const text = stripComments(source);
   const found: Finding[] = [];
 
-  for (const match of text.matchAll(STRING_LITERAL)) {
-    const sql = match[1] ?? match[2] ?? match[3] ?? "";
+  for (const literal of stringLiterals(text)) {
+    const sql = literal.content;
     if (!/\bSELECT\b/i.test(sql)) continue;
 
     const named = [...sql.matchAll(/\b(?:FROM|JOIN)\s+(\w+)/gi)].map(
@@ -200,14 +203,14 @@ function unscopedReads(
     // so a predicate built into a `conditions` array or a `${scope}` fragment
     // counts as much as an inline one.
     const body = text.slice(
-      functionStart(text, match.index),
-      match.index + sql.length + 400,
+      functionStart(text, literal.index),
+      literal.index + sql.length + 400,
     );
     if (NAMES_A_PREDICATE.test(body)) continue;
 
     found.push({
       file,
-      line: text.slice(0, match.index).split("\n").length,
+      line: text.slice(0, literal.index).split("\n").length,
       detail: `${[...new Set(tables)].join(", ")}: ${sql.replace(/\s+/g, " ").slice(0, 80)}`,
       sql: sql.replace(/\s+/g, " "),
     });
@@ -359,6 +362,195 @@ describe("tenant scope guard", () => {
         }`;
 
       expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(0);
+    });
+
+    // An unscoped read, filler, and a scoped read further down. The filler puts
+    // the scoped read's predicate outside the unscoped read's window.
+    const filler = "  // filler\n".repeat(60);
+    const unscopedRead = `
+        function listAll() {
+          return getAll("SELECT * FROM conversations");
+        }
+${filler}`;
+    const scopedRead = `
+        function listOwn(tenantId) {
+          return getAll("SELECT * FROM conversations WHERE tenant_id = ?", [tenantId]);
+        }`;
+
+    it("is not hidden by an apostrophe in the comments around a read", () => {
+      const sample =
+        "// the worker's pass\n" +
+        unscopedRead +
+        scopedRead +
+        "\n// the caller's job";
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("flags the same code when the comments have no apostrophe", () => {
+      const sample =
+        "// the pass of the worker\n" +
+        unscopedRead +
+        scopedRead +
+        "\n// the job of the caller";
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("finds no read in a comment", () => {
+      const sample = `
+        // SELECT * FROM conversations
+        /* SELECT * FROM conversations WHERE phone_number = ? */
+        /**
+         * getAll("SELECT * FROM conversations")
+         */
+        export function nothing() {}`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toEqual([]);
+    });
+
+    it("does not count a predicate written in a comment", () => {
+      const sample = `
+        export function listAll() {
+          // tenant_id = ?
+          /* WHERE tenant_id = ? */
+          return getAll("SELECT * FROM conversations");
+        }`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("keeps the line of a read below a multi-line comment", () => {
+      const sample = `/**
+ * one
+ * two
+ */
+getAll("SELECT * FROM conversations");`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)[0]?.line).toBe(5);
+    });
+
+    it("stays in sync after a string, a template and a regex literal", () => {
+      // A scoped read follows the read under test. If the scan slips out of
+      // step, a stray quote swallows the unscoped read and this predicate covers it.
+      const scopedTail = `\n${filler}getAll('SELECT * FROM conversations WHERE tenant_id = ?');`;
+      const leads = {
+        "a string with an apostrophe": `const note = "don't";`,
+        "a string with an escaped quote": `const note = 'it\\'s';`,
+        "a string holding a comment opener": `const glob = "src/**/*.ts";`,
+        "a template with a URL": `const url = \`https://example.com/\${id}\`;`,
+        "a regex with a quote": `const quoted = /'/.test(text);`,
+        "a regex ending in two slashes": `const slashes = /^\\/\\//.test(text);`,
+      };
+
+      for (const [name, lead] of Object.entries(leads)) {
+        const sample = `${lead} getAll("SELECT * FROM conversations");${scopedTail}`;
+
+        expect({
+          name,
+          found: unscopedReads(sample, "sample.ts", owned).length,
+        }).toEqual({ name, found: 1 });
+      }
+    });
+
+    it("reads a query held in a template nested in a substitution", () => {
+      const sample = `const q = \`\${rows.map((row) => \`SELECT * FROM conversations WHERE id = \${row}\`).join(" UNION ")}\`;`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("judges a query nested in a substitution on its own", () => {
+      // The scoped arm sits more than 400 characters past the nested query, so
+      // the nested query is flagged only if it owns its window.
+      const sample = `
+        function listAll(rows) {
+          const query = \`\${rows.map((row) => \`SELECT * FROM conversations WHERE id = \${row}\`).join(" UNION ")}${filler} UNION SELECT * FROM conversations WHERE tenant_id = ?\`;
+          return getAll(query);
+        }`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("blanks each substitution in its template and lists a literal inside one on its own", () => {
+      const sample = "const a = `x${`y`}z${w}`;";
+
+      expect(stringLiterals(sample)).toEqual([
+        { index: sample.indexOf("`"), content: "x${   }z${ }" },
+        { index: sample.indexOf("`y"), content: "y" },
+      ]);
+    });
+
+    it("reads no query in code inside a substitution", () => {
+      const sample =
+        "const page = `p ${/SELECT * FROM conversations/.test(text)}`;";
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toEqual([]);
+    });
+
+    it("stays in sync after a template nested in a substitution", () => {
+      const sample = `const label = \`a \${rows.map((row) => \`b \${row} // c\`).join(", ")} // d\`; getAll("SELECT * FROM conversations");`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toHaveLength(1);
+    });
+
+    it("reports the line of the literal, not of the token before it", () => {
+      const sample = `getAll(
+  "SELECT * FROM conversations",
+);`;
+
+      expect(unscopedReads(sample, "sample.ts", owned)[0]?.line).toBe(2);
+    });
+
+    it("finds no read in a comment inside a template substitution", () => {
+      const sample = "const q = `${/* SELECT * FROM conversations */ 1}`;";
+
+      expect(unscopedReads(sample, "sample.ts", owned)).toEqual([]);
+    });
+
+    it("lists each literal's text between its quotes and the offset of its opening quote", () => {
+      const sample = 'const a = "x\'y"; const b = `p${q}r`;';
+
+      expect(stringLiterals(sample)).toEqual([
+        { index: sample.indexOf('"'), content: "x'y" },
+        { index: sample.indexOf("`"), content: "p${ }r" },
+      ]);
+    });
+
+    it("blanks comments and nothing else", () => {
+      const comments = [
+        "// one",
+        "/* two */",
+        "/* three */",
+        "/* four\n   five */",
+      ];
+      const source =
+        'const a = "// not a comment"; // one\n' +
+        'const b = /* two */ `//${"x" /* three */}`;\n' +
+        "/* four\n   five */ const c = /'/;\n";
+
+      let expected = source;
+      for (const comment of comments) {
+        expected = expected.replace(comment, comment.replace(/[^\n]/g, " "));
+      }
+
+      expect(stripComments(source)).toBe(expected);
+    });
+
+    it("counts a commented-out hand-built filter neither for nor against a file", () => {
+      const commented = `
+        // const rows = tenantId ? "WHERE tenant_id = ?" : "";
+        // if (tenantId) {
+        //   conditions.push("tenant_id = ?");
+        // }
+        const rows = getAll("SELECT * FROM products");`;
+      const live = `
+        // the caller's filter
+        if (tenantId) {
+          conditions.push("tenant_id = ?");
+        }`;
+
+      expect(handBuiltFilters(commented, "sample.ts")).toEqual([]);
+      expect(handBuiltFilters(live, "sample.ts")).toHaveLength(1);
     });
 
     it("does not flag the parameter list beside a correct query", () => {
