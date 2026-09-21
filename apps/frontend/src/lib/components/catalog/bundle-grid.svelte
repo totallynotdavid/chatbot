@@ -95,10 +95,9 @@
           {bundle.primary_category}
         </span>
         <div onclick={(e) => e.stopPropagation()} role="presentation">
-          <!-- Reuse StockBadge but adapt props if needed -->
           <StockBadge
-            productId={bundle.id}
-            productName={bundle.name}
+            bundleId={bundle.id}
+            bundleName={bundle.name}
             stockStatus={bundle.stock_status}
             {canEdit}
             onUpdate={(s) => onStockUpdate(bundle.id, s)}

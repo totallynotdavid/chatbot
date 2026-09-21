@@ -1,21 +1,21 @@
 <script lang="ts">
 import type { StockStatus } from "@vendeya/types";
 import { toast } from "$lib/state/toast.svelte";
-import { fetchApi } from "$lib/utils/api";
+import { updateBundleStock } from "$lib/utils/catalog";
 import Dropdown from "$lib/components/ui/dropdown.svelte";
 import DropdownTrigger from "$lib/components/ui/dropdown-trigger.svelte";
 import DropdownMenu from "$lib/components/ui/dropdown-menu.svelte";
 import DropdownItem from "$lib/components/ui/dropdown-item.svelte";
 
 type Props = {
-  productId: string;
-  productName: string;
+  bundleId: string;
+  bundleName: string;
   stockStatus: StockStatus;
   canEdit: boolean;
   onUpdate: (newStatus: StockStatus) => void;
 };
 
-let { productId, productName, stockStatus, canEdit, onUpdate }: Props =
+let { bundleId, bundleName, stockStatus, canEdit, onUpdate }: Props =
   $props();
 
 let open = $state(false);
@@ -45,15 +45,11 @@ async function updateStatus(newStatus: StockStatus) {
 
   isUpdating = true;
   try {
-    await fetchApi(`/api/catalog/${productId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stock_status: newStatus }),
-    });
+    await updateBundleStock(bundleId, newStatus);
     onUpdate(newStatus);
-    toast.success(`${productName}: ${statusConfig[newStatus].label}`);
+    toast.success(`${bundleName}: ${statusConfig[newStatus].label}`);
   } catch (error) {
-    toast.error(`Error al actualizar ${productName}`);
+    toast.error(`Error al actualizar ${bundleName}`);
   } finally {
     isUpdating = false;
     open = false;
