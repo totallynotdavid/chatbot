@@ -17,9 +17,11 @@ the backend run on one host:
 | [`routes/media/[...path]/+server.ts`](../apps/frontend/src/routes/media/[...path]/+server.ts) | `/media/*`, the public catalog images, with a one-week cache header                                                                      |
 | [`routes/api/webhook/+server.ts`](../apps/frontend/src/routes/api/webhook/+server.ts)         | Meta's webhook. See [Connecting WhatsApp](./whatsapp.md)                                                                                 |
 
-The `/api` proxy reads the request body as text before forwarding it. Bytes that
-are not valid UTF-8 are replaced in the process, so a binary upload (a bundle
-image, a contract PDF, a call recording) reaches the backend altered.
+The `/api` proxy forwards the request body as bytes, so a binary upload (a
+bundle image, a contract PDF, a call recording) reaches the backend as the
+browser sent it. It holds the whole body in memory. The built frontend refuses a
+body over `BODY_SIZE_LIMIT` before the proxy sees it
+([Operations](./operations.md)).
 
 Components call the API with `fetchApi` from
 [`lib/utils/api.ts`](../apps/frontend/src/lib/utils/api.ts), a thin `fetch`
@@ -35,6 +37,10 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
   const headers = { cookie: `session=${sessionToken}` };
   const periodsRes = await fetch("/api/periods", { headers });
 ```
+
+A load must use the `fetch` it is given. The global `fetch` cannot resolve a
+relative `/api/...` URL on the server and throws. Most loads catch the error and
+return empty data, so the page renders as if there were nothing to show.
 
 ## How auth state decides what renders
 
@@ -129,6 +135,33 @@ Conventions the pages follow:
   [`lib/styles/tokens.css`](../apps/frontend/src/lib/styles/tokens.css).
 - Shared UI pieces are in
   [`lib/components/ui/`](../apps/frontend/src/lib/components/ui/).
+
+## The Proveedores page
+
+The page calls `GET /api/providers/:dni` and shows the `result` in the answer.
+`result` is what
+[`mapper.ts`](../apps/backend/src/domains/eligibility/mapper.ts) builds: a
+`status` (`eligible`, `not_eligible`, `system_outage` or `needs_human`) and, for
+an approval, `segment`, `credit`, `name` and `nse`. Only an approval carries a
+credit line. When the check itself failed, `result` is `{ error }`. The answer
+does not say which provider replied, so the page shows the segment.
+
+The two dots in the page header come from `providersChecked` in the same answer:
+the providers whose circuit breaker was closed for that lookup. They appear
+after the first lookup. The dashboard cannot reach `/health`, which the proxy
+does not forward.
+
+## Editing the catalog
+
+The bundle editor saves with `PATCH /api/catalog/bundles/:id`, and the stock
+badge on a bundle card sends `stock_status` to the same route. The route stores
+`name`, `price`, `is_active`, `stock_status`, `notes`, `primary_category`,
+`composition_json` and `installments_json`, and ignores any other key.
+
+The category must be a non-empty string. Each JSON column must be a string that
+parses to an object or an array. The bot parses both on every catalog read, so
+the create route holds them to the same rule. A value that fails answers 400 and
+changes nothing.
 
 ## What has no page
 
