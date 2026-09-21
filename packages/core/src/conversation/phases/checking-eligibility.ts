@@ -157,7 +157,9 @@ export function transitionCheckingEligibility(
     }
 
     if (enrichment.status === "not_eligible") {
-      const attemptCount = (metadata.triedDnis?.length || 0) + 1;
+      // The backend adds this DNI to `triedDnis` before this transition runs.
+      const attemptCount = new Set([...(metadata.triedDnis ?? []), phase.dni])
+        .size;
 
       if (attemptCount < 3) {
         const { message } = selectVariant(

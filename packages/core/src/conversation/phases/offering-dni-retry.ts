@@ -5,6 +5,7 @@ import type {
 } from "../types.ts";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import { extractDNI } from "../../validation/regex.ts";
+import { transitionCollectingDni } from "./collecting-dni.ts";
 import { isAffirmative, isNegative } from "../../validation/affirmation.ts";
 import * as T from "../../templates/standard.ts";
 
@@ -28,16 +29,11 @@ export function transitionOfferingDniRetry(
     };
   }
 
-  const attemptCount = (metadata.triedDnis?.length || 0) + 1;
+  // Every DNI tried so far has failed, or this phase would not be reached.
+  const attemptCount = metadata.triedDnis?.length ?? 0;
 
-  const dni = extractDNI(message);
-  if (dni) {
-    // Transition to collecting_dni phase which will handle deduplication
-    return {
-      type: "update",
-      nextPhase: { phase: "collecting_dni" },
-      commands: [],
-    };
+  if (extractDNI(message)) {
+    return transitionCollectingDni(message, metadata);
   }
 
   // User explicitly declines retry
