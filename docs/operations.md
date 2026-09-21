@@ -40,7 +40,9 @@ copy into it.
 3. Warn if no platform operator can log in, and if `WHATSAPP_APP_SECRET` is
    unset.
 4. Start the aggregator and the outbox worker, a 60 s agent-reassignment timer,
-   and an hourly purge of processed inbox rows and final outbox rows.
+   and an hourly purge of processed inbox rows and final outbox rows. A timer
+   task that throws is logged as "Scheduled task failed" and runs again on the
+   next tick.
 5. Listen.
 
 Boot checks nothing else. A missing `SECRETS_KEY`, provider credential, LLM key
@@ -54,7 +56,7 @@ or `PUBLIC_URL` shows up when it is first used.
 | `DB_PATH`                                                              | backend           | `./data/database.sqlite`                                                                       |
 | `UPLOAD_DIR`, `PRIVATE_DIR`                                            | backend           | see [Uploads](#uploads)                                                                        |
 | `SECRETS_KEY`                                                          | backend           | no channel token can be stored or read                                                         |
-| `PUBLIC_URL`                                                           | backend           | image links name `http://localhost:5173`                                                       |
+| `PUBLIC_URL`                                                           | backend           | image links, alert links and the CORS origin name `http://localhost:5173`                      |
 | `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                 |
 | `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                         |
 | `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                        |
@@ -184,6 +186,20 @@ from how that is computed:
 
 Nothing in the repository calls `/health`.
 
+## Logs
+
+The backend writes one JSON object per line to `data/logs/backend.log`, relative
+to `apps/backend`. In production that file is the only output. In development
+the same lines also print to the terminal. `LOG_LEVEL` sets the level, and
+`LOG_LEVEL_<MODULE>` overrides it for one module.
+
+A failure carries an `error` object with `type`, `message` and `stack`, and the
+`code` or cause the error has. To list every error:
+
+```sh
+grep '"level":50' apps/backend/data/logs/backend.log
+```
+
 ## Alerts
 
 Alerts are WhatsApp messages sent by the backend on events
@@ -215,10 +231,13 @@ and those alerts carry the customer's name, phone and DNI, so they must hold
 only VendeYa staff. A business that wants its own alerts gets
 `whatsapp_group_sales` and `whatsapp_group_dev` set.
 
-Alert links are built from `getFrontendUrl()`
-([`packages/utils/src/url.ts`](../packages/utils/src/url.ts)), which ignores
-`PUBLIC_URL`. Without a tunnel file they name `http://localhost:5173`, in
-production too. The backend's CORS origin comes from the same function.
+Alert links and the backend's CORS origin come from `PUBLIC_URL`, the address
+image links use too, with any trailing slash removed
+([`packages/utils/src/url.ts`](../packages/utils/src/url.ts)). Outside
+production a running `bun run dev:tunnel` wins over it. Production ignores the
+tunnel's `.cloudflare-url` file, because the tunnel leaves it behind when it
+stops. The CORS origin is read once, at boot, so restart the backend after
+changing `PUBLIC_URL`.
 
 ## The audit log
 

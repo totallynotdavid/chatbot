@@ -164,9 +164,10 @@ starts a cloudflared quick tunnel to `http://localhost:5173`
 the repository root. Use `<address>/api/webhook` as the callback URL. Set
 `TUNNEL_TARGET_URL` to point the tunnel elsewhere.
 
-While `.cloudflare-url` exists, image links in replies use the tunnel address
-instead of `PUBLIC_URL`, and so do alert links and the backend's CORS origin.
-The backend reads the file for CORS once, at boot.
+Outside production, while `.cloudflare-url` exists, image links in replies use
+the tunnel address instead of `PUBLIC_URL`, and so do alert links and the
+backend's CORS origin. The backend reads the file for CORS once, at boot. With
+`NODE_ENV=production` the file is ignored and only `PUBLIC_URL` counts.
 
 ```sh
 bun run dev:tunnel:reset
