@@ -3,7 +3,12 @@ import { pathParam } from "../../lib/http.ts";
 import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 import { isEncryptionAvailable } from "../../platform/crypto/secrets.ts";
 import { logAction } from "../../platform/audit/logger.ts";
-import { activeTenantId, requireActiveTenant } from "../../middleware/auth.ts";
+import { db } from "../../db/index.ts";
+import {
+  activeTenantId,
+  requireActiveTenant,
+  requirePlatformOperator,
+} from "../../middleware/auth.ts";
 import type { ChannelAccount } from "@totem/types";
 
 const channels = new Hono();
@@ -31,6 +36,23 @@ function present(account: ChannelAccount) {
   };
 }
 
+/**
+ * The first of `fields` that `body` carries as something other than a string,
+ * or null. Absent (undefined or null) is fine, and so is an empty string, which
+ * the handlers treat as absent.
+ */
+function malformedField(
+  body: Record<string, unknown>,
+  fields: string[],
+): string | null {
+  for (const field of fields) {
+    const value = body[field];
+    if (value === undefined || value === null) continue;
+    if (typeof value !== "string") return field;
+  }
+  return null;
+}
+
 channels.get("/", (c) => {
   const tenantId = activeTenantId(c);
   return c.json({
@@ -38,7 +60,13 @@ channels.get("/", (c) => {
   });
 });
 
-channels.post("/", async (c) => {
+/**
+ * Claiming a number routes its inbound traffic to the acting tenant, and this
+ * application cannot check who owns it on Meta's side. VendeYa onboards numbers
+ * as a managed service, so only a platform operator creates one. A tenant admin
+ * keeps the list and the PATCH, which reach only the tenant's own numbers.
+ */
+channels.post("/", requirePlatformOperator, async (c) => {
   const user = c.get("user");
   const tenantId = activeTenantId(c);
   const body = await c.req.json();
@@ -49,6 +77,11 @@ channels.post("/", async (c) => {
 
   if (!phoneNumberId) {
     return c.json({ error: "phoneNumberId is required" }, 400);
+  }
+
+  const malformed = malformedField(body, ["accessToken", "verifyToken"]);
+  if (malformed) {
+    return c.json({ error: `${malformed} must be a string` }, 400);
   }
 
   if ((accessToken || verifyToken) && !isEncryptionAvailable()) {
@@ -66,15 +99,18 @@ channels.post("/", async (c) => {
     return c.json({ error: "That phone number id is already registered" }, 409);
   }
 
-  const account = ChannelAccountService.create({
-    tenantId,
-    phoneNumberId,
-    wabaId: wabaId ?? null,
-    displayPhoneNumber: displayPhoneNumber ?? null,
-    label: label ?? null,
-    accessToken: accessToken ?? null,
-    verifyToken: verifyToken ?? null,
-  });
+  // The secrets and the account row are written together or not at all.
+  const account = db.transaction(() =>
+    ChannelAccountService.create({
+      tenantId,
+      phoneNumberId,
+      wabaId: wabaId ?? null,
+      displayPhoneNumber: displayPhoneNumber ?? null,
+      label: label ?? null,
+      accessToken: accessToken ?? null,
+      verifyToken: verifyToken ?? null,
+    }),
+  )();
 
   logAction(
     { userId: user.id, tenantId },
@@ -100,8 +136,18 @@ channels.patch("/:id", async (c) => {
   const body = await c.req.json();
   const changed: string[] = [];
 
-  // Every refusal is checked before anything is written, so a rejected PATCH
-  // leaves the account unchanged.
+  // Every field is validated before the first write, so a refused PATCH leaves
+  // the account unchanged. The writes then run in one transaction, so a write
+  // that fails part way does not leave half of them behind either.
+  const malformed = malformedField(body, [
+    "accessToken",
+    "verifyToken",
+    "status",
+  ]);
+  if (malformed) {
+    return c.json({ error: `${malformed} must be a string` }, 400);
+  }
+
   if (body.accessToken || body.verifyToken) {
     if (!isEncryptionAvailable()) {
       return c.json(
@@ -140,20 +186,22 @@ channels.patch("/:id", async (c) => {
     );
   }
 
-  if (body.accessToken) {
-    ChannelAccountService.setAccessToken(id, body.accessToken);
-    changed.push("access_token");
-  }
+  db.transaction(() => {
+    if (body.accessToken) {
+      ChannelAccountService.setAccessToken(id, body.accessToken);
+      changed.push("access_token");
+    }
 
-  if (body.verifyToken) {
-    ChannelAccountService.setVerifyToken(id, body.verifyToken);
-    changed.push("verify_token");
-  }
+    if (body.verifyToken) {
+      ChannelAccountService.setVerifyToken(id, body.verifyToken);
+      changed.push("verify_token");
+    }
 
-  if (body.status) {
-    ChannelAccountService.updateStatus(id, body.status);
-    changed.push("status");
-  }
+    if (body.status) {
+      ChannelAccountService.updateStatus(id, body.status);
+      changed.push("status");
+    }
+  })();
 
   // Handing a pending account its first token activates it, so the status can
   // move without the request naming one. The audit entry records what the

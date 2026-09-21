@@ -126,19 +126,32 @@ function memberOfActiveTenant(tenantId: string, userId: string): boolean {
   return MembershipService.get(tenantId, userId) !== null;
 }
 
+function isPlatformOperator(userId: string): boolean {
+  return (
+    getOne<{ is_platform_operator: number }>(
+      "SELECT is_platform_operator FROM users WHERE id = ?",
+      [userId],
+    )?.is_platform_operator === 1
+  );
+}
+
 /**
- * Whether the caller may change this user's global account record, which is the
- * password hash and the active flag on `users`. Either change reaches every
- * tenant the account belongs to, so a tenant admin may only make it for a user
- * whose sole membership is the acting tenant. Others need a platform operator.
+ * Why the caller may not change this user's password hash or active flag, or
+ * null. Both reach every tenant the account belongs to, so a tenant admin may
+ * change them only for a user whose sole membership is the acting tenant, and
+ * never for a platform operator, whose account reaches every tenant whatever
+ * memberships it kept. Anything else needs a platform operator.
  */
-function mayEditGlobalAccount(
+function globalAccountRefusal(
   scope: { isPlatformOperator: boolean },
   userId: string,
-): boolean {
-  return (
-    scope.isPlatformOperator || MembershipService.countForUser(userId) <= 1
-  );
+): { error: string } | null {
+  if (scope.isPlatformOperator) return null;
+  if (isPlatformOperator(userId)) return PLATFORM_OPERATOR_ACCOUNT_ERROR;
+  if (MembershipService.countForUser(userId) > 1) {
+    return CROSS_TENANT_ACCOUNT_ERROR;
+  }
+  return null;
 }
 
 const CROSS_TENANT_ACCOUNT_ERROR = {
@@ -146,9 +159,14 @@ const CROSS_TENANT_ACCOUNT_ERROR = {
     "This user belongs to other businesses too, so their account cannot be changed from here; remove their access to this business instead, or ask VendeYa staff",
 } as const;
 
+const PLATFORM_OPERATOR_ACCOUNT_ERROR = {
+  error:
+    "This user is VendeYa staff, so their account can only be changed by VendeYa staff",
+} as const;
+
 /**
  * `is_active` is on the global user record, so this route is gated by
- * `mayEditGlobalAccount`, like a password reset.
+ * `globalAccountRefusal`, like a password reset.
  */
 users.patch("/:id/status", (c) => {
   const userId = pathParam(c, "id");
@@ -160,8 +178,9 @@ users.patch("/:id/status", (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  if (!mayEditGlobalAccount(scope, userId)) {
-    return c.json(CROSS_TENANT_ACCOUNT_ERROR, 403);
+  const refusal = globalAccountRefusal(scope, userId);
+  if (refusal) {
+    return c.json(refusal, 403);
   }
 
   const user = getOne<{ is_active: number }>(
@@ -201,7 +220,7 @@ users.patch("/:id/status", (c) => {
 
 /**
  * `password_hash` is on the global user record, so this route is gated by
- * `mayEditGlobalAccount`, like the active flag.
+ * `globalAccountRefusal`, like the active flag.
  */
 users.post("/:id/password", async (c) => {
   const userId = pathParam(c, "id");
@@ -214,8 +233,9 @@ users.post("/:id/password", async (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  if (!mayEditGlobalAccount(scope, userId)) {
-    return c.json(CROSS_TENANT_ACCOUNT_ERROR, 403);
+  const refusal = globalAccountRefusal(scope, userId);
+  if (refusal) {
+    return c.json(refusal, 403);
   }
 
   if (!meetsPasswordMinimum(newPassword)) {
