@@ -28,6 +28,9 @@ function getBaseConfig(config: LoggerConfig): LoggerOptions {
     level,
     name: config.name,
     timestamp: pino.stdTimeFunctions.isoTime,
+    // An Error has no enumerable properties, so it logs as `{}` unless
+    // serialized. Pino covers `err` by default. Callers here pass `error`.
+    serializers: { error: pino.stdSerializers.err },
   };
 }
 
