@@ -5,7 +5,7 @@ interface Props {
   brand?: string;
 }
 
-let { title, separator = " | ", brand = "Totem" }: Props = $props();
+let { title, separator = " | ", brand = "VendeYa" }: Props = $props();
 
 let fullTitle = $derived(`${title}${separator}${brand}`);
 </script>

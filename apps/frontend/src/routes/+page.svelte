@@ -13,7 +13,7 @@ onMount(() => {
 });
 </script>
 
-<PageTitle title="Totem" separator="" brand="" />
+<PageTitle title="VendeYa" separator="" brand="" />
 
 <div class="h-screen flex items-center justify-center bg-cream-100">
 	<p class="font-serif text-ink-400 italic">Cargando...</p>

@@ -65,7 +65,7 @@
       href="/dashboard"
       class="font-serif font-bold italic text-xl hover:text-ink-600 transition-colors"
     >
-      totem
+      vendeya
     </a>
     {#each crumbs as crumb, i}
       <span class="text-ink-400 text-sm">/</span>

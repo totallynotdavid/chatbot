@@ -16,7 +16,7 @@
 		class="w-full md:w-1/3 lg:w-1/4 bg-cream-50 border-b md:border-b-0 md:border-r border-ink-900/10 p-12 flex flex-col justify-between"
 	>
 		<div>
-			<h1 class="text-5xl font-serif mb-6 italic">totem</h1>
+			<h1 class="text-5xl font-serif mb-6 italic">vendeya</h1>
 			<p class="text-lg text-ink-600 font-serif leading-relaxed">
 				Bienvenido, {data.user?.name || data.user?.username}.<br />
 				Seleccione un módulo operativo para comenzar su sesión.

@@ -53,7 +53,7 @@
 	<div
 		class="w-full max-w-md bg-cream-50 p-12 border border-cream-200 shadow-xl"
 	>
-		<h1 class="text-6xl font-serif mb-4 italic text-ink-900">totem</h1>
+		<h1 class="text-6xl font-serif mb-4 italic text-ink-900">vendeya</h1>
 		<p class="text-ink-600 mb-12 font-serif text-lg leading-relaxed">
 			Plataforma de gestión interna y control de operaciones.
 		</p>
