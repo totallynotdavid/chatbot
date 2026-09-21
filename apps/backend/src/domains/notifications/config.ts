@@ -100,6 +100,7 @@ export const notificationRules: NotificationRule[] = [
         multiple_objections: "Cliente rechazó múltiples ofertas",
         customer_question_requires_human:
           "Pregunta del cliente requiere atención humana",
+        reply_undeliverable: "No se pudo entregar una respuesta al cliente",
       };
 
       if (map[reason]) {

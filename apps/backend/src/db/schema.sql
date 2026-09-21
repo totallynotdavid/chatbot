@@ -274,8 +274,8 @@ CREATE INDEX IF NOT EXISTS idx_held_messages_phone ON held_messages(tenant_id, c
 -- `messages` row this row updates, so a retry never writes a second row, and it
 -- is where the product an image showed is recorded. The states and who moves
 -- them are in conversation/outbox.ts.
--- `handed_off_at` is written by the handoff that a `failed` row triggers, which
--- is not built yet.
+-- `handed_off_at` is NULL until the handoff of a `failed` row alerts a person.
+-- Only that handoff writes it, only on a `failed` row, and it is never cleared.
 CREATE TABLE IF NOT EXISTS outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

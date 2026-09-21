@@ -11,6 +11,7 @@ import {
   type OutboxStep,
 } from "./outbox.ts";
 import { ConversationBusyError, LockTimeoutError, withLock } from "./locks.ts";
+import { handOffUndeliverable } from "./outbox-handoff.ts";
 import {
   ChannelUnavailableError,
   sendResolved,
@@ -73,20 +74,20 @@ async function runWorkerLoop(): Promise<void> {
 
 /**
  * One pass over the queue. Conversations are answered in parallel and each one
- * inside its own lock. Exported so a test can drive it with a clock it controls
- * instead of starting a worker and waiting on a timer.
+ * inside its own lock. The handoff runs after the due rows, so a row that fails
+ * in this pass is handed off in this pass unless its conversation is busy.
+ * Exported so a test can drive it with a clock it controls instead of starting
+ * a worker and waiting on a timer.
  */
 export async function processDueOutbox(
   now: number = Date.now(),
 ): Promise<void> {
-  const refs = conversationsNeedingOutbox(now);
-
-  if (refs.length === 0) {
-    return;
-  }
-
   const at = passClock(now);
+
+  const refs = conversationsNeedingOutbox(now);
   await Promise.all(refs.map((ref) => processConversation(ref, at)));
+
+  await handOffUndeliverable(at);
 }
 
 type PassClock = () => number;

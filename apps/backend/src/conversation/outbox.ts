@@ -28,7 +28,9 @@ import type {
  *    queue behind it.
  *  - sent: the adapter accepted it, and the `messages` row carries Meta's id.
  *  - failed: permanent, out of budget, a second ambiguous outcome, or past
- *    `MAX_AGE_MS`. `last_reason` says which.
+ *    `MAX_AGE_MS`. `last_reason` says which. The customer got no answer, so
+ *    the handoff in outbox-handoff.ts alerts a person and stamps
+ *    `handed_off_at`. A failed row with no stamp is a handoff still owed.
  *  - cancelled: a person took the conversation over before it went out.
  *
  * sent, failed and cancelled are final. The worker claims only a conversation's
@@ -369,8 +371,9 @@ export function expirePending(ref: ConversationRef, now: number): number {
 
 /**
  * Drop the replies the bot had queued, because a person now owns the
- * conversation. Only `pending` rows: the caller holds the conversation lock, so
- * no attempt can be in flight. Gives back how many were dropped.
+ * conversation or is being given it. Only `pending` rows: the caller holds the
+ * conversation lock, so no attempt can be in flight. Gives back how many were
+ * dropped.
  */
 export function cancelPending(ref: ConversationRef): number {
   const cancel = db.transaction(() => {
@@ -442,6 +445,51 @@ export function conversationsNeedingOutbox(now: number): ConversationRef[] {
   }
 
   return [...refs.values()];
+}
+
+/** The conversation's `failed` rows that no handoff has covered yet, oldest first. */
+export function undeliveredRows(ref: ConversationRef): OutboxRow[] {
+  return getAll<OutboxRow>(
+    `SELECT * FROM outbox
+     WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?
+       AND status = 'failed' AND handed_off_at IS NULL
+     ORDER BY id`,
+    [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
+  );
+}
+
+/**
+ * The conversations that own a `failed` row no handoff has covered. A suspended
+ * tenant's rows wait for it to reopen.
+ */
+export function conversationsAwaitingHandoff(): ConversationRef[] {
+  return getAll<{
+    tenant_id: string;
+    channel_account_id: string;
+    phone_number: string;
+  }>(
+    `SELECT DISTINCT tenant_id, channel_account_id, phone_number FROM outbox
+     WHERE status = 'failed' AND handed_off_at IS NULL AND ${openTenantsOnly()}`,
+  ).map((row) => ({
+    tenantId: row.tenant_id,
+    channelAccountId: row.channel_account_id,
+    phoneNumber: row.phone_number,
+  }));
+}
+
+/**
+ * Stamps the handoff on `failed` rows. A row that is already stamped keeps its
+ * first time. `updated_at` is left alone, so retention still counts from when
+ * the row failed.
+ */
+export function markHandedOff(ids: number[], now: number): void {
+  if (ids.length === 0) return;
+
+  db.prepare(
+    `UPDATE outbox SET handed_off_at = ?
+     WHERE id IN (${ids.map(() => "?").join(", ")})
+       AND status = 'failed' AND handed_off_at IS NULL`,
+  ).run(now, ...ids);
 }
 
 /**
