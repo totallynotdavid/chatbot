@@ -138,8 +138,10 @@ async function sendMessage(
   }
 
   // The phase is persisted whatever this returns.
-  const outcome = await WhatsAppService.sendMessage(ref, content);
-  if (!outcome.ok) {
+  const outcome = await WhatsAppService.sendMessage(ref, content, {
+    retry: true,
+  });
+  if (!outcome.ok && !outcome.queued) {
     logger.warn(
       {
         tenantId: ref.tenantId,
@@ -271,8 +273,12 @@ async function executeSingleBundle(
       `images/${bundle.image_id}.jpg`,
       caption,
       bundle.id,
+      { retry: true },
     );
-    if (!outcome.ok) {
+    // A queued image counts as shown. The outbox row is the durable record of
+    // that reply and the worker delivers it in order, so the phase must name
+    // the product the customer is about to see.
+    if (!outcome.ok && !outcome.queued) {
       logger.warn(
         {
           tenantId: ref.tenantId,
