@@ -41,8 +41,8 @@ replies and mark messages read
 
 ## Registering the number
 
-An admin pinned to the tenant registers the number. `SECRETS_KEY` must be set on
-the backend, or a request carrying a token answers 503.
+A platform operator pinned to the tenant registers the number. `SECRETS_KEY`
+must be set on the backend, or a request carrying a token answers 503.
 
 ```sh
 bun scripts/generate-token.ts webhook    # prints a verify token

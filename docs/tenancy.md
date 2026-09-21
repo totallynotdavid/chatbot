@@ -36,14 +36,17 @@ joins a user to a tenant with one role:
 | `sales_agent` | nothing beyond the base                                                   |
 
 The base is what every role can do: read the catalog, and read and work
-conversations and orders. Two routes narrow it. The conversation list shows a
-`sales_agent` only the conversations assigned to them, and refuses a
-`supervisor` with 403. The other conversation and order routes, detail and
-takeover included, check no role and no assignment. Order status changes allowed
-per role are in [`routes/orders.ts`](../apps/backend/src/routes/orders.ts). Role
-checks are `requireRole` in
-[`middleware/auth.ts`](../apps/backend/src/middleware/auth.ts) and the route
-files.
+conversations and orders. A `sales_agent` is narrowed: they list, open and act
+on a conversation assigned to them or to nobody, never one assigned to another
+agent, and they see the orders they created and the orders from their
+conversations. Every other role sees the whole tenant. The rule is
+`assignedAgentScope` in
+[`platform/auth/scope.ts`](../apps/backend/src/platform/auth/scope.ts). Nothing
+assigns a conversation when it escalates, so an agent reaches every conversation
+no other agent has claimed. Order status changes allowed per role are in
+[`routes/orders.ts`](../apps/backend/src/routes/orders.ts). Role checks are
+`requireRole` in [`middleware/auth.ts`](../apps/backend/src/middleware/auth.ts)
+and the route files.
 
 Authorization reads the membership role. `users.role` is written when a user is
 created and not read for authorization. A user can belong to several tenants
@@ -58,8 +61,10 @@ alerts go.
 
 A platform operator is VendeYa staff. The flag is `users.is_platform_operator`,
 not a role. An operator acts as `admin` in every tenant and may act across
-tenants. Only an operator can create a tenant, add a member to any tenant, look
-up a DNI and change platform settings.
+tenants. Only an operator can create a tenant, add a member to any tenant,
+register a channel account, look up a DNI and change platform settings. Only an
+operator can reset another operator's password or deactivate them, whatever
+tenants that operator belongs to.
 
 Operators are made only from the command line:
 
@@ -135,8 +140,10 @@ An account cannot be made `active` without an access token. Messages for a
 non-active number are dropped at the webhook. Messages already queued for it
 wait until it is active again.
 
-A tenant admin registers and updates numbers through the API; the dashboard has
-no page for it. How to get the values from Meta is in
+A platform operator registers a number (`POST /api/admin/channels`). A tenant
+admin lists their tenant's numbers and replaces a token or sets the status of
+one (`PATCH /api/admin/channels/:id`). Both are API-only; the dashboard has no
+page for them. How to get the values from Meta is in
 [Connecting WhatsApp](./whatsapp.md).
 
 When a tenant has several numbers and the caller names none (the simulator, an
