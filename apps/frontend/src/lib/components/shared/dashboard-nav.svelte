@@ -20,7 +20,7 @@
     "/dashboard/personas/create": "Crear",
   };
 
-  $: crumbs = (() => {
+  const crumbs = $derived.by(() => {
     const path = page.url.pathname;
     const segments = path.split("/").filter(Boolean);
     let currentPath = "";
@@ -54,7 +54,7 @@
       }
     }
     return trail;
-  })();
+  });
 </script>
 
 <nav
