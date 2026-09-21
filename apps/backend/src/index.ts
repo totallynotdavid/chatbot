@@ -75,16 +75,26 @@ initializeApplication();
 startAggregatorWorker();
 startOutboxWorker();
 
-setInterval(async () => {
-  checkAndReassignTimeouts();
-}, 60 * 1000);
+// An error that escapes a timer callback ends the process, so a busy or full
+// database must cost one tick, not the server.
+function everyGuarded(name: string, ms: number, task: () => void): void {
+  setInterval(() => {
+    try {
+      task();
+    } catch (error) {
+      logger.error({ error, task: name }, "Scheduled task failed");
+    }
+  }, ms);
+}
 
-setInterval(
-  () => {
-    purgeProcessedMessages();
-    purgeFinishedOutbox();
-  },
-  60 * 60 * 1000,
+everyGuarded("reassign timed-out conversations", 60 * 1000, () =>
+  checkAndReassignTimeouts(),
+);
+everyGuarded("purge processed messages", 60 * 60 * 1000, () =>
+  purgeProcessedMessages(),
+);
+everyGuarded("purge finished outbox", 60 * 60 * 1000, () =>
+  purgeFinishedOutbox(),
 );
 
 // Global middleware
