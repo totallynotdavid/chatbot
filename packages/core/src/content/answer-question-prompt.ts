@@ -1,7 +1,7 @@
 export function buildAnswerQuestionPrompt(context: {
   segment?: string;
   creditLine?: number;
-  state?: string;
+  phase?: string;
   availableCategories?: string[];
 }): string {
   const creditInfo = context.creditLine

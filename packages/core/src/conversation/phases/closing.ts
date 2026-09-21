@@ -71,7 +71,7 @@ export function transitionClosing(
         message,
         context: {
           segment: metadata.segment,
-          credit: metadata.credit,
+          creditLine: metadata.credit,
           phase: "post_sale",
           availableCategories: [],
         },

@@ -115,7 +115,7 @@ export type EnrichmentRequest =
       message: string;
       context: {
         segment?: Segment;
-        credit?: number;
+        creditLine?: number;
         phase: string;
         availableCategories: string[];
       };
