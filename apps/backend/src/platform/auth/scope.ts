@@ -50,6 +50,16 @@ export function hasRole(scope: AuthScope, allowed: string[]): boolean {
 }
 
 /**
+ * The sales agent whose assignments bound this caller, or null when the role
+ * sees the whole tenant. The agent reaches conversations assigned to them or
+ * to nobody, and only orders from conversations assigned to them. An operator
+ * is admin (see `sessionRole`), so an agent membership does not narrow them.
+ */
+export function assignedAgentScope(scope: AuthScope): string | null {
+  return sessionRole(scope) === "sales_agent" ? scope.userId : null;
+}
+
+/**
  * The tenant a write lands in. A write needs a concrete tenant, so an unpinned
  * caller, operator or member, throws until one is selected. Request handlers
  * reach this through `activeTenantId` and `requireActiveTenant` in
