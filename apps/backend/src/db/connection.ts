@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import { UPLOAD_DIR } from "../lib/storage-paths.ts";
 import { enableWal } from "./wal.ts";
@@ -7,9 +8,7 @@ import { enableWal } from "./wal.ts";
 const DB_PATH = process.env.DB_PATH || "./data/database.sqlite";
 const BUSY_TIMEOUT_MS = 10_000;
 
-fs.mkdirSync(DB_PATH.substring(0, DB_PATH.lastIndexOf("/")), {
-  recursive: true,
-});
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH, { create: true });
