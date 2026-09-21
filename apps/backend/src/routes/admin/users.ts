@@ -259,11 +259,26 @@ users.post("/:id/password", async (c) => {
   return c.json({ success: true });
 });
 
+/**
+ * Why the caller may not change this user's membership here, or null. A role
+ * or a membership is a tenant matter, so a user with other memberships is fair
+ * game. VendeYa staff is not: the operator keeps their powers on the account,
+ * but a tenant admin could still lock them out of this tenant.
+ */
+function operatorMembershipRefusal(
+  scope: { isPlatformOperator: boolean },
+  userId: string,
+): { error: string } | null {
+  if (scope.isPlatformOperator) return null;
+  return isPlatformOperator(userId) ? PLATFORM_OPERATOR_ACCOUNT_ERROR : null;
+}
+
 // Update a member's role inside the active tenant
 users.patch("/:id/role", async (c) => {
   const userId = pathParam(c, "id");
   const { role } = await c.req.json();
   const admin = c.get("user");
+  const scope = c.get("scope");
   const tenantId = activeTenantId(c);
 
   if (!isTenantRole(role)) {
@@ -275,6 +290,9 @@ users.patch("/:id/role", async (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
+  const refusal = operatorMembershipRefusal(scope, userId);
+  if (refusal) return c.json(refusal, 403);
+
   const oldRole = membership.role;
 
   MembershipService.upsert({
@@ -284,8 +302,8 @@ users.patch("/:id/role", async (c) => {
     createdBy: admin.id,
   });
 
-  // Invalidate sessions so the user picks up the new role on next request
-  db.prepare("DELETE FROM session WHERE user_id = ?").run(userId);
+  // No session is touched. `validateSessionToken` re-reads the membership on
+  // every request, so the user's next request already carries the new role.
 
   logAction(
     { userId: admin.id, tenantId },
@@ -305,11 +323,15 @@ users.patch("/:id/role", async (c) => {
 users.delete("/:id/membership", (c) => {
   const userId = pathParam(c, "id");
   const admin = c.get("user");
+  const scope = c.get("scope");
   const tenantId = activeTenantId(c);
 
   if (!memberOfActiveTenant(tenantId, userId)) {
     return c.json({ error: "User not found" }, 404);
   }
+
+  const refusal = operatorMembershipRefusal(scope, userId);
+  if (refusal) return c.json(refusal, 403);
 
   MembershipService.remove(tenantId, userId);
   db.prepare(

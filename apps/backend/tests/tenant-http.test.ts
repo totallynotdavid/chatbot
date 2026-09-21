@@ -728,6 +728,263 @@ describe("HTTP authorization", () => {
   });
 
   /**
+   * The browser drops the cookie at the expiry it got at login. A renewal moves
+   * `expires_at` in the database, so the response must carry the cookie again,
+   * or the user is logged out while the row is still valid.
+   */
+  describe("session renewal reaches the browser", () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    function withDaysLeft(days: number): { cookie: string; id: string } {
+      const token = generateSessionToken();
+      const session = createSession(
+        token,
+        createUser({ tenantId: alpha.tenantId }),
+        alpha.tenantId,
+      );
+      db.prepare("UPDATE session SET expires_at = ? WHERE id = ?").run(
+        Math.floor((Date.now() + days * DAY_MS) / 1000),
+        session.id,
+      );
+      return { cookie: `session=${token}`, id: session.id };
+    }
+
+    function storedExpiry(sessionId: string): number {
+      return (
+        db
+          .prepare("SELECT expires_at FROM session WHERE id = ?")
+          .get(sessionId) as { expires_at: number }
+      ).expires_at;
+    }
+
+    it("sets the cookie again, about 30 days out, when it renews", async () => {
+      const session = withDaysLeft(10);
+
+      const response = await get("/api/conversations", session);
+
+      expect(response.status).toBe(200);
+      const setCookie = response.headers.get("set-cookie") ?? "";
+      expect(setCookie).toContain(`${session.cookie};`);
+      const expires = /Expires=([^;]+)/i.exec(setCookie)?.[1];
+      expect(expires).toBeDefined();
+      const cookieExpiry = Date.parse(expires!);
+      expect(Math.abs(cookieExpiry - (Date.now() + 30 * DAY_MS))).toBeLessThan(
+        60_000,
+      );
+      // The cookie and the row agree, to the second the cookie is rounded to.
+      expect(
+        Math.abs(cookieExpiry - storedExpiry(session.id) * 1000),
+      ).toBeLessThan(2_000);
+    });
+
+    it("sends no cookie while more than 15 days remain", async () => {
+      const session = withDaysLeft(20);
+      const before = storedExpiry(session.id);
+
+      const response = await get("/api/conversations", session);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(storedExpiry(session.id)).toBe(before);
+    });
+
+    it("sends no cookie on the request after a renewal", async () => {
+      const session = withDaysLeft(10);
+
+      await get("/api/conversations", session);
+      const again = await get("/api/conversations", session);
+
+      expect(again.status).toBe(200);
+      expect(again.headers.get("set-cookie")).toBeNull();
+    });
+  });
+
+  /**
+   * Changing a role or a membership is a tenant matter, so it works for a user
+   * who belongs to other tenants too. VendeYa staff is the exception: their
+   * powers live on the account, but a tenant admin could still lock them out.
+   */
+  describe("a tenant admin and VendeYa staff's membership", () => {
+    function roleOf(tenantId: string, userId: string): string | undefined {
+      return MembershipService.get(tenantId, userId)?.role;
+    }
+
+    function changeRole(
+      auth: { cookie: string },
+      userId: string,
+      role: string,
+    ) {
+      return patch(`/api/admin/users/${userId}/role`, auth, { role });
+    }
+
+    function removeMembership(auth: { cookie: string }, userId: string) {
+      return app.request(`/api/admin/users/${userId}/membership`, {
+        method: "DELETE",
+        headers: { Cookie: auth.cookie },
+      });
+    }
+
+    /** A promoted member account: an operator who kept a membership. */
+    function operatorMember(): string {
+      return createUser({
+        tenantId: alpha.tenantId,
+        role: "sales_agent",
+        isPlatformOperator: true,
+      });
+    }
+
+    it("refuses to change an operator's role and leaves the row alone", async () => {
+      const operator = operatorMember();
+
+      const response = await changeRole(alphaAdmin, operator, "developer");
+
+      expect(response.status).toBe(403);
+      expect(((await response.json()) as { error: string }).error).toContain(
+        "VendeYa staff",
+      );
+      expect(roleOf(alpha.tenantId, operator)).toBe("sales_agent");
+    });
+
+    it("refuses to remove an operator's membership and leaves the row alone", async () => {
+      const operator = operatorMember();
+
+      const response = await removeMembership(alphaAdmin, operator);
+
+      expect(response.status).toBe(403);
+      expect(((await response.json()) as { error: string }).error).toContain(
+        "VendeYa staff",
+      );
+      expect(roleOf(alpha.tenantId, operator)).toBe("sales_agent");
+    });
+
+    it("refuses an operator who also belongs to another tenant, all the same", async () => {
+      const operator = operatorMember();
+      db.prepare(
+        `INSERT INTO tenant_memberships (id, tenant_id, user_id, role)
+         VALUES (?, ?, ?, 'sales_agent')`,
+      ).run(crypto.randomUUID(), beta.tenantId, operator);
+
+      expect((await changeRole(alphaAdmin, operator, "developer")).status).toBe(
+        403,
+      );
+      expect((await removeMembership(alphaAdmin, operator)).status).toBe(403);
+      expect(roleOf(alpha.tenantId, operator)).toBe("sales_agent");
+    });
+
+    it("lets a platform operator change the role of another operator", async () => {
+      const target = operatorMember();
+      const caller = login(
+        createUser({ isPlatformOperator: true }),
+        alpha.tenantId,
+      );
+
+      const response = await changeRole(caller, target, "developer");
+
+      expect(response.status).toBe(200);
+      expect(roleOf(alpha.tenantId, target)).toBe("developer");
+    });
+
+    it("lets a platform operator remove an operator's membership", async () => {
+      const target = operatorMember();
+      const caller = login(
+        createUser({ isPlatformOperator: true }),
+        alpha.tenantId,
+      );
+
+      const response = await removeMembership(caller, target);
+
+      expect(response.status).toBe(200);
+      expect(MembershipService.get(alpha.tenantId, target)).toBeNull();
+    });
+
+    it("still lets a tenant admin change an ordinary member's role", async () => {
+      const member = createUser({
+        tenantId: alpha.tenantId,
+        role: "sales_agent",
+      });
+
+      const response = await changeRole(alphaAdmin, member, "supervisor");
+
+      expect(response.status).toBe(200);
+      expect(roleOf(alpha.tenantId, member)).toBe("supervisor");
+    });
+
+    it("still lets a tenant admin remove an ordinary member", async () => {
+      const member = createUser({
+        tenantId: alpha.tenantId,
+        role: "sales_agent",
+      });
+
+      const response = await removeMembership(alphaAdmin, member);
+
+      expect(response.status).toBe(200);
+      expect(MembershipService.get(alpha.tenantId, member)).toBeNull();
+    });
+
+    it("still lets a tenant admin change the role of a multi-tenant member", async () => {
+      const member = createUser({
+        tenantId: alpha.tenantId,
+        role: "sales_agent",
+      });
+      db.prepare(
+        `INSERT INTO tenant_memberships (id, tenant_id, user_id, role)
+         VALUES (?, ?, ?, 'sales_agent')`,
+      ).run(crypto.randomUUID(), beta.tenantId, member);
+
+      expect((await changeRole(alphaAdmin, member, "supervisor")).status).toBe(
+        200,
+      );
+      expect(roleOf(alpha.tenantId, member)).toBe("supervisor");
+      expect(roleOf(beta.tenantId, member)).toBe("sales_agent");
+    });
+
+    /**
+     * `validateSessionToken` re-reads the membership on every request, so a
+     * role change needs no session to be deleted. Deleting them only logged the
+     * user out of every tenant they belong to.
+     */
+    describe("a role change and the user's session", () => {
+      it("shows the new role on the next request with the same session", async () => {
+        const member = createUser({
+          tenantId: alpha.tenantId,
+          role: "sales_agent",
+        });
+        const session = login(member, alpha.tenantId);
+
+        expect((await get("/api/admin/users", session)).status).toBe(403);
+
+        expect((await changeRole(alphaAdmin, member, "admin")).status).toBe(
+          200,
+        );
+        expect((await get("/api/admin/users", session)).status).toBe(200);
+
+        expect(
+          (await changeRole(alphaAdmin, member, "sales_agent")).status,
+        ).toBe(200);
+        expect((await get("/api/admin/users", session)).status).toBe(403);
+      });
+
+      it("keeps the user logged in, in this tenant and in the others", async () => {
+        const member = createUser({
+          tenantId: alpha.tenantId,
+          role: "sales_agent",
+        });
+        db.prepare(
+          `INSERT INTO tenant_memberships (id, tenant_id, user_id, role)
+           VALUES (?, ?, ?, 'sales_agent')`,
+        ).run(crypto.randomUUID(), beta.tenantId, member);
+        const inAlpha = login(member, alpha.tenantId);
+        const inBeta = login(member, beta.tenantId);
+
+        await changeRole(alphaAdmin, member, "supervisor");
+
+        expect((await get("/api/conversations", inAlpha)).status).toBe(200);
+        expect((await get("/api/conversations", inBeta)).status).toBe(200);
+      });
+    });
+  });
+
+  /**
    * A conversation is (tenant, channel account, phone number). The `:phone`
    * parameter alone is ambiguous when a contact writes to two of the tenant's
    * numbers, so the API must refuse to guess which thread is meant.

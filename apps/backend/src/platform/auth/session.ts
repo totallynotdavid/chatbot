@@ -54,9 +54,13 @@ declare module "hono" {
   }
 }
 
+/**
+ * `fresh` is true when this call pushed the session's expiry out. The browser
+ * still holds the cookie with the old expiry, so the caller must send it again.
+ */
 export type SessionValidationResult =
-  | { session: Session; user: User; scope: AuthScope }
-  | { session: null; user: null; scope: null };
+  | { session: Session; user: User; scope: AuthScope; fresh: boolean }
+  | { session: null; user: null; scope: null; fresh: false };
 
 export function generateSessionToken(): string {
   const bytes = new Uint8Array(20);
@@ -148,7 +152,7 @@ export function validateSessionToken(token: string): SessionValidationResult {
     | undefined;
 
   if (!row || row.is_active === 0) {
-    return { session: null, user: null, scope: null };
+    return { session: null, user: null, scope: null, fresh: false };
   }
 
   const session: Session = {
@@ -160,10 +164,12 @@ export function validateSessionToken(token: string): SessionValidationResult {
 
   if (Date.now() >= session.expiresAt.getTime()) {
     db.prepare("DELETE FROM session WHERE id = ?").run(session.id);
-    return { session: null, user: null, scope: null };
+    return { session: null, user: null, scope: null, fresh: false };
   }
 
+  let fresh = false;
   if (Date.now() >= session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15) {
+    fresh = true;
     session.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
     db.prepare("UPDATE session SET expires_at = ? WHERE id = ?").run(
       Math.floor(session.expiresAt.getTime() / 1000),
@@ -216,7 +222,7 @@ export function validateSessionToken(token: string): SessionValidationResult {
     isAvailable: membership?.is_available === 1,
   };
 
-  return { session, user, scope };
+  return { session, user, scope, fresh };
 }
 
 export function invalidateSession(sessionId: string): void {

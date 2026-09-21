@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import {
   validateSessionToken,
   deleteSessionTokenCookie,
+  setSessionTokenCookie,
 } from "../platform/auth/session.ts";
 import {
   hasRole,
@@ -24,7 +25,7 @@ export async function requireAuth(c: Context, next: Next) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const { session, user, scope } = validateSessionToken(token);
+  const { session, user, scope, fresh } = validateSessionToken(token);
 
   if (!session || !user || !scope) {
     deleteSessionTokenCookie(c);
@@ -34,6 +35,10 @@ export async function requireAuth(c: Context, next: Next) {
   c.set("user", user);
   c.set("session", session);
   c.set("scope", scope);
+
+  // The browser drops the cookie at the expiry it was given at login, so a
+  // renewed session needs the cookie again. Only then, not on every response.
+  if (fresh) setSessionTokenCookie(c, token, session.expiresAt);
 
   await next();
 }

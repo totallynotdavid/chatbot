@@ -64,7 +64,11 @@ not a role. An operator acts as `admin` in every tenant and may act across
 tenants. Only an operator can create a tenant, add a member to any tenant,
 register a channel account, look up a DNI and change platform settings. Only an
 operator can reset another operator's password or deactivate them, whatever
-tenants that operator belongs to.
+tenants that operator belongs to. The same holds for their membership. A tenant
+admin cannot change an operator's role in their tenant or remove them from it,
+and gets 403. The operator's powers live on the account, but a tenant admin
+could still lock VendeYa staff out of that one tenant. An ordinary member is a
+tenant matter, even one with other memberships.
 
 Operators are made only from the command line:
 
@@ -81,6 +85,9 @@ keeps the memberships the account already has. See
 
 Logging in creates a 30-day session and sets the `session` cookie
 ([`platform/auth/session.ts`](../apps/backend/src/platform/auth/session.ts)).
+A request with fewer than 15 days left renews the session for 30 more and sets
+the cookie again, so a session lasts 30 days from the last request that renewed
+it. Other responses send no cookie.
 The session carries `active_tenant_id`, the tenant it acts in. A member of
 exactly one open tenant starts pinned to it. An operator, and a member of
 several, starts unpinned and picks one:
@@ -94,7 +101,7 @@ The dashboard does this from the tenant selector. The active tenant is the only
 tenant input. No header or query parameter names a tenant.
 
 Every request re-reads the membership, so a changed role or a removed membership
-takes effect on the next request.
+takes effect on the next request. Changing a role ends no session.
 
 ## How a read is scoped
 
