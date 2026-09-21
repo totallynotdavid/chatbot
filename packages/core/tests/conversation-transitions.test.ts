@@ -515,6 +515,34 @@ describe("Conversation transitions (checking eligibility phase)", () => {
     }
   });
 
+  test("offers a retry after the second failed DNI and closes after the third", () => {
+    const enrichment: EnrichmentResult = {
+      type: "eligibility_result",
+      status: "not_eligible",
+    };
+
+    // The backend has already appended the DNI being checked.
+    const second = transition({
+      phase: { phase: "checking_eligibility", dni: "72345678" },
+      message: "",
+      metadata: createMetadata({ triedDnis: ["11111111", "72345678"] }),
+      enrichment,
+    });
+    expect(second.type === "update" && second.nextPhase.phase).toBe(
+      "offering_dni_retry",
+    );
+
+    const third = transition({
+      phase: { phase: "checking_eligibility", dni: "72345678" },
+      message: "",
+      metadata: createMetadata({
+        triedDnis: ["11111111", "22222222", "72345678"],
+      }),
+      enrichment,
+    });
+    expect(third.type === "update" && third.nextPhase.phase).toBe("closing");
+  });
+
   test("should escalate when both providers are down", () => {
     const enrichment: EnrichmentResult = {
       type: "eligibility_result",
