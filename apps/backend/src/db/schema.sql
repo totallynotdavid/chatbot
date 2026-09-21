@@ -270,6 +270,39 @@ CREATE TABLE IF NOT EXISTS held_messages (
 
 CREATE INDEX IF NOT EXISTS idx_held_messages_phone ON held_messages(tenant_id, channel_account_id, phone_number, created_at ASC);
 
+-- One outbound reply whose send failed and may still go out. `message_id` is the
+-- `messages` row this row updates, so a retry never writes a second row, and it
+-- is where the product an image showed is recorded. The states and who moves
+-- them are in conversation/outbox.ts.
+-- `handed_off_at` is written by the handoff that a `failed` row triggers, which
+-- is not built yet.
+CREATE TABLE IF NOT EXISTS outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    channel_account_id TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('text', 'image')),
+    content TEXT NOT NULL,
+    caption TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'sending', 'sent', 'failed', 'cancelled')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    ambiguous_attempts INTEGER NOT NULL DEFAULT 0,
+    last_kind TEXT,
+    last_reason TEXT,
+    next_attempt_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+    handed_off_at INTEGER,
+    FOREIGN KEY (channel_account_id, tenant_id)
+        REFERENCES channel_accounts(id, tenant_id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, channel_account_id, phone_number)
+        REFERENCES conversations(tenant_id, channel_account_id, phone_number) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_due ON outbox(status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_conversation ON outbox(tenant_id, channel_account_id, phone_number, status, id);
+
 
 -- ORDERS & SALES PROCESSING
 CREATE TABLE IF NOT EXISTS orders (

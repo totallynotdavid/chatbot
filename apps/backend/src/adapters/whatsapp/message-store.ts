@@ -20,7 +20,7 @@ export const MessageStore = {
     status: string = "sent",
     whatsappMessageId?: string,
     productId?: string,
-  ): void {
+  ): string {
     const id = crypto.randomUUID();
     db.prepare(
       `INSERT INTO messages (id, tenant_id, channel_account_id, phone_number, direction, type, content, status, whatsapp_message_id, product_id)
@@ -37,6 +37,10 @@ export const MessageStore = {
       whatsappMessageId ?? null,
       productId ?? null,
     );
+
+    // The outbox row keeps this id, so a retry moves this row rather than
+    // writing a second one for the same reply.
+    return id;
   },
 
   findProductByMessageId(

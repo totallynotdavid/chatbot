@@ -21,6 +21,26 @@ export type SendOutcome =
     };
 
 /**
+ * What `WhatsAppService.sendMessage` and `sendImage` did. `queued` is set only
+ * when the reply is on the outbox and a later attempt will send it, which a
+ * caller counts as delivered. A failure without it is the end of that reply.
+ */
+export type SendResult = SendOutcome & { queued?: true };
+
+/**
+ * One outbound message, with everything needed to send it again. `content` is
+ * the text, or the image path.
+ */
+export type OutboundMessage =
+  | { type: "text"; content: string }
+  | {
+      type: "image";
+      content: string;
+      caption?: string;
+      productId?: string;
+    };
+
+/**
  * Every send takes the channel account it goes out on. Credentials and the
  * sending phone-number id come from that account, never from module-level env.
  */
