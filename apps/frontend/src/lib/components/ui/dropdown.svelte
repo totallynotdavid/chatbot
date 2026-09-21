@@ -9,6 +9,8 @@ type Props = {
 
 let { open = $bindable(false), onOpenChange, children }: Props = $props();
 
+let container = $state<HTMLDivElement>();
+
 // Close on ESC
 $effect(() => {
   if (!open) return;
@@ -30,7 +32,9 @@ $effect(() => {
   if (!open) return;
 
   const handleClick = (e: MouseEvent) => {
-    const dropdown = document.querySelector("[data-dropdown]");
+    // This dropdown only. A page can hold several, and the first one in the
+    // document is not necessarily this one.
+    const dropdown = container;
     if (!dropdown) return;
 
     const target = e.target as Node;
@@ -60,6 +64,6 @@ $effect(() => {
 });
 </script>
 
-<div data-dropdown class="relative inline-block">
+<div bind:this={container} class="relative inline-block">
 	{@render children()}
 </div>

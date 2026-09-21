@@ -11,9 +11,9 @@ let { open = false, class: className = "", children }: Props = $props();
 
 let selectedIndex = $state<number>(-1);
 
-function handleKeydown(e: KeyboardEvent) {
+function handleKeydown(e: KeyboardEvent & { currentTarget: HTMLElement }) {
   const items = Array.from(
-    document.querySelectorAll<HTMLButtonElement>("[data-dropdown-item]"),
+    e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-dropdown-item]"),
   ).filter((item) => !item.disabled);
 
   if (items.length === 0) return;
