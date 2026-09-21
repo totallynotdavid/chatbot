@@ -1,6 +1,6 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
-    import { formatDateTime } from "$lib/utils/date";
+    import { formatDateTime } from "$lib/utils/formatters";
     import SectionShell from "$lib/components/ui/section-shell.svelte";
     import DataTable from "$lib/components/ui/data-table.svelte";
     import Button from "$lib/components/ui/button.svelte";
