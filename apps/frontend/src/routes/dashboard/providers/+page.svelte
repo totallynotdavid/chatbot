@@ -1,28 +1,20 @@
 <script lang="ts">
-import { onMount } from "svelte";
 import { ApiError, fetchApi } from "$lib/utils/api";
 import { validateDni } from "$lib/utils/validation";
-import { formatPrice, formatDate, formatTime } from "$lib/utils/formatters";
+import type { LookupResult, ProviderLookup } from "$lib/utils/provider-lookup";
 import Input from "$lib/components/ui/input.svelte";
 import Button from "$lib/components/ui/button.svelte";
-import Badge from "$lib/components/ui/badge.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 import PageHeader from "$lib/components/shared/page-header.svelte";
+import LookupResultCard from "$lib/components/providers/lookup-result.svelte";
 
 let dni = $state("");
 let loading = $state(false);
-let result = $state<any>(null);
-let provider = $state<"fnb" | "gaso" | null>(null);
+let result = $state<LookupResult | null>(null);
+// Providers whose circuit breaker was closed for the last lookup. The lookup
+// response is the only health the dashboard can reach, so the dots wait for one.
+let providersChecked = $state<string[] | null>(null);
 let error = $state("");
-let healthStatus = $state<any>(null);
-
-async function loadHealth() {
-  try {
-    healthStatus = await fetchApi<any>("/api/health");
-  } catch (err) {
-    console.error("Health check failed:", err);
-  }
-}
 
 async function handleQuery() {
   const dniError = validateDni(dni);
@@ -36,9 +28,9 @@ async function handleQuery() {
   result = null;
 
   try {
-    const data = await fetchApi<any>(`/api/providers/${dni}`);
+    const data = await fetchApi<ProviderLookup>(`/api/providers/${dni}`);
     result = data.result;
-    provider = data.provider;
+    providersChecked = data.providersChecked;
   } catch (err) {
     if (err instanceof ApiError && err.status === 403) {
       error = "Esta consulta está reservada al personal de VendeYa.";
@@ -47,13 +39,8 @@ async function handleQuery() {
     }
   } finally {
     loading = false;
-    await loadHealth();
   }
 }
-
-onMount(async () => {
-  await loadHealth();
-});
 </script>
 
 <PageTitle title="Proveedores" />
@@ -61,14 +48,14 @@ onMount(async () => {
 <div class="p-8 md:p-12 max-w-7xl mx-auto">
 	<PageHeader title="Historial crediticio" subtitle="Base de datos">
 		{#snippet actions()}
-			{#if healthStatus}
+			{#if providersChecked}
 				<div class="flex gap-4 text-xs font-mono">
 					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full {healthStatus.providers.fnb.available ? 'bg-green-500' : 'bg-red-500'}"></span>
+						<span class="w-2 h-2 rounded-full {providersChecked.includes('fnb') ? 'bg-green-500' : 'bg-red-500'}"></span>
 						<span>Sistema FNB</span>
 					</div>
 					<div class="flex items-center gap-2">
-						<span class="w-2 h-2 rounded-full {healthStatus.providers.gaso.available ? 'bg-green-500' : 'bg-red-500'}"></span>
+						<span class="w-2 h-2 rounded-full {providersChecked.includes('gaso') ? 'bg-green-500' : 'bg-red-500'}"></span>
 						<span>Sistema Gaso</span>
 					</div>
 				</div>
@@ -98,52 +85,6 @@ onMount(async () => {
 	</div>
 
 	{#if result}
-		<div class="bg-cream-50 border border-ink-900 p-8 relative overflow-hidden">
-			<div class="absolute top-0 left-0 right-0 h-1 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAABCAYAAAD5PA/NAAAAFklEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')] opacity-20"></div>
-
-			<div class="flex justify-between items-start mb-8">
-				<div>
-					<h2 class="text-2xl font-serif font-bold">Reporte de elegibilidad</h2>
-					<p class="text-sm text-ink-600 font-mono mt-1">
-						{formatDate(new Date())} — {formatTime(new Date())}
-					</p>
-				</div>
-				<Badge variant={result.eligible ? "success" : "error"} class="px-4 py-2 border-2 text-sm">
-					{result.eligible ? "APROBADO" : "RECHAZADO"}
-				</Badge>
-			</div>
-
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-8 font-mono text-sm border-t border-dashed border-ink-300 pt-8">
-				<div>
-					<span class="block text-ink-400 text-xs uppercase mb-1">Nombre del cliente</span>
-					<span class="text-lg">{result.name || "N/A"}</span>
-				</div>
-				<div>
-					<span class="block text-ink-400 text-xs uppercase mb-1">Proveedor origen</span>
-					<span class="text-lg">
-						{provider === "fnb" ? "FNB (Retail)" : provider === "gaso" ? "Gaso (Servicios)" : "N/A"}
-					</span>
-				</div>
-				<div>
-					<span class="block text-ink-400 text-xs uppercase mb-1">Línea aprobada</span>
-					<span class="text-2xl font-bold">S/ {formatPrice(result.credit)}</span>
-				</div>
-				{#if provider === "gaso" && result.nse !== undefined}
-					<div>
-						<span class="block text-ink-400 text-xs uppercase mb-1">Nivel NSE</span>
-						<span class="text-lg">{result.nse}</span>
-					</div>
-				{/if}
-			</div>
-
-			{#if !result.eligible && result.reason}
-				<div class="mt-8 bg-red-50 border-l-2 border-red-500 p-4">
-					<span class="block text-red-800 text-xs uppercase font-bold mb-1">
-						Razón del rechazo
-					</span>
-					<p class="text-red-900 font-serif italic">{result.reason}</p>
-				</div>
-			{/if}
-		</div>
+		<LookupResultCard {result} />
 	{/if}
 </div>
