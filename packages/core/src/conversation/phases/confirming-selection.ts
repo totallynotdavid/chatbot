@@ -158,8 +158,9 @@ export function transitionConfirmingSelection(
   };
 }
 
+// Whole words: unanchored, "no" matched inside "bueno si".
 function isRejectionOrExplore(lower: string): boolean {
-  return /(no|todav[ií]a\s+no|quiero\s+ver\s+(otros?|m[aá]s)|mejor\s+no|otro|m[aá]s\s+opciones?)/.test(
+  return /(?<![\p{L}])(no|todav[ií]a\s+no|quiero\s+ver\s+(otros?|m[aá]s)|mejor\s+no|otr[oa]s?|m[aá]s\s+opciones?)(?![\p{L}])/u.test(
     lower,
   );
 }

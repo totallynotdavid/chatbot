@@ -4,7 +4,6 @@ import {
   type CatalogSnapshot,
   type CategoryKey,
 } from "@vendeya/types";
-import { createTraceId } from "@vendeya/utils";
 import { matchCategory } from "../../matching/category-matcher.ts";
 import { matchGroup } from "../../matching/group-matcher.ts";
 import {
@@ -13,7 +12,7 @@ import {
 } from "../../matching/product-selection.ts";
 import { selectVariant } from "../../messaging/variation-selector.ts";
 import * as S from "../../templates/sales.ts";
-import { isAffirmative } from "../../validation/affirmation.ts";
+import { isAffirmative, isNegative } from "../../validation/affirmation.ts";
 import type {
   Command,
   ConversationMetadata,
@@ -297,6 +296,11 @@ export function transitionOfferingProducts(
     };
   }
 
+  // Before the group match: a plain "no" must never select a group.
+  if (isNegative(message)) {
+    return rejectOffer();
+  }
+
   // Progressive disclosure: Check if user selected a group (step 1)
   const matchedGroup = matchGroup(message);
   if (matchedGroup && !phase.exploringGroup) {
@@ -484,21 +488,7 @@ export function transitionOfferingProducts(
   }
 
   if (isRejection(lower)) {
-    return {
-      type: "update",
-      nextPhase: { phase: "closing", purchaseConfirmed: false },
-      commands: [
-        {
-          type: "TRACK_EVENT",
-          event: "offer_rejected",
-          metadata: {},
-        },
-        {
-          type: "SEND_MESSAGE",
-          text: "Entendido. ¡Gracias por tu tiempo! Si cambias de opinión, aquí estaré.",
-        },
-      ],
-    };
+    return rejectOffer();
   }
 
   if (isPriceConcern(lower)) {
@@ -562,19 +552,6 @@ function handleEnrichmentResult(
           reason: "customer_question_requires_human",
         },
         commands: [],
-        events: [
-          {
-            type: "escalation_triggered",
-            traceId: createTraceId(),
-            timestamp: Date.now(),
-            payload: {
-              reason: "customer_question_requires_human",
-              phoneNumber:
-                _metadata?.phoneNumber?.replace(/\D/g, "") || "unknown",
-              context: { message },
-            },
-          },
-        ],
       };
     }
 
@@ -585,7 +562,7 @@ function handleEnrichmentResult(
         message,
         context: {
           segment: phase.segment,
-          credit: phase.credit,
+          creditLine: phase.credit,
           phase: "offering_products",
           availableCategories: phase.availableCategories!,
         },
@@ -647,6 +624,24 @@ function isPurchaseConfirmation(lower: string): boolean {
       lower,
     ) && !/(no\s+quiero|no\s+me\s+interesa)/.test(lower)
   );
+}
+
+function rejectOffer(): TransitionResult {
+  return {
+    type: "update",
+    nextPhase: { phase: "closing", purchaseConfirmed: false },
+    commands: [
+      {
+        type: "TRACK_EVENT",
+        event: "offer_rejected",
+        metadata: {},
+      },
+      {
+        type: "SEND_MESSAGE",
+        text: "Entendido. ¡Gracias por tu tiempo! Si cambias de opinión, aquí estaré.",
+      },
+    ],
+  };
 }
 
 function isRejection(lower: string): boolean {

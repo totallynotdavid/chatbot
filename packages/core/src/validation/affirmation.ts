@@ -42,6 +42,7 @@ export function isAffirmative(message: string): boolean {
     /^de\s+acuerdo$/i, // "de acuerdo"
     /^por\s+supuesto$/i, // "por supuesto"
     /^claro\s+que\s+(s[íi]|yes)$/i, // "claro que sí"
+    /^(bueno|ya|ah\s+ya|ok),?\s+(s[íi]|claro|dale|ok|va|listo|confirmo)$/i, // "bueno sí", "ya, dale"
   ];
 
   for (const pattern of phrasePatterns) {
