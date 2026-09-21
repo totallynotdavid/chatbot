@@ -8,6 +8,6 @@
     "dependencies": {
         "@vendeya/core": "workspace:*",
         "@vendeya/types": "workspace:*",
-        "openai": "^7.10.0"
+        "openai": "^7.20.0"
     }
 }

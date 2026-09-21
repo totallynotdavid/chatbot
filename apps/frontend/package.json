@@ -23,12 +23,12 @@
         "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.3.3",
         "@vendeya/tsconfig": "workspace:*",
-        "svelte": "^5.57.0",
+        "svelte": "^5.57.1",
         "svelte-adapter-bun": "^1.0.1",
         "svelte-check": "^4.7.6",
         "tailwindcss": "^4.3.3",
         "uuid": "^14.0.2",
-        "vite": "^8.2.2",
+        "vite": "^8.3.0",
         "vite-plugin-devtools-json": "^1.1.0"
     }
 }
