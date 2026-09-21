@@ -34,6 +34,49 @@ async function releaseImage(
   await imageStorage.delete(imageId);
 }
 
+const REQUIRED_TEXT_FIELDS = [
+  "primary_category",
+  "composition_json",
+  "installments_json",
+] as const;
+
+const JSON_FIELDS = ["composition_json", "installments_json"] as const;
+
+/**
+ * Why a bundle's category, composition or installments cannot be stored, or
+ * null when the ones given are fine. A field left out is not checked. Both JSON
+ * columns are parsed on every catalog read (`json_tree`, the image caption), so
+ * a value that does not parse would break the bot's replies.
+ */
+export function bundleFieldsError(fields: {
+  primary_category?: unknown;
+  composition_json?: unknown;
+  installments_json?: unknown;
+}): string | null {
+  for (const key of REQUIRED_TEXT_FIELDS) {
+    const value = fields[key];
+    if (value === undefined) continue;
+    if (typeof value !== "string" || value.trim() === "") {
+      return `${key} must be a non-empty string`;
+    }
+  }
+
+  for (const key of JSON_FIELDS) {
+    const value = fields[key];
+    if (typeof value !== "string") continue;
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed === null || typeof parsed !== "object") {
+        return `${key} must be a JSON object or array`;
+      }
+    } catch {
+      return `${key} must be valid JSON`;
+    }
+  }
+
+  return null;
+}
+
 type BundleFilters = {
   periodId?: string;
   maxPrice?: number;
@@ -159,13 +202,24 @@ export const BundleService = {
 
   /**
    * Editable bundle fields, one `if` per column. Unknown keys are ignored, not
-   * rejected. The type is the contract and this list is the enforcement.
+   * rejected. The type is the contract and this list is the enforcement. The
+   * caller checks the category and the JSON columns with `bundleFieldsError`.
    */
   update: (
     tenantId: string,
     id: string,
     updates: Partial<
-      Pick<Bundle, "name" | "price" | "is_active" | "stock_status" | "notes">
+      Pick<
+        Bundle,
+        | "name"
+        | "price"
+        | "is_active"
+        | "stock_status"
+        | "notes"
+        | "primary_category"
+        | "composition_json"
+        | "installments_json"
+      >
     >,
   ): Bundle | null => {
     const data = updates ?? {};
@@ -194,6 +248,18 @@ export const BundleService = {
     if (data.notes !== undefined) {
       fields.push("notes = ?");
       values.push(data.notes);
+    }
+    if (data.primary_category !== undefined) {
+      fields.push("primary_category = ?");
+      values.push(data.primary_category);
+    }
+    if (data.composition_json !== undefined) {
+      fields.push("composition_json = ?");
+      values.push(data.composition_json);
+    }
+    if (data.installments_json !== undefined) {
+      fields.push("installments_json = ?");
+      values.push(data.installments_json);
     }
 
     if (fields.length === 0) return BundleService.getById(tenantId, id);

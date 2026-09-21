@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { pathParam } from "../lib/http.ts";
-import { ProductService, BundleService } from "../domains/catalog/index.ts";
+import {
+  ProductService,
+  BundleService,
+  bundleFieldsError,
+} from "../domains/catalog/index.ts";
 import { PeriodService } from "../domains/catalog/periods.ts";
 import { imageStorage } from "../adapters/storage/images.ts";
 import { AssetService } from "../domains/assets/index.ts";
@@ -174,6 +178,13 @@ catalog.post(
       return c.json({ error: "Missing required fields" }, 400);
     }
 
+    const fieldsError = bundleFieldsError({
+      primary_category: primaryCategory,
+      composition_json: compositionJson,
+      installments_json: installmentsJson,
+    });
+    if (fieldsError) return c.json({ error: fieldsError }, 400);
+
     const period = PeriodService.getById(tenantId, periodId);
     if (!period) return c.json({ error: "Period not found" }, 404);
     if (period.status !== "draft") {
@@ -230,6 +241,9 @@ catalog.patch(
     const user = c.get("user");
     const tenantId = activeTenantId(c);
     const updates = await c.req.json();
+
+    const fieldsError = bundleFieldsError(updates ?? {});
+    if (fieldsError) return c.json({ error: fieldsError }, 400);
 
     const bundle = BundleService.update(tenantId, id, updates);
     if (!bundle) return c.json({ error: "Bundle not found" }, 404);
