@@ -13,13 +13,15 @@ try {
   await startServer();
   logger.info("Notifier service ready");
 } catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
   logger.error(
     {
       err: error,
-      message: error instanceof Error ? error.message : String(error),
+      message,
       stack: error instanceof Error ? error.stack : undefined,
     },
     "Failed to start notifier service",
   );
+  console.error(message);
   process.exit(1);
 }
