@@ -84,13 +84,12 @@ keeps the memberships the account already has. See
 ## Sessions and the active tenant
 
 Logging in creates a 30-day session and sets the `session` cookie
-([`platform/auth/session.ts`](../apps/backend/src/platform/auth/session.ts)).
-A request with fewer than 15 days left renews the session for 30 more and sets
-the cookie again, so a session lasts 30 days from the last request that renewed
-it. Other responses send no cookie.
-The session carries `active_tenant_id`, the tenant it acts in. A member of
-exactly one open tenant starts pinned to it. An operator, and a member of
-several, starts unpinned and picks one:
+([`platform/auth/session.ts`](../apps/backend/src/platform/auth/session.ts)). A
+request with fewer than 15 days left renews the session for 30 more and sets the
+cookie again, so a session lasts 30 days from the last request that renewed it.
+Other responses send no cookie. The session carries `active_tenant_id`, the
+tenant it acts in. A member of exactly one open tenant starts pinned to it. An
+operator, and a member of several, starts unpinned and picks one:
 
 ```sh
 curl -X POST -b "session=<token>" -H 'content-type: application/json' \

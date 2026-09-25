@@ -50,25 +50,29 @@ or `PUBLIC_URL` shows up when it is first used.
 
 ## Environment
 
-| Variable                                                               | Read by           | Without it                                                                                     |
-| ---------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                                             | all               | `development` sends through the notifier; `production` skips test data and sets secure cookies |
-| `DB_PATH`                                                              | backend           | `./data/database.sqlite`                                                                       |
-| `UPLOAD_DIR`, `PRIVATE_DIR`                                            | backend           | see [Uploads](#uploads)                                                                        |
-| `SECRETS_KEY`                                                          | backend           | no channel token can be stored or read                                                         |
-| `PUBLIC_URL`                                                           | backend           | image links, alert links and the CORS origin name `http://localhost:5173`                      |
-| `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                 |
-| `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                         |
-| `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                        |
-| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)              |
-| `CALIDDA_*`, `POWERBI_*`                                               | backend           | that eligibility provider fails at every check                                                 |
-| `OPENAI_API_KEY`                                                       | backend           | any message the regexes miss gets no reply                                                     |
-| `BOT_RESPONSE_DELAY_MS`                                                | backend           | 2300                                                                                           |
-| `COOKIE_SECURE`                                                        | backend           | secure cookies only in production                                                              |
-| `PORT`                                                                 | backend, frontend | 3000                                                                                           |
-| `BODY_SIZE_LIMIT`                                                      | built frontend    | 512K                                                                                           |
-| `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all               | `info`                                                                                         |
-| `NOTIFIER_DATA_PATH`, `CHROME_PATH`, `NOTIFIER_PORT`                   | notifier          | `./data`, puppeteer's Chromium, 3001. The backend always calls `127.0.0.1:3001`                |
+| Variable                                                               | Read by           | Without it                                                                                                   |
+| ---------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`                                                             | all               | `development` sends through the notifier; `production` skips test data and sets secure cookies               |
+| `DB_PATH`                                                              | backend           | `./data/database.sqlite`                                                                                     |
+| `UPLOAD_DIR`, `PRIVATE_DIR`                                            | backend           | see [Uploads](#uploads)                                                                                      |
+| `SECRETS_KEY`                                                          | backend           | no channel token can be stored or read                                                                       |
+| `PUBLIC_URL`                                                           | backend           | image links, alert links and the CORS origin name `http://localhost:5173`                                    |
+| `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                               |
+| `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                                       |
+| `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                                      |
+| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)                            |
+| `CALIDDA_*`, `POWERBI_*`                                               | backend           | that eligibility provider fails at every check                                                               |
+| `OPENAI_API_KEY`                                                       | backend           | any message the regexes miss gets no reply                                                                   |
+| `BOT_RESPONSE_DELAY_MS`                                                | backend           | 2300                                                                                                         |
+| `COOKIE_SECURE`                                                        | backend           | secure cookies only in production                                                                            |
+| `PORT`                                                                 | backend, frontend | 3000                                                                                                         |
+| `BODY_SIZE_LIMIT`                                                      | built frontend    | 512K                                                                                                         |
+| `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all               | `info`                                                                                                       |
+| `NOTIFIER_DATA_PATH`, `CHROME_PATH`, `NOTIFIER_PORT`                   | notifier          | `./data`, a Chrome/Chromium executable or Puppeteer browser, 3001. The backend always calls `127.0.0.1:3001` |
+
+Puppeteer does not download a browser during `bun install`. Point `CHROME_PATH`
+at Chrome or Chromium, or run `bunx puppeteer browsers install chrome` after
+installing dependencies.
 
 `JWT_SECRET`, `SESSION_SECRET` and `API_KEY` are read by nothing, although
 `scripts/generate-token.ts` has presets for them. `GEMINI_API_KEY` is read only
