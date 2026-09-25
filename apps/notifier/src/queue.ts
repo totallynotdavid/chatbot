@@ -32,7 +32,8 @@ async function processQueue() {
   processing = true;
 
   while (queue.length > 0) {
-    const item = queue.shift()!;
+    const item = queue.shift();
+    if (!item) break;
 
     try {
       await sendMessage(item.channel, item.message, item.phoneNumber);
@@ -88,13 +89,11 @@ async function sendMessage(
 ) {
   const messagingService = getMessagingService();
 
-  // Direct messaging to specific phone number
   if (channel === "direct" && phoneNumber) {
     await messagingService.sendToCloudJid(phoneNumber, message);
     return;
   }
 
-  // Group messaging
   const channelName = channel as "agent" | "dev" | "sales";
   const jid = getGroupJID(channelName);
   if (!jid) {

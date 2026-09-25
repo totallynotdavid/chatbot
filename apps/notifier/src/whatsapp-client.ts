@@ -2,6 +2,7 @@ import { Client, LocalAuth } from "whatsapp-web.js";
 import qrcode from "qrcode-terminal";
 import process from "node:process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import { setupMessageHandler } from "./message-handler.ts";
 import { createLogger } from "./logger.ts";
 
@@ -10,8 +11,16 @@ const DATA_PATH = process.env.NOTIFIER_DATA_PATH || "./data";
 
 export let client: Client | null = null;
 
+const requireFromWhatsApp = createRequire(
+  import.meta.resolve("whatsapp-web.js"),
+);
+const puppeteer = requireFromWhatsApp("puppeteer") as {
+  executablePath(): string | Promise<string>;
+};
+
 export async function initializeWhatsAppClient() {
   fs.mkdirSync(DATA_PATH, { recursive: true });
+  const executablePath = await browserExecutablePath();
 
   client = new Client({
     authStrategy: new LocalAuth({
@@ -20,7 +29,7 @@ export async function initializeWhatsAppClient() {
     puppeteer: {
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       headless: true,
-      executablePath: process.env.CHROME_PATH || undefined,
+      executablePath,
     },
     webVersionCache: {
       type: "remote",
@@ -32,6 +41,19 @@ export async function initializeWhatsAppClient() {
   setupMessageHandler(client);
 
   await client.initialize();
+}
+
+async function browserExecutablePath(): Promise<string> {
+  const executablePath =
+    process.env.CHROME_PATH || (await puppeteer.executablePath());
+
+  if (!fs.existsSync(executablePath)) {
+    throw new Error(
+      "No Chrome or Chromium browser was found. Set CHROME_PATH to its executable or install one with `bunx puppeteer browsers install chrome`.",
+    );
+  }
+
+  return executablePath;
 }
 
 function setupClientEventHandlers(client: Client) {
