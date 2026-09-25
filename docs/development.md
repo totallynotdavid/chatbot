@@ -59,7 +59,9 @@ workspace is neither typechecked nor tested in CI until it is added to both.
 
 `mise install` installs the pinned tools. Dependabot
 ([`dependabot.yml`](../.github/dependabot.yml)) updates the bun dependencies
-daily and the actions weekly. It does not update `mise.toml`.
+daily and the actions weekly. It does not update `mise.toml`; the weekly
+[`mise-outdated.yml`](../.github/workflows/mise-outdated.yml) workflow runs
+`mise outdated --local --bump --json` and keeps one issue with the stale pins.
 
 ## How the tests are laid out
 
