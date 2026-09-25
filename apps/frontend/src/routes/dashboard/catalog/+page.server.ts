@@ -15,11 +15,9 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
   const headers = { cookie: `session=${sessionToken}` };
 
   try {
-    // Load periods
     const periodsRes = await fetch("/api/periods", { headers });
     const periods = periodsRes.ok ? await periodsRes.json() : [];
 
-    // Get selected period from URL or use active period
     const selectedPeriodId = url.searchParams.get("period");
     let activePeriod =
       periods.find((p: any) => p.status === "active") || periods[0] || null;
@@ -29,18 +27,23 @@ export const load: PageServerLoad = async ({ cookies, url, fetch }) => {
       if (selected) activePeriod = selected;
     }
 
-    // Load data in parallel
     const [productsRes, bundlesRes, fnbRes] = await Promise.all([
       fetch("/api/catalog/products", { headers }),
       activePeriod
-        ? fetch(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=gaso`, {
-          headers,
-        })
+        ? fetch(
+            `/api/catalog/bundles?period_id=${activePeriod.id}&segment=gaso`,
+            {
+              headers,
+            },
+          )
         : Promise.resolve({ ok: false, json: () => [] }),
       activePeriod
-        ? fetch(`/api/catalog/bundles?period_id=${activePeriod.id}&segment=fnb`, {
-          headers,
-        })
+        ? fetch(
+            `/api/catalog/bundles?period_id=${activePeriod.id}&segment=fnb`,
+            {
+              headers,
+            },
+          )
         : Promise.resolve({ ok: false, json: () => [] }),
     ]);
 

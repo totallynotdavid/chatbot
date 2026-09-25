@@ -1,60 +1,60 @@
 <script lang="ts">
-  import { page } from "$app/state";
-  import { auth } from "$lib/state/auth.svelte";
+import { page } from "$app/state";
+import { auth } from "$lib/state/auth.svelte";
 
-  const breadcrumbLabels: Record<string, string> = {
-    "/dashboard/conversations": "Conversaciones",
-    "/dashboard/catalog": "Catálogo",
-    "/dashboard/providers": "Proveedores",
-    "/dashboard/simulator": "Simulador",
-    "/dashboard/activity": "Actividad del sistema",
-    "/dashboard/reports": "Reportes",
-    "/dashboard/orders": "Órdenes",
-    "/dashboard/admin": "Administración",
-    "/dashboard/admin/users": "Usuarios",
-    "/dashboard/admin/users/create": "Nuevo usuario",
-    "/dashboard/admin/periods": "Periodos",
-    "/dashboard/admin/audit": "Auditoría",
-    "/dashboard/admin/settings": "Configuración",
-    "/dashboard/personas": "Personas",
-    "/dashboard/personas/create": "Crear",
-  };
+const breadcrumbLabels: Record<string, string> = {
+  "/dashboard/conversations": "Conversaciones",
+  "/dashboard/catalog": "Catálogo",
+  "/dashboard/providers": "Proveedores",
+  "/dashboard/simulator": "Simulador",
+  "/dashboard/activity": "Actividad del sistema",
+  "/dashboard/reports": "Reportes",
+  "/dashboard/orders": "Órdenes",
+  "/dashboard/admin": "Administración",
+  "/dashboard/admin/users": "Usuarios",
+  "/dashboard/admin/users/create": "Nuevo usuario",
+  "/dashboard/admin/periods": "Periodos",
+  "/dashboard/admin/audit": "Auditoría",
+  "/dashboard/admin/settings": "Configuración",
+  "/dashboard/personas": "Personas",
+  "/dashboard/personas/create": "Crear",
+};
 
-  const crumbs = $derived.by(() => {
-    const path = page.url.pathname;
-    const segments = path.split("/").filter(Boolean);
-    let currentPath = "";
-    const trail: { label: string; href: string }[] = [];
+const crumbs = $derived.by(() => {
+  const path = page.url.pathname;
+  const segments = path.split("/").filter(Boolean);
+  let currentPath = "";
+  const trail: { label: string; href: string }[] = [];
 
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i];
-      currentPath += `/${segment}`;
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    currentPath += `/${segment}`;
 
-      // Check for static label first
-      let label = breadcrumbLabels[currentPath];
+    // Check for static label first
+    let label = breadcrumbLabels[currentPath];
 
-      // For conversation detail pages, use phone number or client name from page data
-      if (
-        !label &&
-        segments[i - 1] === "conversations" &&
-        segment?.startsWith("+")
-      ) {
-        const pageData = page.data as any;
-        label = pageData?.conversation?.client_name || segment;
-      }
-
-      if (label) {
-        trail.push({
-          label,
-          href:
-            currentPath === "/dashboard/admin"
-              ? "/dashboard/admin/users"
-              : currentPath,
-        });
-      }
+    // For conversation detail pages, use phone number or client name from page data
+    if (
+      !label &&
+      segments[i - 1] === "conversations" &&
+      segment?.startsWith("+")
+    ) {
+      const pageData = page.data as any;
+      label = pageData?.conversation?.client_name || segment;
     }
-    return trail;
-  });
+
+    if (label) {
+      trail.push({
+        label,
+        href:
+          currentPath === "/dashboard/admin"
+            ? "/dashboard/admin/users"
+            : currentPath,
+      });
+    }
+  }
+  return trail;
+});
 </script>
 
 <nav

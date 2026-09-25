@@ -13,17 +13,14 @@ import SectionShell from "$lib/components/ui/section-shell.svelte";
 let periods = $state<CatalogPeriod[]>([]);
 let isLoading = $state(true);
 
-// Modals State
 let isCreateModalOpen = $state(false);
 let isPublishModalOpen = $state(false);
 let isArchiveModalOpen = $state(false);
 let isDeleteModalOpen = $state(false);
 
-// Action Context
 let selectedPeriod = $state<CatalogPeriod | null>(null);
 let activePeriod = $derived(periods.find((p) => p.status === "active"));
 
-// Form State
 let newPeriodName = $state("");
 let newPeriodMonth = $state("");
 
@@ -54,8 +51,8 @@ async function handleCreate() {
       }),
     });
 
-    periods = [newPeriod, ...periods].sort((a, b) => 
-      b.year_month.localeCompare(a.year_month)
+    periods = [newPeriod, ...periods].sort((a, b) =>
+      b.year_month.localeCompare(a.year_month),
     );
     toast.success("Periodo creado exitosamente");
     closeCreateModal();
@@ -69,18 +66,21 @@ async function handlePublish() {
   if (!selectedPeriod) return;
 
   try {
-    const updated = await fetchApi<CatalogPeriod>(`/api/periods/${selectedPeriod.id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "active" }),
-    });
+    const updated = await fetchApi<CatalogPeriod>(
+      `/api/periods/${selectedPeriod.id}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status: "active" }),
+      },
+    );
 
-    // Update local state: 
+    // Update local state:
     // 1. Archive previous active period if exists
     // 2. Set new period to active
-    periods = periods.map(p => {
-        if (p.id === updated.id) return updated;
-        if (p.status === "active") return { ...p, status: "archived" as const };
-        return p;
+    periods = periods.map((p) => {
+      if (p.id === updated.id) return updated;
+      if (p.status === "active") return { ...p, status: "archived" as const };
+      return p;
     });
 
     toast.success("Periodo publicado exitosamente");
@@ -95,12 +95,15 @@ async function handleArchive() {
   if (!selectedPeriod) return;
 
   try {
-    const updated = await fetchApi<CatalogPeriod>(`/api/periods/${selectedPeriod.id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "archived" }),
-    });
+    const updated = await fetchApi<CatalogPeriod>(
+      `/api/periods/${selectedPeriod.id}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status: "archived" }),
+      },
+    );
 
-    periods = periods.map(p => p.id === updated.id ? updated : p);
+    periods = periods.map((p) => (p.id === updated.id ? updated : p));
     toast.success("Periodo archivado exitosamente");
     closeArchiveModal();
   } catch (error) {
@@ -117,7 +120,7 @@ async function handleDelete() {
       method: "DELETE",
     });
 
-    periods = periods.filter(p => p.id !== selectedPeriod?.id);
+    periods = periods.filter((p) => p.id !== selectedPeriod?.id);
     toast.success("Periodo eliminado exitosamente");
     closeDeleteModal();
   } catch (error) {
@@ -128,7 +131,6 @@ async function handleDelete() {
   }
 }
 
-// Modal Helpers
 function openCreateModal() {
   newPeriodName = "";
   newPeriodMonth = new Date().toISOString().slice(0, 7); // Default to current YYYY-MM
@@ -170,21 +172,29 @@ function closeDeleteModal() {
 }
 
 function getStatusVariant(status: string): "default" | "success" | "warning" {
-    switch (status) {
-        case "active": return "success";
-        case "draft": return "warning";
-        case "archived": return "default";
-        default: return "default";
-    }
+  switch (status) {
+    case "active":
+      return "success";
+    case "draft":
+      return "warning";
+    case "archived":
+      return "default";
+    default:
+      return "default";
+  }
 }
 
 function getStatusLabel(status: string): string {
-    switch (status) {
-        case "active": return "ACTIVO";
-        case "draft": return "BORRADOR";
-        case "archived": return "ARCHIVADO";
-        default: return status;
-    }
+  switch (status) {
+    case "active":
+      return "ACTIVO";
+    case "draft":
+      return "BORRADOR";
+    case "archived":
+      return "ARCHIVADO";
+    default:
+      return status;
+  }
 }
 
 onMount(() => {
@@ -276,8 +286,7 @@ onMount(() => {
   </Button>
 {/snippet}
 
-<!-- CREATE MODAL -->
-<Modal 
+<Modal
   bind:open={isCreateModalOpen} 
   onClose={closeCreateModal}
   title="Crear nuevo periodo"
@@ -291,7 +300,6 @@ onMount(() => {
     
     <div class="space-y-2">
       <Label for="month">Mes de facturación (YYYY-MM)</Label>
-      <!-- Using type="month" provides native picker but value format matches YYYY-MM -->
       <Input id="month" type="text" bind:value={newPeriodMonth} placeholder="2026-03" />
       <p class="text-[10px] text-ink-400">
         Debe tener el formato AAAA-MM (Ej. 2026-03)
@@ -305,8 +313,7 @@ onMount(() => {
   {/snippet}
 </Modal>
 
-<!-- PUBLISH MODAL -->
-<Modal 
+<Modal
   bind:open={isPublishModalOpen} 
   onClose={closePublishModal}
   title="Publicar periodo"
@@ -334,8 +341,7 @@ onMount(() => {
   {/snippet}
 </Modal>
 
-<!-- ARCHIVE MODAL -->
-<Modal 
+<Modal
   bind:open={isArchiveModalOpen} 
   onClose={closeArchiveModal}
   title="Archivar Periodo"
@@ -356,8 +362,7 @@ onMount(() => {
   {/snippet}
 </Modal>
 
-<!-- DELETE MODAL -->
-<Modal 
+<Modal
   bind:open={isDeleteModalOpen} 
   onClose={closeDeleteModal}
   title="Eliminar Borrador"

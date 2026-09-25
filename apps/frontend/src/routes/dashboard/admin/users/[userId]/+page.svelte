@@ -77,7 +77,9 @@ async function toggleStatus() {
 }
 
 async function resetPassword() {
-  const newPass = prompt(`Nueva contraseña (mínimo ${MIN_PASSWORD_LENGTH} caracteres):`);
+  const newPass = prompt(
+    `Nueva contraseña (mínimo ${MIN_PASSWORD_LENGTH} caracteres):`,
+  );
   if (!newPass) return;
 
   if (newPass.length < MIN_PASSWORD_LENGTH) {

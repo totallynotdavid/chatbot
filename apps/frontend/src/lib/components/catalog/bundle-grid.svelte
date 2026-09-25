@@ -1,39 +1,39 @@
 <script lang="ts">
-  import type { Bundle } from "@vendeya/types";
-  import { formatPrice } from "$lib/utils/formatters";
-  import StockBadge from "./stock-badge.svelte";
+import type { Bundle } from "@vendeya/types";
+import { formatPrice } from "$lib/utils/formatters";
+import StockBadge from "./stock-badge.svelte";
 
-  type Props = {
-    bundles: Bundle[];
-    canEdit: boolean;
-    onBundleClick?: (bundle: Bundle) => void;
-    onStockUpdate: (bundleId: string, status: any) => void;
-  };
+type Props = {
+  bundles: Bundle[];
+  canEdit: boolean;
+  onBundleClick?: (bundle: Bundle) => void;
+  onStockUpdate: (bundleId: string, status: any) => void;
+};
 
-  let { bundles, canEdit, onBundleClick, onStockUpdate }: Props = $props();
+let { bundles, canEdit, onBundleClick, onStockUpdate }: Props = $props();
 
-  function getCompositionCount(json: string): number {
-    try {
-      const comp = JSON.parse(json);
-      const fixedCount = comp.fixed?.length || 0;
-      const choiceCount = comp.choices
-        ? comp.choices.reduce((acc: number, c: any) => acc + c.pick, 0)
-        : 0;
-      return fixedCount + choiceCount;
-    } catch {
-      return 0;
+function getCompositionCount(json: string): number {
+  try {
+    const comp = JSON.parse(json);
+    const fixedCount = comp.fixed?.length || 0;
+    const choiceCount = comp.choices
+      ? comp.choices.reduce((acc: number, c: any) => acc + c.pick, 0)
+      : 0;
+    return fixedCount + choiceCount;
+  } catch {
+    return 0;
+  }
+}
+
+function getInstallmentsText(json: string): string {
+  try {
+    const sched = JSON.parse(json);
+    if (Array.isArray(sched) && sched.length > 0) {
+      return `${sched[0].months} cuotas`;
     }
-  }
-
-  function getInstallmentsText(json: string): string {
-    try {
-      const sched = JSON.parse(json);
-      if (Array.isArray(sched) && sched.length > 0) {
-        return `${sched[0].months} cuotas`;
-      }
-    } catch {}
-    return "";
-  }
+  } catch {}
+  return "";
+}
 </script>
 
 <div

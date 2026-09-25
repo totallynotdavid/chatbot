@@ -1,13 +1,13 @@
 <script lang="ts">
-  import MessageBubble from "./message-bubble.svelte";
-  import type { ConversationMessage } from "@vendeya/types";
+import MessageBubble from "./message-bubble.svelte";
+import type { ConversationMessage } from "@vendeya/types";
 
-  type Props = {
-    messages: ConversationMessage[];
-    currentUserSide?: "inbound" | "outbound";
-  };
+type Props = {
+  messages: ConversationMessage[];
+  currentUserSide?: "inbound" | "outbound";
+};
 
-  let { messages, currentUserSide = "outbound" }: Props = $props();
+let { messages, currentUserSide = "outbound" }: Props = $props();
 </script>
 
 <div class="flex-1 overflow-y-auto p-8 space-y-4">

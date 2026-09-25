@@ -1,19 +1,18 @@
 <script lang="ts">
-    import { fade, fly } from "svelte/transition";
+import { fade, fly } from "svelte/transition";
 
-    export let open = false;
-    export let title = "";
-    export let description = "";
-    export let onclose: () => void = () => {};
+export let open = false;
+export let title = "";
+export let description = "";
+export let onclose: () => void = () => {};
 
-    function close() {
-        onclose();
-    }
+function close() {
+  onclose();
+}
 </script>
 
 {#if open}
     <div class="fixed inset-0 z-50 overflow-hidden">
-        <!-- Backdrop -->
         <div
             class="absolute inset-0 bg-ink-900/20 backdrop-blur-sm transition-opacity cursor-default"
             transition:fade={{ duration: 200 }}
@@ -23,7 +22,6 @@
             tabindex="0"
         ></div>
 
-        <!-- Panel -->
         <div
             class="fixed inset-y-0 right-0 max-w-2xl w-full flex pointer-events-none"
         >
@@ -31,7 +29,6 @@
                 class="w-full h-full bg-white shadow-2xl pointer-events-auto transform transition font-sans flex flex-col"
                 transition:fly={{ x: 400, duration: 300 }}
             >
-                <!-- Header -->
                 <div
                     class="px-6 py-4 border-b border-ink-100 flex items-center justify-between bg-cream-50"
                 >
@@ -69,12 +66,10 @@
                     </button>
                 </div>
 
-                <!-- Content -->
                 <div class="flex-1 overflow-y-auto p-6 space-y-6">
                     <slot />
                 </div>
 
-                <!-- Footer -->
                 {#if $$slots.footer}
                     <div
                         class="border-t border-ink-100 px-6 py-4 bg-cream-50 flex justify-end gap-3"

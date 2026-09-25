@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ cookies, params, url, fetch }) => {
     fetch("/api/catalog/products", { headers }),
     id !== "new"
       ? fetch(`/api/catalog/bundles/${id}`, { headers })
-      : Promise.resolve(null)
+      : Promise.resolve(null),
   ]);
 
   const baseProducts = productsRes.ok ? await productsRes.json() : [];
@@ -34,6 +34,6 @@ export const load: PageServerLoad = async ({ cookies, params, url, fetch }) => {
     baseProducts,
     bundle,
     periodId: bundle?.period_id || periodId,
-    segment: bundle?.segment || segment || "gaso"
+    segment: bundle?.segment || segment || "gaso",
   };
 };

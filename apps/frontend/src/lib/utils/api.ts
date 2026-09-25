@@ -29,7 +29,10 @@ export async function fetchApi<T>(
     const error = await response
       .json()
       .catch(() => ({ error: "Request failed" }));
-    throw new ApiError(error.error || `HTTP ${response.status}`, response.status);
+    throw new ApiError(
+      error.error || `HTTP ${response.status}`,
+      response.status,
+    );
   }
 
   return response.json();

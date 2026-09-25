@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { auth } from "$lib/state/auth.svelte";
-	import DashboardGridItem from "$lib/components/shared/dashboard-grid-item.svelte";
-	import PageTitle from "$lib/components/shared/page-title.svelte";
-	import type { PageData } from "./$types";
+import { auth } from "$lib/state/auth.svelte";
+import DashboardGridItem from "$lib/components/shared/dashboard-grid-item.svelte";
+import PageTitle from "$lib/components/shared/page-title.svelte";
+import type { PageData } from "./$types";
 
-	let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 </script>
 
 <PageTitle title="Dashboard" />

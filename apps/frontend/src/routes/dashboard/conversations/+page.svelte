@@ -11,9 +11,7 @@ let { data }: { data: PageData } = $props();
 let localConversations = $state<Conversation[] | null>(null);
 let polling: ReturnType<typeof setInterval> | null = null;
 
-let conversations = $derived(
-  localConversations ?? data.conversations,
-);
+let conversations = $derived(localConversations ?? data.conversations);
 
 async function loadConversations() {
   try {
