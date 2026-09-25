@@ -1,0 +1,59 @@
+name: Check mise tool pins
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: mise-outdated
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: jdx/mise-action@v4
+
+      - name: Report stale tool pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_TITLE: Outdated mise tool pins
+        run: |
+          set -euo pipefail
+          outdated="$(mise outdated --local --bump --json)"
+          issue="$(
+            gh issue list --state all --search "$ISSUE_TITLE in:title" --limit 100 --json number,state,title |
+              jq -c --arg title "$ISSUE_TITLE" '[.[] | select(.title == $title)][0] // {}'
+          )"
+          issue_number="$(jq -r '.number // empty' <<<"$issue")"
+          issue_state="$(jq -r '.state // empty' <<<"$issue")"
+
+          if [[ "$outdated" == "{}" ]]; then
+            if [[ "$issue_state" == "OPEN" ]]; then
+              gh issue close "$issue_number" --comment "All mise tool pins are current."
+            fi
+            exit 0
+          fi
+
+          body="$(jq -r '
+            "## Outdated mise tool pins\n\n| Tool | Requested | Current | Latest |\n| --- | --- | --- | --- |",
+            (to_entries | sort_by(.key)[] | "| `\(.key)` | `\(.value.requested)` | `\(.value.current)` | `\(.value.latest)` |"),
+            "\nRun `mise outdated --local --bump --json` to refresh this report."
+          ' <<<"$outdated")"
+
+          if [[ -n "$issue_number" ]]; then
+            if [[ "$issue_state" == "CLOSED" ]]; then
+              gh issue reopen "$issue_number"
+            fi
+            gh issue edit "$issue_number" --body "$body"
+          else
+            gh issue create --title "$ISSUE_TITLE" --body "$body"
+          fi
