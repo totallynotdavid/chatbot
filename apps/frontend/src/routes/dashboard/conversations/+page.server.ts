@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ cookies, fetch }) => {
     if (response.ok) {
       return { conversations: await response.json() };
     }
-  } catch { }
+  } catch {}
 
   return { conversations: [] };
 };

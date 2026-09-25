@@ -1,29 +1,29 @@
 <script lang="ts">
-  import { formatTime } from "$lib/utils/formatters";
-  import type { Snippet } from "svelte";
-  import type { StoredMessageType } from "@vendeya/types";
+import { formatTime } from "$lib/utils/formatters";
+import type { Snippet } from "svelte";
+import type { StoredMessageType } from "@vendeya/types";
 
-  type Props = {
-    direction: "inbound" | "outbound";
-    type: StoredMessageType;
-    content: string;
-    status?: string;
-    createdAt: number;
-    actions?: Snippet;
-    currentUserSide?: "inbound" | "outbound";
-  };
+type Props = {
+  direction: "inbound" | "outbound";
+  type: StoredMessageType;
+  content: string;
+  status?: string;
+  createdAt: number;
+  actions?: Snippet;
+  currentUserSide?: "inbound" | "outbound";
+};
 
-  let {
-    direction,
-    type,
-    content,
-    status,
-    createdAt,
-    actions,
-    currentUserSide = "outbound",
-  }: Props = $props();
+let {
+  direction,
+  type,
+  content,
+  status,
+  createdAt,
+  actions,
+  currentUserSide = "outbound",
+}: Props = $props();
 
-  const isMe = $derived(direction === currentUserSide);
+const isMe = $derived(direction === currentUserSide);
 </script>
 
 <div class="flex {isMe ? 'justify-end' : 'justify-start'} group">

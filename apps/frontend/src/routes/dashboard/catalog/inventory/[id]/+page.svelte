@@ -3,7 +3,11 @@ import { goto } from "$app/navigation";
 import type { Product } from "@vendeya/types";
 import { toast } from "$lib/state/toast.svelte";
 import { fetchApi } from "$lib/utils/api";
-import { validateRequired, hasErrors, type ValidationErrors } from "$lib/utils/validation";
+import {
+  validateRequired,
+  hasErrors,
+  type ValidationErrors,
+} from "$lib/utils/validation";
 import Button from "$lib/components/ui/button.svelte";
 import PageTitle from "$lib/components/shared/page-title.svelte";
 import FormField from "$lib/components/ui/form-field.svelte";
@@ -59,7 +63,7 @@ function validate(): boolean {
 }
 
 function goBack() {
-    goto(`/dashboard/catalog`); 
+  goto(`/dashboard/catalog`);
 }
 
 async function handleSave() {
@@ -80,20 +84,20 @@ async function handleSave() {
 
     if (!product) {
       // Create
-      await fetchApi("/api/catalog/products", { 
-        method: "POST", 
+      await fetchApi("/api/catalog/products", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       toast.success("Producto base creado");
     } else {
-       // Update
-       await fetchApi(`/api/catalog/products/${product.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-       });
-       toast.success("Producto base actualizado");
+      // Update
+      await fetchApi(`/api/catalog/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      toast.success("Producto base actualizado");
     }
 
     goBack();

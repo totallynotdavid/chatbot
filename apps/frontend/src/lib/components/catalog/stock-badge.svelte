@@ -15,8 +15,7 @@ type Props = {
   onUpdate: (newStatus: StockStatus) => void;
 };
 
-let { bundleId, bundleName, stockStatus, canEdit, onUpdate }: Props =
-  $props();
+let { bundleId, bundleName, stockStatus, canEdit, onUpdate }: Props = $props();
 
 let open = $state(false);
 let isUpdating = $state(false);

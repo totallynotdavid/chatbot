@@ -8,7 +8,10 @@ type Props = {
 
 let { value, children }: Props = $props();
 
-const tabs = getContext<{ getValue: () => string; setValue: (v: string) => void }>("tabs");
+const tabs = getContext<{
+  getValue: () => string;
+  setValue: (v: string) => void;
+}>("tabs");
 
 let isSelected = $derived(tabs.getValue() === value);
 </script>

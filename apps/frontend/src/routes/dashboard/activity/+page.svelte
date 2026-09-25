@@ -1,64 +1,64 @@
 <script lang="ts">
-    import { invalidateAll } from "$app/navigation";
-    import { formatDateTime } from "$lib/utils/formatters";
-    import SectionShell from "$lib/components/ui/section-shell.svelte";
-    import DataTable from "$lib/components/ui/data-table.svelte";
-    import Button from "$lib/components/ui/button.svelte";
-    import Sheet from "$lib/components/ui/sheet.svelte";
+import { invalidateAll } from "$app/navigation";
+import { formatDateTime } from "$lib/utils/formatters";
+import SectionShell from "$lib/components/ui/section-shell.svelte";
+import DataTable from "$lib/components/ui/data-table.svelte";
+import Button from "$lib/components/ui/button.svelte";
+import Sheet from "$lib/components/ui/sheet.svelte";
 
-    export let data;
+export let data;
 
-    let loading = false;
-    let selectedLog: any = null;
-    let showSheet = false;
+let loading = false;
+let selectedLog: any = null;
+let showSheet = false;
 
-    async function refresh() {
-        loading = true;
-        await invalidateAll();
-        loading = false;
-    }
+async function refresh() {
+  loading = true;
+  await invalidateAll();
+  loading = false;
+}
 
-    function openDetails(log: any) {
-        selectedLog = log;
-        showSheet = true;
-    }
+function openDetails(log: any) {
+  selectedLog = log;
+  showSheet = true;
+}
 
-    function closeDetails() {
-        showSheet = false;
-        setTimeout(() => {
-            selectedLog = null;
-        }, 300); // Wait for animation
-    }
+function closeDetails() {
+  showSheet = false;
+  setTimeout(() => {
+    selectedLog = null;
+  }, 300); // Wait for animation
+}
 
-    const columns = [
-        {
-            header: "Estado",
-            class: "w-16 text-center",
-            cell: statusCell,
-        },
-        {
-            header: "Hora",
-            cell: timeCell,
-        },
-        {
-            header: "Fuente",
-            cell: sourceCell,
-        },
-        {
-            header: "Evento",
-            key: "event" as const,
-            class: "font-mono text-xs text-ink-700",
-        },
-        {
-            header: "Resumen",
-            cell: summaryCell,
-        },
-        {
-            header: "Actor",
-            key: "actor" as const,
-            class: "text-ink-500",
-        },
-    ];
+const columns = [
+  {
+    header: "Estado",
+    class: "w-16 text-center",
+    cell: statusCell,
+  },
+  {
+    header: "Hora",
+    cell: timeCell,
+  },
+  {
+    header: "Fuente",
+    cell: sourceCell,
+  },
+  {
+    header: "Evento",
+    key: "event" as const,
+    class: "font-mono text-xs text-ink-700",
+  },
+  {
+    header: "Resumen",
+    cell: summaryCell,
+  },
+  {
+    header: "Actor",
+    key: "actor" as const,
+    class: "text-ink-500",
+  },
+];
 </script>
 
 <SectionShell
@@ -85,7 +85,6 @@
 >
     {#if selectedLog}
         <div class="space-y-6">
-            <!-- Meta block -->
             <div class="grid grid-cols-2 gap-4 text-sm bg-cream-50 p-4 rounded border border-ink-100">
                 <div>
                     <span class="block text-xs uppercase text-ink-400 mb-1">
@@ -125,7 +124,6 @@
                 </div>
             </div>
 
-            <!-- LLM specific view -->
             {#if selectedLog.source === "llm"}
                 {#if selectedLog.original_data.error_message}
                     <div class="border-l-4 border-red-500 pl-4 py-2 bg-red-50">
@@ -159,7 +157,6 @@
                 </div>
             {/if}
 
-            <!-- Generic metadata view -->
             {#if Object.keys(selectedLog.metadata).length > 0}
                 <div>
                     <h4 class="font-sans text-xs uppercase tracking-widest text-ink-400 mb-2">

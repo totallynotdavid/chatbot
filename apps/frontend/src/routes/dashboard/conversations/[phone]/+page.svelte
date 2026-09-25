@@ -84,18 +84,24 @@ const saleStatusOptions: { value: SaleStatus; label: string }[] = [
 
 async function handleTakeover() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover${channelQuery}`, {
-    method: "POST",
-  });
+  await fetchApi(
+    `/api/conversations/${conversation.phone_number}/takeover${channelQuery}`,
+    {
+      method: "POST",
+    },
+  );
   await refreshConversation();
   toast.success("Has tomado control de la conversación");
 }
 
 async function handleAcceptAssignment() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/takeover${channelQuery}`, {
-    method: "POST",
-  });
+  await fetchApi(
+    `/api/conversations/${conversation.phone_number}/takeover${channelQuery}`,
+    {
+      method: "POST",
+    },
+  );
   await refreshConversation();
   toast.success("Asignación aceptada");
 }
@@ -119,20 +125,26 @@ async function handleDeclineAssignment() {
 
 async function handleRelease() {
   if (!conversation) return;
-  await fetchApi(`/api/conversations/${conversation.phone_number}/release${channelQuery}`, {
-    method: "POST",
-  });
+  await fetchApi(
+    `/api/conversations/${conversation.phone_number}/release${channelQuery}`,
+    {
+      method: "POST",
+    },
+  );
   await refreshConversation();
 }
 
 async function handleSendMessage() {
   if (!(conversation && messageText.trim())) return;
 
-  await fetchApi(`/api/conversations/${conversation.phone_number}/message${channelQuery}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: messageText }),
-  });
+  await fetchApi(
+    `/api/conversations/${conversation.phone_number}/message${channelQuery}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: messageText }),
+    },
+  );
 
   messageText = "";
   await refreshConversation();

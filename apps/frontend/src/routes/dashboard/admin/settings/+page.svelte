@@ -1,154 +1,150 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { fetchApi } from "$lib/utils/api";
-  import { toast } from "$lib/state/toast.svelte";
-  import Button from "$lib/components/ui/button.svelte";
-  import Modal from "$lib/components/ui/modal.svelte";
-  import SectionShell from "$lib/components/ui/section-shell.svelte";
+import { onMount } from "svelte";
+import { fetchApi } from "$lib/utils/api";
+import { toast } from "$lib/state/toast.svelte";
+import Button from "$lib/components/ui/button.svelte";
+import Modal from "$lib/components/ui/modal.svelte";
+import SectionShell from "$lib/components/ui/section-shell.svelte";
 
-  let settings = $state<Record<string, string>>({});
-  let initialSettings = $state<Record<string, string>>({});
-  let loading = $state(true);
-  let saving = $state(false);
-  let showConfirmModal = $state(false);
-  let heldMessagesCount = $state(0);
-  let processingHeld = $state(false);
+let settings = $state<Record<string, string>>({});
+let initialSettings = $state<Record<string, string>>({});
+let loading = $state(true);
+let saving = $state(false);
+let showConfirmModal = $state(false);
+let heldMessagesCount = $state(0);
+let processingHeld = $state(false);
 
-  let hasChanges = $derived(
-    JSON.stringify(settings) !== JSON.stringify(initialSettings),
+let hasChanges = $derived(
+  JSON.stringify(settings) !== JSON.stringify(initialSettings),
+);
+
+// For a tenant admin, `maintenance_mode` is the tenant's own stored setting.
+// The platform-wide freeze is a separate read-only value, and the bot is held
+// when either one says so. Keep them apart, because a save posts every key
+// without an underscore prefix and a combined value would write the platform
+// freeze into the tenant's own row.
+let platformFrozen = $derived(settings._platform_maintenance_mode === "true");
+
+// Derived from the two raw values rather than read from the server's
+// `_effective_maintenance_mode`, so it follows the toggle as it moves instead
+// of lagging a save behind. An operator with no tenant selected gets the
+// platform value under `maintenance_mode`, and `platformFrozen` stays false.
+let effectivelyFrozen = $derived(
+  settings.maintenance_mode === "true" || platformFrozen,
+);
+
+// The Calidda integrations are shared platform infrastructure, not per
+// business, so only VendeYa staff can suspend them. A tenant admin sees the
+// current state read-only rather than a toggle that would silently no-op.
+let canEditPlatformSettings = $derived(settings._scope === "platform");
+
+// Where a platform switch's value is. An operator with no tenant selected
+// owns these and edits them under their own names. A tenant admin sees them
+// as `_platform_<key>`, which a save never posts back. Under the raw names, a
+// save would resubmit them and the server would refuse the write.
+function platformSwitchOn(key: string): boolean {
+  return (
+    settings[canEditPlatformSettings ? key : `_platform_${key}`] === "true"
   );
+}
 
-  // For a tenant admin, `maintenance_mode` is the tenant's own stored setting.
-  // The platform-wide freeze is a separate read-only value, and the bot is held
-  // when either one says so. Keep them apart, because a save posts every key
-  // without an underscore prefix and a combined value would write the platform
-  // freeze into the tenant's own row.
-  let platformFrozen = $derived(
-    settings["_platform_maintenance_mode"] === "true",
-  );
+async function loadSettings() {
+  loading = true;
+  try {
+    const data = await fetchApi<Record<string, string>>("/api/admin/settings");
+    settings = { ...data };
+    initialSettings = { ...data };
+  } catch (e) {
+    console.error(e);
+  } finally {
+    loading = false;
+  }
+}
 
-  // Derived from the two raw values rather than read from the server's
-  // `_effective_maintenance_mode`, so it follows the toggle as it moves instead
-  // of lagging a save behind. An operator with no tenant selected gets the
-  // platform value under `maintenance_mode`, and `platformFrozen` stays false.
-  let effectivelyFrozen = $derived(
-    settings["maintenance_mode"] === "true" || platformFrozen,
-  );
-
-  // The Calidda integrations are shared platform infrastructure, not per
-  // business, so only VendeYa staff can suspend them. A tenant admin sees the
-  // current state read-only rather than a toggle that would silently no-op.
-  let canEditPlatformSettings = $derived(settings["_scope"] === "platform");
-
-  // Where a platform switch's value is. An operator with no tenant selected
-  // owns these and edits them under their own names. A tenant admin sees them
-  // as `_platform_<key>`, which a save never posts back. Under the raw names, a
-  // save would resubmit them and the server would refuse the write.
-  function platformSwitchOn(key: string): boolean {
-    return (
-      settings[canEditPlatformSettings ? key : `_platform_${key}`] === "true"
+async function checkHeldMessagesStatus() {
+  try {
+    const data = await fetchApi<{ pendingCount: number }>(
+      "/api/admin/held-messages-status",
     );
+    heldMessagesCount = data.pendingCount;
+  } catch (e) {
+    console.error(e);
   }
+}
 
-  async function loadSettings() {
-    loading = true;
-    try {
-      const data = await fetchApi<Record<string, string>>(
-        "/api/admin/settings",
-      );
-      settings = { ...data };
-      initialSettings = { ...data };
-    } catch (e) {
-      console.error(e);
-    } finally {
-      loading = false;
-    }
+async function processHeldMessages() {
+  processingHeld = true;
+  try {
+    const result = await fetchApi<{
+      success: boolean;
+      message: string;
+      stats: {
+        usersProcessed: number;
+        messagesProcessed: number;
+        errors: number;
+        stillAnswering: number;
+      };
+    }>("/api/admin/process-held-messages", {
+      method: "POST",
+    });
+
+    toast.success(result.message);
+
+    // Update count after success
+    await checkHeldMessagesStatus();
+  } catch (e) {
+    toast.error("Error al procesar mensajes retenidos");
+  } finally {
+    processingHeld = false;
   }
+}
 
-  async function checkHeldMessagesStatus() {
-    try {
-      const data = await fetchApi<{ pendingCount: number }>(
-        "/api/admin/held-messages-status",
-      );
-      heldMessagesCount = data.pendingCount;
-    } catch (e) {
-      console.error(e);
-    }
-  }
+async function handleSave(e?: Event) {
+  e?.preventDefault();
+  showConfirmModal = true;
+}
 
-  async function processHeldMessages() {
-    processingHeld = true;
-    try {
-      const result = await fetchApi<{
-        success: boolean;
-        message: string;
-        stats: {
-          usersProcessed: number;
-          messagesProcessed: number;
-          errors: number;
-          stillAnswering: number;
-        };
-      }>("/api/admin/process-held-messages", {
-        method: "POST",
-      });
+async function confirmSave() {
+  saving = true;
+  showConfirmModal = false;
+  try {
+    // Capture old state before update
+    const wasInMaintenance = initialSettings.maintenance_mode === "true";
+    const isExitingMaintenance =
+      wasInMaintenance && settings.maintenance_mode === "false";
 
-      toast.success(result.message);
+    // Only the writable keys go back. The underscore-prefixed ones are the
+    // server's read-only commentary: the platform freeze, the effective freeze
+    // and the scope. The POST ignores them, and leaving them out keeps a save
+    // to what this page owns.
+    const payload = Object.fromEntries(
+      Object.entries(settings).filter(([key]) => !key.startsWith("_")),
+    );
 
-      // Update count after success
+    await fetchApi("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    initialSettings = { ...settings };
+    toast.success("Configuración actualizada");
+
+    // Check for held messages if exiting maintenance mode
+    if (isExitingMaintenance) {
       await checkHeldMessagesStatus();
-    } catch (e) {
-      toast.error("Error al procesar mensajes retenidos");
-    } finally {
-      processingHeld = false;
     }
+  } catch (e) {
+    toast.error("Error al guardar configuración");
+  } finally {
+    saving = false;
   }
+}
 
-  async function handleSave(e?: Event) {
-    e?.preventDefault();
-    showConfirmModal = true;
-  }
-
-  async function confirmSave() {
-    saving = true;
-    showConfirmModal = false;
-    try {
-      // Capture old state before update
-      const wasInMaintenance = initialSettings["maintenance_mode"] === "true";
-      const isExitingMaintenance =
-        wasInMaintenance && settings["maintenance_mode"] === "false";
-
-      // Only the writable keys go back. The underscore-prefixed ones are the
-      // server's read-only commentary: the platform freeze, the effective freeze
-      // and the scope. The POST ignores them, and leaving them out keeps a save
-      // to what this page owns.
-      const payload = Object.fromEntries(
-        Object.entries(settings).filter(([key]) => !key.startsWith("_")),
-      );
-
-      await fetchApi("/api/admin/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      initialSettings = { ...settings };
-      toast.success("Configuración actualizada");
-
-      // Check for held messages if exiting maintenance mode
-      if (isExitingMaintenance) {
-        await checkHeldMessagesStatus();
-      }
-    } catch (e) {
-      toast.error("Error al guardar configuración");
-    } finally {
-      saving = false;
-    }
-  }
-
-  onMount(() => {
-    loadSettings();
-    checkHeldMessagesStatus();
-  });
+onMount(() => {
+  loadSettings();
+  checkHeldMessagesStatus();
+});
 </script>
 
 <div class="space-y-6">
@@ -162,7 +158,6 @@
       </div>
     {:else}
       <div class="p-6">
-        <!-- Maintenance Mode -->
         <div
           class="border border-red-100 bg-red-50/30 p-4 rounded transition-colors hover:bg-red-50/50"
         >
@@ -215,7 +210,6 @@
     {/if}
   </SectionShell>
 
-  <!-- Held messages status (shown when maintenance mode is off but messages pending) -->
   {#if !loading && !effectivelyFrozen && heldMessagesCount > 0}
     <SectionShell
       title="Mensajes retenidos"
@@ -266,7 +260,6 @@
     </SectionShell>
   {/if}
 
-  <!-- Recovery operations section -->
   {#if !loading}
     <SectionShell
       title="Operaciones de Recuperación"
