@@ -39,7 +39,7 @@ export async function parseIncomingMessage(
         id: quoted.id._serialized,
         body: quoted.body,
         type: mapWebjsType(quoted.type),
-        timestamp: quoted.timestamp,
+        timestamp: quoted.timestamp * 1000,
       };
     } catch (error) {
       logger.warn(
@@ -50,7 +50,7 @@ export async function parseIncomingMessage(
     }
   }
 
-  // Handle @lid format by trying to get actual phone number
+  // WhatsApp's @lid format (device-linked contacts) requires resolving the contact to get the phone number.
   let phoneNumber = extractPhoneNumber(msg.from);
   if (msg.from.endsWith("@lid")) {
     try {
@@ -68,7 +68,8 @@ export async function parseIncomingMessage(
     from: phoneNumber,
     body: msg.body,
     type: mapWebjsType(msg.type),
-    timestamp: msg.timestamp,
+    // whatsapp-web.js reports Unix seconds; IncomingMessage carries milliseconds.
+    timestamp: msg.timestamp * 1000,
     quotedContext,
   };
 }
