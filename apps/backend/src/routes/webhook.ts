@@ -170,7 +170,7 @@ function resolveTarget(routing: InboundRouting): Target {
   // its bot stops answering too, rather than serving customers on behalf of an
   // account that has been cut off.
   const tenant = TenantService.getById(account.tenant_id);
-  if (!tenant || tenant.status !== "active") {
+  if (tenant?.status !== "active") {
     logger.warn(
       {
         channelAccountId: account.id,

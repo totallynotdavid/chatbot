@@ -38,7 +38,8 @@
             "style": {
                 "preset": "recommended",
                 "useNamingConvention": "off",
-                "useConst": "off"
+                "useConst": "off",
+                "noNonNullAssertion": "off"
             },
             "suspicious": {
                 "preset": "recommended",

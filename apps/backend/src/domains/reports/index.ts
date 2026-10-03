@@ -113,18 +113,18 @@ export const ReportService = {
     const transformedRows = rows.map((row, index) => {
       let productos = "";
       try {
-        const productsArray = JSON.parse((row["Productos"] as string) || "[]");
+        const productsArray = JSON.parse((row.Productos as string) || "[]");
         if (Array.isArray(productsArray) && productsArray.length > 0) {
           productos = productsArray.join(", ");
         }
       } catch {
-        productos = (row["Productos"] as string) || "";
+        productos = (row.Productos as string) || "";
       }
 
       let fechaActividad = "";
       if (row["Última Actividad"]) {
         const timestamp = Number(row["Última Actividad"]);
-        if (!isNaN(timestamp)) {
+        if (!Number.isNaN(timestamp)) {
           fechaActividad = new Date(timestamp).toLocaleString("es-PE", {
             timeZone: "America/Lima",
           });
@@ -147,16 +147,16 @@ export const ReportService = {
 
       return {
         "#": index + 1,
-        Teléfono: row["Teléfono"],
-        Nombre: row["Nombre"] || "",
-        DNI: row["DNI"] || "",
-        Campaña: segmentMap[row["Campaña"] as string] || "",
-        Crédito: row["Crédito"] || "",
-        NSE: row["NSE"] || "",
+        Teléfono: row.Teléfono,
+        Nombre: row.Nombre || "",
+        DNI: row.DNI || "",
+        Campaña: segmentMap[row.Campaña as string] || "",
+        Crédito: row.Crédito || "",
+        NSE: row.NSE || "",
         "Estado Venta":
           saleStatusMap[row["Estado Venta"] as string] || "Pendiente",
         Productos: productos,
-        Observaciones: row["Observaciones"] || "",
+        Observaciones: row.Observaciones || "",
         "Última Actividad": fechaActividad,
       };
     });
@@ -268,7 +268,7 @@ export const ReportService = {
     const transformedRows = rows.map((row, index) => {
       const formatTimestamp = (ts: any) => {
         const timestamp = Number(ts);
-        return !isNaN(timestamp)
+        return !Number.isNaN(timestamp)
           ? new Date(timestamp).toLocaleString("es-PE", {
               timeZone: "America/Lima",
             })
@@ -278,14 +278,14 @@ export const ReportService = {
       return {
         "#": index + 1,
         "Número de Orden": row["Número de Orden"],
-        Cliente: row["Cliente"],
-        DNI: row["DNI"],
-        Teléfono: row["Teléfono"],
+        Cliente: row.Cliente,
+        DNI: row.DNI,
+        Teléfono: row.Teléfono,
         "Monto Total": `S/ ${Number(row["Monto Total"]).toFixed(2)}`,
-        Dirección: row["Dirección"] || "",
-        Referencia: row["Referencia"] || "",
-        Estado: statusMap[row["Estado"] as string] || row["Estado"],
-        Agente: row["Agente"] || "",
+        Dirección: row.Dirección || "",
+        Referencia: row.Referencia || "",
+        Estado: statusMap[row.Estado as string] || row.Estado,
+        Agente: row.Agente || "",
         "Notas Supervisor": row["Notas Supervisor"] || "",
         "Notas Calidda": row["Notas Calidda"] || "",
         "Fecha Creación": formatTimestamp(row["Fecha Creación"]),

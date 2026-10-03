@@ -108,7 +108,7 @@ export function transitionClosing(
     "entendido",
   ];
   const isAcknowledgment = acknowledgmentKeywords.some(
-    (kw) => normalized === kw || normalized.startsWith(kw + " "),
+    (kw) => normalized === kw || normalized.startsWith(`${kw} `),
   );
 
   if (isAcknowledgment && normalized.length < 15) {

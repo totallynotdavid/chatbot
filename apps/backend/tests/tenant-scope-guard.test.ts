@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: `${` is intentional in scanner input below.
 /**
  * Suspension closes a business to platform operators too. The helpers in
  * `db/query.ts` hold that rule, and this file checks the backend source for

@@ -56,7 +56,7 @@ tenants.post("/active", async (c) => {
   }
 
   const tenant = TenantService.getById(tenantId);
-  if (!tenant || tenant.status !== "active") {
+  if (tenant?.status !== "active") {
     return c.json({ error: "Tenant not found" }, 404);
   }
 

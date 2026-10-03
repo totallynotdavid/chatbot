@@ -124,7 +124,7 @@ async function processConversation(
       expirePending(ref, now);
 
       const head = headRow(ref);
-      if (!head || head.status !== "pending") return;
+      if (head?.status !== "pending") return;
       if (head.next_attempt_at > now) return;
 
       const claimed = claimRow(head, now);

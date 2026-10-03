@@ -21,13 +21,13 @@ export interface SystemLogEntry {
   original_data: any;
 }
 
-export class SystemLogService {
+export const SystemLogService = {
   /**
    * A null `tenantId` spans open tenants and adds the platform's own audit
    * rows. An unpinned platform operator reaches it through
    * routes/system-logs.ts.
    */
-  static getRecentLogs(
+  getRecentLogs(
     tenantId: string | null,
     limit: number = 100,
   ): SystemLogEntry[] {
@@ -92,5 +92,5 @@ export class SystemLogService {
         return dateB - dateA;
       })
       .slice(0, limit);
-  }
-}
+  },
+};

@@ -247,7 +247,7 @@ export function transitionOfferingProducts(
   if (specificIntent) {
     const categoryToUse = phase.lastShownCategory;
 
-    if (context && context.activeBrands) {
+    if (context?.activeBrands) {
       const intentQuery = specificIntent.query.toLowerCase();
       const hasActiveBrand = context.activeBrands.some((brand) =>
         intentQuery.includes(brand.toLowerCase()),
@@ -416,8 +416,7 @@ export function transitionOfferingProducts(
   if (isRequestingOtherOptions(lower)) {
     // If we are currently showing a category (or search results), "otros" means "next page"
     if (phase.lastShownCategory) {
-      const currentOffset =
-        (phase.pagination && phase.pagination[phase.lastShownCategory]) || 0;
+      const currentOffset = phase.pagination?.[phase.lastShownCategory] || 0;
       const newOffset = currentOffset + 3;
 
       const newPagination = {

@@ -26,7 +26,7 @@ function contentFor(event: DomainEvent): string {
   const decisions = evaluateNotifications(event, notificationRules);
   const sent = decisions.find((decision) => decision.status === "sent");
 
-  if (!sent || sent.status !== "sent") {
+  if (sent?.status !== "sent") {
     throw new Error(`No notification was produced for ${event.type}`);
   }
 

@@ -39,8 +39,7 @@ export function transitionHandlingObjection(
         commands: [
           {
             type: "SEND_MESSAGE",
-            text:
-              enrichment.answer + "\n\n¿Te gustaría ver alguna otra opción?",
+            text: `${enrichment.answer}\n\n¿Te gustaría ver alguna otra opción?`,
           },
         ],
       };

@@ -1,4 +1,5 @@
 import process from "node:process";
+import { stripVTControlCharacters } from "node:util";
 
 /** On a terminal, a hidden prompt asked twice. Otherwise one line from stdin. */
 export async function readPassword(): Promise<string> {
@@ -45,7 +46,7 @@ function promptHidden(label: string): Promise<string> {
 
     function onData(chunk: string) {
       // Escape sequences (arrow keys, paste markers) are not part of the password.
-      const keys = chunk.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "");
+      const keys = stripVTControlCharacters(chunk);
 
       for (const key of keys) {
         if (key === "\r" || key === "\n")
