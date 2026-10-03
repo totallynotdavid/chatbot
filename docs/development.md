@@ -18,8 +18,7 @@ Run from the repository root unless a directory is named.
 | `bun run build`                       | the production frontend build                                                                                        |
 
 `bun run format` runs `biome format --write`. It does not lint.
-`bunx biome lint` reports errors on the current tree and exits 1, and CI does
-not run it.
+`bunx biome lint` is clean on the current tree. CI does not run it.
 
 There is no root script for typechecking, linting or a single test file.
 `apps/backend` has `bun run test:llm`, which runs one file against the mock LLM
