@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "bun --env-file=../../.env vite dev --host",
-        "build": "vite build",
+        "build": "bun run --bun vite build",
         "preview": "vite preview",
         "prepare": "svelte-kit sync || echo ''",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --tsgo",
@@ -16,19 +16,21 @@
         "@vendeya/utils": "workspace:*"
     },
     "devDependencies": {
-        "@sveltejs/adapter-auto": "^7.0.1",
-        "@sveltejs/kit": "^2.70.3",
+        "@sveltejs/adapter-bun": "^1.0.0",
+        "@sveltejs/kit": "^3.0.0",
         "@sveltejs/vite-plugin-svelte": "^7.3.1",
         "@tailwindcss/forms": "^0.5.11",
         "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.3.3",
         "@vendeya/tsconfig": "workspace:*",
         "svelte": "^5.57.1",
-        "svelte-adapter-bun": "^1.0.1",
         "svelte-check": "^4.7.6",
         "tailwindcss": "^4.3.3",
         "uuid": "^14.0.2",
-        "vite": "^8.3.1",
+        "vite": "^8.3.2",
         "vite-plugin-devtools-json": "^1.1.0"
+    },
+    "imports": {
+        "#lib/*": "./src/lib/*"
     }
 }
