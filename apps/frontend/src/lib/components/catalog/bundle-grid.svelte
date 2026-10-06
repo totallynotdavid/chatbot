@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Bundle } from "@vendeya/types";
-import { formatPrice } from "$lib/utils/formatters";
+import { formatPrice } from "#lib/utils/formatters.js";
 import StockBadge from "./stock-badge.svelte";
 
 type Props = {

@@ -1,5 +1,5 @@
 <script lang="ts">
-import { formatTime } from "$lib/utils/formatters";
+import { formatTime } from "#lib/utils/formatters.js";
 import type { Snippet } from "svelte";
 import type { StoredMessageType } from "@vendeya/types";
 

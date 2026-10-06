@@ -7,18 +7,18 @@ import type {
   CatalogPeriod,
   StockStatus,
 } from "@vendeya/types";
-import { auth } from "$lib/state/auth.svelte";
-import { fetchApi } from "$lib/utils/api";
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import InventoryGrid from "$lib/components/catalog/inventory-grid.svelte";
-import BundleGrid from "$lib/components/catalog/bundle-grid.svelte";
-import PeriodSelector from "$lib/components/catalog/period-selector.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import Tabs from "$lib/components/ui/tabs.svelte";
-import TabsList from "$lib/components/ui/tabs-list.svelte";
-import TabsTrigger from "$lib/components/ui/tabs-trigger.svelte";
-import TabsContent from "$lib/components/ui/tabs-content.svelte";
+import { auth } from "#lib/state/auth.svelte.js";
+import { fetchApi } from "#lib/utils/api.js";
+import PageHeader from "#lib/components/shared/page-header.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import InventoryGrid from "#lib/components/catalog/inventory-grid.svelte";
+import BundleGrid from "#lib/components/catalog/bundle-grid.svelte";
+import PeriodSelector from "#lib/components/catalog/period-selector.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import Tabs from "#lib/components/ui/tabs.svelte";
+import TabsList from "#lib/components/ui/tabs-list.svelte";
+import TabsTrigger from "#lib/components/ui/tabs-trigger.svelte";
+import TabsContent from "#lib/components/ui/tabs-content.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();

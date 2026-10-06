@@ -1,6 +1,6 @@
 <script lang="ts">
 import { page } from "$app/state";
-import { auth } from "$lib/state/auth.svelte";
+import { auth } from "#lib/state/auth.svelte.js";
 
 const breadcrumbLabels: Record<string, string> = {
   "/dashboard/conversations": "Conversaciones",

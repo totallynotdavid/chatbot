@@ -1,11 +1,11 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { fetchApi } from "$lib/utils/api";
-import { formatDateTime } from "$lib/utils/formatters";
+import { fetchApi } from "#lib/utils/api.js";
+import { formatDateTime } from "#lib/utils/formatters.js";
 import type { AuditLog } from "@vendeya/types";
-import SectionShell from "$lib/components/ui/section-shell.svelte";
-import DataTable from "$lib/components/ui/data-table.svelte";
-import Button from "$lib/components/ui/button.svelte";
+import SectionShell from "#lib/components/ui/section-shell.svelte";
+import DataTable from "#lib/components/ui/data-table.svelte";
+import Button from "#lib/components/ui/button.svelte";
 
 type AuditLogWithName = AuditLog & {
   user_name?: string;

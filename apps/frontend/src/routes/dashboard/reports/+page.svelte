@@ -1,8 +1,8 @@
 <script lang="ts">
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import { limaDateString } from "$lib/utils/formatters";
+import PageHeader from "#lib/components/shared/page-header.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import { limaDateString } from "#lib/utils/formatters.js";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();

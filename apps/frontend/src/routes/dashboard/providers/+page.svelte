@@ -1,12 +1,15 @@
 <script lang="ts">
-import { ApiError, fetchApi } from "$lib/utils/api";
-import { validateDni } from "$lib/utils/validation";
-import type { LookupResult, ProviderLookup } from "$lib/utils/provider-lookup";
-import Input from "$lib/components/ui/input.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import LookupResultCard from "$lib/components/providers/lookup-result.svelte";
+import { ApiError, fetchApi } from "#lib/utils/api.js";
+import { validateDni } from "#lib/utils/validation.js";
+import type {
+  LookupResult,
+  ProviderLookup,
+} from "#lib/utils/provider-lookup.js";
+import Input from "#lib/components/ui/input.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import PageHeader from "#lib/components/shared/page-header.svelte";
+import LookupResultCard from "#lib/components/providers/lookup-result.svelte";
 
 let dni = $state("");
 let loading = $state(false);

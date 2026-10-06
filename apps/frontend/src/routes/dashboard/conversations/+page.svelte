@@ -1,9 +1,9 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import type { Conversation } from "@vendeya/types";
-import { fetchApi } from "$lib/utils/api";
-import ConversationList from "$lib/components/conversations/conversation-list.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import ConversationList from "#lib/components/conversations/conversation-list.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();

@@ -1,21 +1,21 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import type { Bundle, SnapshotProduct, Product } from "@vendeya/types";
-import Button from "$lib/components/ui/button.svelte";
-import ImageUploadSimple from "$lib/components/catalog/image-upload-simple.svelte";
-import FormField from "$lib/components/ui/form-field.svelte";
-import Input from "$lib/components/ui/input.svelte";
-import Select from "$lib/components/ui/select.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import { toast } from "$lib/state/toast.svelte";
-import { fetchApi, createFormData } from "$lib/utils/api";
+import Button from "#lib/components/ui/button.svelte";
+import ImageUploadSimple from "#lib/components/catalog/image-upload-simple.svelte";
+import FormField from "#lib/components/ui/form-field.svelte";
+import Input from "#lib/components/ui/input.svelte";
+import Select from "#lib/components/ui/select.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import { toast } from "#lib/state/toast.svelte.js";
+import { fetchApi, createFormData } from "#lib/utils/api.js";
 import {
   validateRequired,
   validatePositiveNumber,
   validateImage,
   hasErrors,
   type ValidationErrors,
-} from "$lib/utils/validation";
+} from "#lib/utils/validation.js";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();

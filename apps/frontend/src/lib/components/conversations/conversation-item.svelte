@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Conversation } from "@vendeya/types";
-import { formatPhone } from "$lib/utils/formatters";
+import { formatPhone } from "#lib/utils/formatters.js";
 
 type Props = {
   conversation: Conversation;

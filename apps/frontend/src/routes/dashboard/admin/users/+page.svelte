@@ -1,10 +1,10 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import Button from "$lib/components/ui/button.svelte";
-import SectionShell from "$lib/components/ui/section-shell.svelte";
-import DataTable from "$lib/components/ui/data-table.svelte";
-import { fetchApi } from "$lib/utils/api";
-import { formatDate } from "$lib/utils/formatters";
+import Button from "#lib/components/ui/button.svelte";
+import SectionShell from "#lib/components/ui/section-shell.svelte";
+import DataTable from "#lib/components/ui/data-table.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import { formatDate } from "#lib/utils/formatters.js";
 
 type User = {
   id: string;

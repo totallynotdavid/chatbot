@@ -1,7 +1,7 @@
 <script lang="ts">
 import { page } from "$app/state";
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import PageHeader from "#lib/components/shared/page-header.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 
 let { children } = $props();
 

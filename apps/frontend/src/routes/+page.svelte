@@ -1,8 +1,8 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import { goto } from "$app/navigation";
-import { auth } from "$lib/state/auth.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import { auth } from "#lib/state/auth.svelte.js";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 
 onMount(() => {
   if (auth.isAuthenticated) {

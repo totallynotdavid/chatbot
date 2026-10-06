@@ -1,6 +1,6 @@
 <script lang="ts">
 import { page } from "$app/state";
-import DashboardNav from "$lib/components/shared/dashboard-nav.svelte";
+import DashboardNav from "#lib/components/shared/dashboard-nav.svelte";
 
 let { children } = $props();
 

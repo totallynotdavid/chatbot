@@ -1,14 +1,14 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import type { CatalogPeriod } from "@vendeya/types";
-import { fetchApi } from "$lib/utils/api";
-import { toast } from "$lib/state/toast.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import Badge from "$lib/components/ui/badge.svelte";
-import Modal from "$lib/components/ui/modal.svelte";
-import Input from "$lib/components/ui/input.svelte";
-import Label from "$lib/components/ui/label.svelte";
-import SectionShell from "$lib/components/ui/section-shell.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import { toast } from "#lib/state/toast.svelte.js";
+import Button from "#lib/components/ui/button.svelte";
+import Badge from "#lib/components/ui/badge.svelte";
+import Modal from "#lib/components/ui/modal.svelte";
+import Input from "#lib/components/ui/input.svelte";
+import Label from "#lib/components/ui/label.svelte";
+import SectionShell from "#lib/components/ui/section-shell.svelte";
 
 let periods = $state<CatalogPeriod[]>([]);
 let isLoading = $state(true);

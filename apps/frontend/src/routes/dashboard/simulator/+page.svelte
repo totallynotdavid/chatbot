@@ -1,12 +1,12 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { fetchApi } from "$lib/utils/api";
-import { formatPhone, formatPrice } from "$lib/utils/formatters";
-import Button from "$lib/components/ui/button.svelte";
-import Badge from "$lib/components/ui/badge.svelte";
-import MessageBubble from "$lib/components/conversations/message-bubble.svelte";
-import ConversationItem from "$lib/components/conversations/conversation-item.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import { formatPhone, formatPrice } from "#lib/utils/formatters.js";
+import Button from "#lib/components/ui/button.svelte";
+import Badge from "#lib/components/ui/badge.svelte";
+import MessageBubble from "#lib/components/conversations/message-bubble.svelte";
+import ConversationItem from "#lib/components/conversations/conversation-item.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 import type { ReplayData, Conversation, TestPersona } from "@vendeya/types";
 import type { PageData } from "./$types";
 

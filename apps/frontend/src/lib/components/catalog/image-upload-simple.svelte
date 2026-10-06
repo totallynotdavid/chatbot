@@ -1,5 +1,5 @@
 <script lang="ts">
-import FileUpload from "$lib/components/ui/file-upload.svelte";
+import FileUpload from "#lib/components/ui/file-upload.svelte";
 
 type Props = {
   hasExistingImage: boolean;

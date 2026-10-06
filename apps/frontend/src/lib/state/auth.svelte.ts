@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
-import { fetchApi } from "$lib/utils/api";
-import { showTenantSelector } from "$lib/state/tenant-switching";
+import { fetchApi } from "#lib/utils/api.js";
+import { showTenantSelector } from "#lib/state/tenant-switching.js";
 
 type User = {
   username: string;

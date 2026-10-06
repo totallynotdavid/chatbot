@@ -1,10 +1,10 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { fetchApi } from "$lib/utils/api";
-import { toast } from "$lib/state/toast.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import Modal from "$lib/components/ui/modal.svelte";
-import SectionShell from "$lib/components/ui/section-shell.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import { toast } from "#lib/state/toast.svelte.js";
+import Button from "#lib/components/ui/button.svelte";
+import Modal from "#lib/components/ui/modal.svelte";
+import SectionShell from "#lib/components/ui/section-shell.svelte";
 
 let settings = $state<Record<string, string>>({});
 let initialSettings = $state<Record<string, string>>({});

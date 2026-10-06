@@ -2,17 +2,17 @@
 import { onMount } from "svelte";
 import { page } from "$app/state";
 import { goto } from "$app/navigation";
-import { fetchApi } from "$lib/utils/api";
+import { fetchApi } from "#lib/utils/api.js";
 import { MIN_PASSWORD_LENGTH } from "@vendeya/types";
-import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
-import { toast } from "$lib/state/toast.svelte";
-import { auth } from "$lib/state/auth.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import FormField from "$lib/components/ui/form-field.svelte";
-import Select from "$lib/components/ui/select.svelte";
-import Badge from "$lib/components/ui/badge.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import PermissionMatrix from "$lib/components/admin/permission-matrix.svelte";
+import { PASSWORD_TOO_SHORT_MESSAGE } from "#lib/utils/password.js";
+import { toast } from "#lib/state/toast.svelte.js";
+import { auth } from "#lib/state/auth.svelte.js";
+import Button from "#lib/components/ui/button.svelte";
+import FormField from "#lib/components/ui/form-field.svelte";
+import Select from "#lib/components/ui/select.svelte";
+import Badge from "#lib/components/ui/badge.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import PermissionMatrix from "#lib/components/admin/permission-matrix.svelte";
 
 let user = $state<any>(null);
 let originalRole = $state<string>("");

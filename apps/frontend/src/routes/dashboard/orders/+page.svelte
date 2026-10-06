@@ -1,13 +1,13 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 import type { OrderStatus } from "@vendeya/types";
-import PageHeader from "$lib/components/shared/page-header.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import PageHeader from "#lib/components/shared/page-header.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 import {
   formatPhone,
   formatPrice,
   formatDateTime,
-} from "$lib/utils/formatters";
+} from "#lib/utils/formatters.js";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();

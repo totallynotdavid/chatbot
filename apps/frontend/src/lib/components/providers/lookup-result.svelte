@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { LookupResult } from "$lib/utils/provider-lookup";
-import { formatPrice, formatDate, formatTime } from "$lib/utils/formatters";
-import Badge from "$lib/components/ui/badge.svelte";
+import type { LookupResult } from "#lib/utils/provider-lookup.js";
+import { formatPrice, formatDate, formatTime } from "#lib/utils/formatters.js";
+import Badge from "#lib/components/ui/badge.svelte";
 
 type Props = {
   result: LookupResult;

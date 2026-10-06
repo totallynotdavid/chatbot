@@ -1,8 +1,8 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import { fetchApi } from "$lib/utils/api";
-import Button from "$lib/components/ui/button.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import Button from "#lib/components/ui/button.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 
 let loading = $state(false);
 let newPersona = $state({

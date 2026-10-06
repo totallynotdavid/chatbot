@@ -11,7 +11,7 @@ apps/backend           Hono on Bun with bun:sqlite. Webhook intake, the inbox
                        and outbox workers, the bot turn, eligibility providers,
                        notifications, auth, tenancy and the REST API. Owns
                        every piece of state.
-apps/frontend          SvelteKit 2 with Svelte 5, built with svelte-adapter-bun.
+apps/frontend          SvelteKit 3 with Svelte 5, built with @sveltejs/adapter-bun.
                        The dashboard, and the public URL Meta posts webhooks
                        to, which it relays to the backend.
 apps/notifier          @vendeya/notifier: whatsapp-web.js on one linked WhatsApp

@@ -1,11 +1,11 @@
 <script lang="ts">
 import type { StockStatus } from "@vendeya/types";
-import { toast } from "$lib/state/toast.svelte";
-import { updateBundleStock } from "$lib/utils/catalog";
-import Dropdown from "$lib/components/ui/dropdown.svelte";
-import DropdownTrigger from "$lib/components/ui/dropdown-trigger.svelte";
-import DropdownMenu from "$lib/components/ui/dropdown-menu.svelte";
-import DropdownItem from "$lib/components/ui/dropdown-item.svelte";
+import { toast } from "#lib/state/toast.svelte.js";
+import { updateBundleStock } from "#lib/utils/catalog.js";
+import Dropdown from "#lib/components/ui/dropdown.svelte";
+import DropdownTrigger from "#lib/components/ui/dropdown-trigger.svelte";
+import DropdownMenu from "#lib/components/ui/dropdown-menu.svelte";
+import DropdownItem from "#lib/components/ui/dropdown-item.svelte";
 
 type Props = {
   bundleId: string;

@@ -1,12 +1,12 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import { goto } from "$app/navigation";
-import { auth } from "$lib/state/auth.svelte";
-import FormField from "$lib/components/ui/form-field.svelte";
-import Input from "$lib/components/ui/input.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import { fetchApi } from "$lib/utils/api";
-import PageTitle from "$lib/components/shared/page-title.svelte";
+import { auth } from "#lib/state/auth.svelte.js";
+import FormField from "#lib/components/ui/form-field.svelte";
+import Input from "#lib/components/ui/input.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import { fetchApi } from "#lib/utils/api.js";
+import PageTitle from "#lib/components/shared/page-title.svelte";
 
 let username = $state("");
 let password = $state("");

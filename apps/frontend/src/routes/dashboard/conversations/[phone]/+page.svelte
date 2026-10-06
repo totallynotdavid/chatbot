@@ -6,18 +6,18 @@ import type {
   SaleStatus,
   Order,
 } from "@vendeya/types";
-import { fetchApi } from "$lib/utils/api";
+import { fetchApi } from "#lib/utils/api.js";
 import {
   formatPhone,
   formatPrice,
   formatDateTime,
-} from "$lib/utils/formatters";
-import { toast } from "$lib/state/toast.svelte";
-import { auth } from "$lib/state/auth.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import MessageThread from "$lib/components/conversations/message-thread.svelte";
-import MessageInput from "$lib/components/conversations/message-input.svelte";
+} from "#lib/utils/formatters.js";
+import { toast } from "#lib/state/toast.svelte.js";
+import { auth } from "#lib/state/auth.svelte.js";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import MessageThread from "#lib/components/conversations/message-thread.svelte";
+import MessageInput from "#lib/components/conversations/message-input.svelte";
 import type { PageData } from "./$types";
 
 interface Props {

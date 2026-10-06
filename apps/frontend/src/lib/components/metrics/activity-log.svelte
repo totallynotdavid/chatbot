@@ -1,6 +1,6 @@
 <script lang="ts">
-import Badge from "$lib/components/ui/badge.svelte";
-import { formatDateTime } from "$lib/utils/formatters";
+import Badge from "#lib/components/ui/badge.svelte";
+import { formatDateTime } from "#lib/utils/formatters.js";
 
 type Event = {
   id: string;

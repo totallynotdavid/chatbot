@@ -1,15 +1,15 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
-import FormField from "$lib/components/ui/form-field.svelte";
-import Input from "$lib/components/ui/input.svelte";
-import Select from "$lib/components/ui/select.svelte";
-import Button from "$lib/components/ui/button.svelte";
-import PageTitle from "$lib/components/shared/page-title.svelte";
-import PermissionMatrix from "$lib/components/admin/permission-matrix.svelte";
-import { toast } from "$lib/state/toast.svelte";
-import { fetchApi } from "$lib/utils/api";
+import FormField from "#lib/components/ui/form-field.svelte";
+import Input from "#lib/components/ui/input.svelte";
+import Select from "#lib/components/ui/select.svelte";
+import Button from "#lib/components/ui/button.svelte";
+import PageTitle from "#lib/components/shared/page-title.svelte";
+import PermissionMatrix from "#lib/components/admin/permission-matrix.svelte";
+import { toast } from "#lib/state/toast.svelte.js";
+import { fetchApi } from "#lib/utils/api.js";
 import { MIN_PASSWORD_LENGTH } from "@vendeya/types";
-import { PASSWORD_TOO_SHORT_MESSAGE } from "$lib/utils/password";
+import { PASSWORD_TOO_SHORT_MESSAGE } from "#lib/utils/password.js";
 
 let formData = $state({
   name: "",
