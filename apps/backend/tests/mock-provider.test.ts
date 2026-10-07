@@ -24,46 +24,6 @@ describe("MockProvider", () => {
     expect(result).toBe(true);
   });
 
-  test("returns configured response for extractBundleIntent", async () => {
-    const provider = createMockProvider();
-    const mockBundle = {
-      id: "fnb-e0945b55ea90479f",
-      tenant_id: "tenant-test",
-      period_id: "period-2026-01",
-      name: "Samsung Galaxy A26",
-      price: 1899,
-      primary_category: "celulares",
-      segment: "gaso" as const,
-      categories_json: '["celulares"]',
-      image_id: "e0945b55ea90479f",
-      composition_json:
-        '{"fixed":[{"id":"samsung_a26","name":"Samsung Galaxy A26","specs":{}}],"choices":[]}',
-      installments_json:
-        '{"3m":682.11,"6m":361.68,"9m":255.24,"12m":202.3,"18m":149.92,"24m":124.29}',
-      notes: "01 año de garantía, delivery gratuito, cero cuota inicial",
-      is_active: 1,
-      stock_status: "in_stock" as const,
-      created_by: null,
-      created_at: Date.parse("2026-01-01T00:00:00.000Z"),
-      updated_at: Date.parse("2026-01-01T00:00:00.000Z"),
-    };
-    provider.setResponse("extractBundleIntent", {
-      bundle: mockBundle,
-      confidence: 0.9,
-    });
-
-    const result = await provider.extractBundleIntent("quiero ese", []);
-    expect(result.bundle).toEqual(mockBundle);
-    expect(result.confidence).toBe(0.9);
-  });
-
-  test("returns null bundle for unconfigured extractBundleIntent", async () => {
-    const provider = createMockProvider();
-    const result = await provider.extractBundleIntent("quiero ese", []);
-    expect(result.bundle).toBeNull();
-    expect(result.confidence).toBe(0);
-  });
-
   test("returns configured response for answerQuestion", async () => {
     const provider = createMockProvider();
     provider.setResponse("answerQuestion", "Esta es la respuesta");
@@ -113,12 +73,6 @@ describe("MockProvider", () => {
       phase: "offering_products",
     });
     expect(result).toBe("Disculpa, no te entendí. ¿Puedes repetirlo?");
-  });
-
-  test("handleBacklogResponse returns default apology", async () => {
-    const provider = createMockProvider();
-    const result = await provider.handleBacklogResponse("hola", 30);
-    expect(result).toBe("Disculpa la demora, recién vi tu mensaje.");
   });
 
   test("extractProductData returns null data by default", async () => {

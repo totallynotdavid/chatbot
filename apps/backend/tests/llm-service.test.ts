@@ -63,75 +63,6 @@ describe("Intelligence Provider (MockProvider)", () => {
     });
   });
 
-  describe("Product request detection", () => {
-    test("detects product request", async () => {
-      const provider = createMockProvider();
-      provider.setResponse("isProductRequest", true);
-
-      const result = await provider.isProductRequest("Quiero ver celulares");
-      expect(result).toBe(true);
-    });
-
-    test("does not detect non-product messages", async () => {
-      const provider = createMockProvider();
-      provider.setResponse("isProductRequest", false);
-
-      const result = await provider.isProductRequest("Hola, buenos días");
-      expect(result).toBe(false);
-    });
-  });
-
-  describe("Bundle intent extraction", () => {
-    test("extracts bundle with confidence", async () => {
-      const mockBundle = {
-        id: "bundle-e4976160c1e346b8",
-        tenant_id: "tenant-test",
-        period_id: "period-2026-01",
-        name: "Celular a elección + Cocineta 2Q",
-        price: 1799,
-        primary_category: "celulares",
-        segment: "gaso" as const,
-        categories_json: '["celulares", "cocinas"]',
-        image_id: "e4976160c1e346b8",
-        composition_json:
-          '{"fixed":[{"id":"cocineta_2q_gas","name":"Cocineta 2 Quemadores Gas","specs":{}}],"choices":[{"label":"01 celular a elección","pick":1,"options":[{"id":"xiaomi_redmi_15c","name":"Xiaomi Redmi 15C","specs":{}},{"id":"honor_x6c","name":"Honor X6C","specs":{}},{"id":"samsung_a17_5g","name":"Samsung Galaxy A17 5G","specs":{}}]}]}',
-        installments_json:
-          '{"3m":643.3,"6m":339.58,"9m":238.58,"12m":188.26,"18m":138.29}',
-        notes: "01 año de garantía, delivery gratuito, cero cuota inicial",
-        is_active: 1,
-        stock_status: "in_stock" as const,
-        created_by: null,
-        created_at: Date.parse("2026-01-01T00:00:00.000Z"),
-        updated_at: Date.parse("2026-01-01T00:00:00.000Z"),
-      };
-
-      const provider = createMockProvider();
-      provider.setResponse("extractBundleIntent", {
-        bundle: mockBundle,
-        confidence: 0.95,
-      });
-
-      const result = await provider.extractBundleIntent("quiero el primero", [
-        mockBundle,
-      ]);
-
-      expect(result.bundle).toEqual(mockBundle);
-      expect(result.confidence).toBe(0.95);
-    });
-
-    test("returns null for no match", async () => {
-      const provider = createMockProvider();
-      provider.setResponse("extractBundleIntent", {
-        bundle: null,
-        confidence: 0.1,
-      });
-
-      const result = await provider.extractBundleIntent("no sé", []);
-      expect(result.bundle).toBeNull();
-      expect(result.confidence).toBe(0.1);
-    });
-  });
-
   describe("Question answering", () => {
     test("returns string answer", async () => {
       const provider = createMockProvider();
@@ -202,24 +133,6 @@ describe("Intelligence Provider (MockProvider)", () => {
     });
   });
 
-  describe("Backlog apologies", () => {
-    test("handles backlog gracefully", async () => {
-      const provider = createMockProvider();
-      provider.setResponse(
-        "handleBacklogResponse",
-        "Disculpa la demora de 30 minutos. ¿En qué puedo ayudarte?",
-      );
-
-      const result = await provider.handleBacklogResponse(
-        "Hola, quiero ver productos",
-        30,
-      );
-
-      expect(typeof result).toBe("string");
-      expect(result).toContain("30");
-    });
-  });
-
   describe("Error handling (fallbacks)", () => {
     test("returns fallback for isQuestion", async () => {
       const provider = createMockProvider();
@@ -232,13 +145,6 @@ describe("Intelligence Provider (MockProvider)", () => {
       const provider = createMockProvider();
       const result = await provider.shouldEscalate("test");
       expect(result).toBe(false);
-    });
-
-    test("returns fallback for extractBundleIntent", async () => {
-      const provider = createMockProvider();
-      const result = await provider.extractBundleIntent("test", []);
-      expect(result.bundle).toBeNull();
-      expect(result.confidence).toBe(0);
     });
 
     test("returns fallback for answerQuestion", async () => {
