@@ -2,7 +2,7 @@
 
 This covers the checks, what CI runs, where versions are pinned, how the tests
 are laid out, and the conventions a change follows. Where a change belongs is in
-[Architecture](../architecture.md#where-a-change-belongs).
+[Architecture](./architecture.md#where-a-change-belongs).
 
 ## Checks
 
@@ -37,9 +37,8 @@ and push to `master`:
 | `build`                   | `bun run build`                                                                     |
 
 [`codeql.yml`](../.github/workflows/codeql.yml) adds `analyze (actions)` and
-`analyze (javascript-typescript)`. All thirteen are required to merge into
-`master`, which also requires linear history and signed commits and refuses
-force pushes.
+`analyze (javascript-typescript)`. Branch protection is configured on GitHub
+rather than in this repository and is not described here.
 
 Every job installs with `bun install --frozen-lockfile`. A `package.json` change
 without its `bun.lock` update fails CI.
@@ -87,7 +86,7 @@ processes (`boot-safety`, `concurrent-startup`). Some read frontend files
 only.
 
 The tests that hold the architecture's boundaries are listed in
-[Architecture](../architecture.md#tests-that-enforce-structure).
+[Architecture](./architecture.md#tests-that-enforce-structure).
 
 ## Conventions
 

@@ -1,7 +1,7 @@
 # Agent guide
 
 VendeYa is described in [readme.md](./readme.md). Read
-[architecture.md](./architecture.md) before changing code, and the manual page
+[architecture](./docs/architecture.md) before changing code, and the manual page
 for the area you touch ([docs/readme.md](./docs/readme.md)). This file holds
 only the rules those documents do not.
 

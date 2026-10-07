@@ -1,34 +1,49 @@
 # VendeYa
 
 VendeYa is a managed WhatsApp sales service for businesses in Lima. A customer
-writes to the business's WhatsApp number, a bot qualifies them, and the
-business's sales team closes the sale. Staff work the conversations, the catalog
-and the orders in a web dashboard.
+writes to the business's WhatsApp number, the bot checks credit eligibility and
+shows catalog items, and the business's sales team takes over to close the sale.
 
-Today the bot runs one flow, built for businesses that sell appliances on credit
-from Cálidda, the city's gas distributor. It checks the customer's DNI with
-Cálidda, tells them how much credit they have, shows the products they can
-afford, and hands a customer who picks one to the sales team, who call to close
-the sale. That flow's eligibility rules and much of its copy are shared by every
-tenant.
+The current flow is shared by every tenant and is built for appliances sold on
+Cálidda credit. VendeYa staff create and operate each tenant. The bot handles
+text messages and catalog images. It does not take payment, arrange delivery, or
+process inbound images, audio, or other non-text messages.
 
-VendeYa's own staff run the service for each business. It is not a self-serve
-bot builder: VendeYa's staff create each business, and a business cannot change
-what the bot says or how it decides. The bot does not close a sale, take a
-payment or arrange a delivery. It answers text only, and ignores images, audio
-and other message types.
+## Install
+
+The local setup needs [mise](https://mise.jdx.dev) and Bun. From a fresh clone:
 
 ```sh
-mise install && bun install
+mise install
+bun install
 cp .env.example .env
 bun run seed
 bun run account create admin
 bun run dev
 ```
 
-Then open <http://localhost:5173>, log in as `admin`, and talk to the bot in the
-Simulador with a test persona. It needs no WhatsApp number and no credentials.
-[Get started](./docs/get-started.md) walks through each step.
+Open <http://localhost:5173>, log in as `admin`, and open the Simulador. Start a
+simulation with the persona `FNB - Crédito Alto (S/ 8000)`, then send `hola`,
+`si`, and an eight-digit DNI such as `12345678`. The simulator needs no WhatsApp
+number, provider credentials, or LLM key. The full setup and real number
+instructions are in [Get started](./docs/get-started.md).
 
-The [manual](./docs/readme.md) covers running, connecting and operating VendeYa.
-The [architecture](./architecture.md) maps the code for contributors.
+## Features
+
+- A fixed Cálidda credit-eligibility flow backed by FNB and GASO providers.
+- Tenant-specific catalogs, bundles, conversations, orders, and staff roles.
+- A dashboard for conversations, catalog and order work, reports, and a provider
+  lookup for platform operators.
+- A simulator with built-in personas for testing the conversation flow.
+- WhatsApp Cloud API sends in production and a linked WhatsApp Web notifier in
+  development.
+- An outbox that retries recoverable send failures and hands undeliverable
+  replies to a person.
+
+## Read next
+
+- The [manual](./docs/readme.md) is the ordered guide for setup, operations,
+  WhatsApp, tenancy, and development.
+- [Architecture](./docs/architecture.md) maps workspaces, request flow, state,
+  and code ownership.
+- [Contributing](./.github/contributing.md) is the contributor entry point.

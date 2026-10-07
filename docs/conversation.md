@@ -79,7 +79,7 @@ lock ([`conversation/locks.ts`](../apps/backend/src/conversation/locks.ts)). The
 key is `tenant:channel account:phone`, so the same contact writing to two
 numbers has two conversations. Waiters queue in order. The lock lives in the
 backend's memory, which is one reason the backend is
-[one process](../architecture.md#where-state-lives).
+[one process](./architecture.md#durable-state).
 
 The limit is 30 s and counts the wait. A caller that never got the lock gets
 `ConversationBusyError`: nothing ran, and its inbox rows go back to `pending`. A
@@ -153,7 +153,8 @@ Core requests five kinds:
 | `answer_question`          | The LLM: answer it from the catalog and the credit. |
 | `recover_unclear_response` | The LLM: a reply that asks again.                   |
 
-Three more are registered and never requested. The LLM is OpenAI
+Three more are registered and never requested: `is_product_request`,
+`extract_bundle_intent`, and `generate_backlog_apology`. The LLM is OpenAI
 `gpt-5-nano-2025-08-07`, set in
 [`packages/intelligence/src/config.ts`](../packages/intelligence/src/config.ts).
 No environment variable switches it off or to a mock.

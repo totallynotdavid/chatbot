@@ -23,7 +23,7 @@ PORT=5173 BODY_SIZE_LIMIT=3M bun apps/frontend/dist/index.js
   API. In development the notifier listens on `127.0.0.1` only, because its
   endpoints take no credential.
 - Run one backend per database. Its locks and workers live in memory
-  ([Architecture](../architecture.md#where-state-lives)).
+  ([Architecture](./architecture.md#durable-state)).
 
 The backend, notifier and development frontend scripts load the root `.env` with
 `--env-file=../../.env`. `.env.production.example` lists production values to
