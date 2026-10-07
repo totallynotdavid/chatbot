@@ -1,10 +1,3 @@
-import type { Bundle } from "@vendeya/types";
-
-export type IntentResult = {
-  bundle: Bundle | null;
-  confidence: number;
-};
-
 export type AnswerContext = {
   segment?: string;
   creditLine?: number;

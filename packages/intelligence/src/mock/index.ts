@@ -12,15 +12,6 @@ export function createMockProvider(): IntelligenceProvider & {
     shouldEscalate: async () =>
       (responses.get("shouldEscalate") as boolean) ?? false,
 
-    isProductRequest: async () =>
-      (responses.get("isProductRequest") as boolean) ?? false,
-
-    extractBundleIntent: async () =>
-      (responses.get("extractBundleIntent") as any) ?? {
-        bundle: null,
-        confidence: 0,
-      },
-
     answerQuestion: async () =>
       (responses.get("answerQuestion") as string) ?? "Déjame ayudarte con eso.",
 
@@ -31,10 +22,6 @@ export function createMockProvider(): IntelligenceProvider & {
     recoverUnclearResponse: async () =>
       (responses.get("recoverUnclearResponse") as string) ??
       "Disculpa, no te entendí. ¿Puedes repetirlo?",
-
-    handleBacklogResponse: async () =>
-      (responses.get("handleBacklogResponse") as string) ??
-      "Disculpa la demora, recién vi tu mensaje.",
 
     extractProductData: async () =>
       (responses.get("extractProductData") as any) ?? {

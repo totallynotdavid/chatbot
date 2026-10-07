@@ -104,12 +104,6 @@ export type EnrichmentRequest =
   | { type: "check_eligibility"; dni: string }
   | { type: "detect_question"; message: string }
   | { type: "should_escalate"; message: string }
-  | { type: "is_product_request"; message: string }
-  | {
-      type: "extract_bundle_intent";
-      message: string;
-      affordableBundles: Bundle[];
-    }
   | {
       type: "answer_question";
       message: string;
@@ -119,11 +113,6 @@ export type EnrichmentRequest =
         phase: string;
         availableCategories: string[];
       };
-    }
-  | {
-      type: "generate_backlog_apology";
-      message: string;
-      ageMinutes: number;
     }
   | {
       type: "recover_unclear_response";
@@ -159,17 +148,7 @@ export type EnrichmentResult =
     }
   | { type: "question_detected"; isQuestion: boolean }
   | { type: "escalation_needed"; shouldEscalate: boolean }
-  | { type: "product_request_detected"; isProductRequest: boolean }
-  | {
-      type: "bundle_intent_extracted";
-      bundle: Bundle | null;
-      confidence: number;
-    }
   | { type: "question_answered"; answer: string }
-  | {
-      type: "backlog_apology";
-      apology: string;
-    }
   | { type: "recovery_response"; text: string };
 
 export type Command =

@@ -1,5 +1,4 @@
 export type {
-  IntentResult,
   AnswerContext,
   RecoveryContext,
   ProductData,

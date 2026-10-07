@@ -1,6 +1,5 @@
 import {
   buildIsQuestionPrompt,
-  buildIsProductRequestPrompt,
   buildShouldEscalatePrompt,
 } from "@vendeya/core";
 import { MODEL_CONFIG } from "../config";
@@ -49,26 +48,4 @@ export async function shouldEscalate(message: string): Promise<boolean> {
   const content = completion.choices[0]?.message.content;
   const res = parseLLMResponse<{ shouldEscalate?: boolean }>(content, {});
   return res.shouldEscalate === true;
-}
-
-export async function isProductRequest(message: string): Promise<boolean> {
-  const client = getTextClient();
-  const baseConfig = MODEL_CONFIG.classification;
-  const opConfig = baseConfig.isProductRequest;
-
-  const completion = await client.chat.completions.create({
-    model: baseConfig.model,
-    ...(opConfig.temperature !== undefined && {
-      temperature: opConfig.temperature,
-    }),
-    messages: [
-      { role: "system", content: buildIsProductRequestPrompt() },
-      { role: "user", content: message },
-    ],
-    response_format: { type: "json_object" },
-  });
-
-  const content = completion.choices[0]?.message.content;
-  const res = parseLLMResponse<{ isProductRequest?: boolean }>(content, {});
-  return res.isProductRequest === true;
 }

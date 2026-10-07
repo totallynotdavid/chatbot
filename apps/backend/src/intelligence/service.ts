@@ -1,13 +1,8 @@
 import { getProvider, MODEL_CONFIG } from "@vendeya/intelligence";
 import { trackLLMCall } from "./tracker";
 import { classifyLLMError } from "./llm-errors";
-import type {
-  AnswerContext,
-  RecoveryContext,
-  IntentResult,
-} from "@vendeya/intelligence";
+import type { AnswerContext, RecoveryContext } from "@vendeya/intelligence";
 import type { ConversationRef } from "@vendeya/types";
-import { BundleService } from "../domains/catalog/bundles";
 
 function withObservability<T>(
   ref: ConversationRef,
@@ -67,35 +62,6 @@ export const LLM = {
       false,
     ),
 
-  isProductRequest: (message: string, ref: ConversationRef) =>
-    withObservability(
-      ref,
-      "isProductRequest",
-      MODEL_CONFIG.classification.model,
-      () => getProvider().isProductRequest(message),
-      false,
-    ),
-
-  extractBundleIntent: (
-    message: string,
-    ref: ConversationRef,
-    segment: "fnb" | "gaso",
-    creditLine: number,
-  ): Promise<IntentResult> => {
-    const affordableBundles = BundleService.getAvailable(ref.tenantId, {
-      segment,
-      maxPrice: creditLine,
-    });
-
-    return withObservability(
-      ref,
-      "extractBundleIntent",
-      MODEL_CONFIG.extraction.model,
-      () => getProvider().extractBundleIntent(message, affordableBundles),
-      { bundle: null, confidence: 0 },
-    );
-  },
-
   answerQuestion: (
     message: string,
     context: AnswerContext,
@@ -137,18 +103,5 @@ export const LLM = {
       MODEL_CONFIG.generation.model,
       () => getProvider().recoverUnclearResponse(message, context),
       "Disculpa, no entendí bien. ¿Podrías decirme de nuevo?",
-    ),
-
-  handleBacklogResponse: (
-    message: string,
-    delayMinutes: number,
-    ref: ConversationRef,
-  ) =>
-    withObservability(
-      ref,
-      "handleBacklogResponse",
-      MODEL_CONFIG.generation.model,
-      () => getProvider().handleBacklogResponse(message, delayMinutes),
-      "Disculpa la demora, recién vi tu mensaje.",
     ),
 };
