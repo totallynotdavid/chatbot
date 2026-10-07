@@ -153,9 +153,7 @@ Core requests five kinds:
 | `answer_question`          | The LLM: answer it from the catalog and the credit. |
 | `recover_unclear_response` | The LLM: a reply that asks again.                   |
 
-Three more are registered and never requested: `is_product_request`,
-`extract_bundle_intent`, and `generate_backlog_apology`. The LLM is OpenAI
-`gpt-5-nano-2025-08-07`, set in
+The LLM is OpenAI `gpt-5-nano-2025-08-07`, set in
 [`packages/intelligence/src/config.ts`](../packages/intelligence/src/config.ts).
 No environment variable switches it off or to a mock.
 
