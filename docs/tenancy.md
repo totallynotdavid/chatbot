@@ -41,9 +41,15 @@ on a conversation assigned to them or to nobody, never one assigned to another
 agent, and they see the orders they created and the orders from their
 conversations. Every other role sees the whole tenant. The rule is
 `assignedAgentScope` in
-[`platform/auth/scope.ts`](../apps/backend/src/platform/auth/scope.ts). Nothing
-assigns a conversation when it escalates, so an agent reaches every conversation
-no other agent has claimed. Order status changes allowed per role are in
+[`platform/auth/scope.ts`](../apps/backend/src/platform/auth/scope.ts). A
+takeover assigns the conversation to whoever takes it. A bot escalation assigns
+nothing, so an agent reaches every conversation no other agent has claimed.
+Removing a member, or changing their role, clears the assignments they held in
+that tenant. Deactivating the account clears them in every tenant. The
+conversations go back to nobody, and a member who is added again or an account
+that is turned back on does not get them back. The assignment states and who
+changes them are in [Architecture](./architecture.md#who-holds-a-conversation).
+Order status changes allowed per role are in
 [`routes/orders.ts`](../apps/backend/src/routes/orders.ts). Role checks are
 `requireRole` in [`middleware/auth.ts`](../apps/backend/src/middleware/auth.ts)
 and the route files.

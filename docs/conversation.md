@@ -335,8 +335,9 @@ tenant's sales target: the `whatsapp_group_sales` tenant setting, else
 Nothing assigns an agent when a conversation escalates. The escalation alerts
 the sales target and picks nobody.
 
-An agent becomes assigned by saving agent data on the conversation
-(`PATCH /api/conversations/:phone/agent-data`). The round-robin in
+An agent becomes assigned by taking the conversation over (below) or by saving
+agent data on an unassigned one (`PATCH /api/conversations/:phone/agent-data`).
+The round-robin in
 [`conversations/assignment.ts`](../apps/backend/src/domains/conversations/assignment.ts)
 runs only when an assigned agent declines the conversation. After that, a timer
 passes the conversation to the next available sales agent every 5 minutes until
@@ -348,12 +349,17 @@ An agent takes a conversation from the dashboard:
 
 - **Takeover** (`POST /api/conversations/:phone/takeover`) sets the phase to
   `escalated` with reason "Manual takeover by agent" and cancels the replies the
-  bot still owed. A turn already running may still send what it had ready.
+  bot still owed. A turn already running may still send what it had ready. It
+  also assigns the conversation to the person who takes it. A conversation
+  already assigned to someone else is refused with 409, and the same person may
+  repeat the takeover.
 - **Manual message** (`POST /api/conversations/:phone/message`) sends once and
   moves `lastActivityAt`. It works whether or not the bot is silenced.
 - **Release** (`POST /api/conversations/:phone/release`) resets a taken-over
   conversation to `greeting`, as the idle reset does. The customer's next
-  message starts over.
+  message starts over. Both also clear the assigned agent of a conversation a
+  person held, so another agent can take it. An agent assigned to a conversation
+  the bot owns keeps it through the idle reset.
 
 These are in
 [`domains/conversations/write.ts`](../apps/backend/src/domains/conversations/write.ts).

@@ -88,6 +88,31 @@ authentication so Meta can fetch them. Contracts and call recordings are under
 roots are derived in
 [`lib/storage-paths.ts`](../apps/backend/src/lib/storage-paths.ts).
 
+### Who holds a conversation
+
+`conversations.assigned_agent` is either empty (nobody holds the conversation)
+or a user id (that user does). A `sales_agent` reaches only the conversations
+that are empty or hold their own id
+([`platform/auth/scope.ts`](../apps/backend/src/platform/auth/scope.ts)), so a
+held conversation is hidden from the other agents. Every other role reaches all
+of them.
+
+| Transition                   | Actor                              | Where                                                                         |
+| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------------------- |
+| empty to the taker           | the agent who takes over           | `takeoverConversation`, under the conversation lock                           |
+| empty to the saver           | an agent saving agent data         | `updateAgentData`                                                             |
+| empty to the next agent      | the round-robin                    | [`assignment.ts`](../apps/backend/src/domains/conversations/assignment.ts)    |
+| held to empty, by the holder | the holder declines                | `declineAssignment`                                                           |
+| held to the next agent       | the 60 s reassignment timer        | `checkAndReassignTimeouts`, for an unacknowledged round-robin assignment      |
+| held to empty, on hand-back  | release, or the 3 h idle reset     | `resetSession`, only when the conversation was with a person                  |
+| held to empty, user leaves   | removal, role change, deactivation | `MembershipService.remove`, `upsert` on a changed role, `clearAllAssignments` |
+| held to another holder       | nobody                             | takeover answers 409 while someone else holds the conversation                |
+
+A takeover reads the holder and writes the taker under the conversation lock, so
+of two simultaneous takers one wins and the other gets 409. The holder repeating
+a takeover succeeds. A user who loses their membership, their role or their
+account does not get a conversation back when they return.
+
 The backend also has process-local state:
 
 | State                                         | Owner                                                                                      |
