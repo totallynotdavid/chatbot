@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { writeFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 const TUNNEL_FILE = resolve(import.meta.dir, "../.cloudflare-url");
@@ -39,6 +39,14 @@ function extractTunnelUrl(output: string): string | null {
   return match ? match[0] : null;
 }
 
+function removeTunnelFile(): void {
+  try {
+    rmSync(TUNNEL_FILE, { force: true });
+  } catch (err) {
+    console.warn("Could not remove tunnel file:", (err as Error).message);
+  }
+}
+
 function startTunnel(): void {
   console.log("Starting cloudflared tunnel...");
 
@@ -48,6 +56,10 @@ function startTunnel(): void {
   }
 
   validateCloudflared();
+
+  // This process owns cleanup only after it confirms that no tunnel is running.
+  // Signal handlers kill the child, whose close handler exits this process.
+  process.on("exit", removeTunnelFile);
 
   const tunnel = spawn(CLOUDFLARED, ["tunnel", "--url", TARGET_URL], {
     stdio: ["ignore", "pipe", "pipe"],
@@ -123,14 +135,7 @@ function stopTunnel(): void {
   killProcess.on("close", (code) => {
     if (code === 0) console.log("Tunnel stopped");
 
-    if (existsSync(TUNNEL_FILE)) {
-      try {
-        unlinkSync(TUNNEL_FILE);
-        console.log("Cleaned up tunnel file");
-      } catch (err) {
-        console.warn("Could not remove tunnel file:", (err as Error).message);
-      }
-    }
+    removeTunnelFile();
   });
 }
 
