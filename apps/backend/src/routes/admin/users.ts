@@ -194,15 +194,19 @@ users.patch("/:id/status", (c) => {
 
   const newStatus = user.is_active === 1 ? 0 : 1;
 
-  db.prepare("UPDATE users SET is_active = ? WHERE id = ?").run(
-    newStatus,
-    userId,
-  );
+  db.transaction(() => {
+    db.prepare("UPDATE users SET is_active = ? WHERE id = ?").run(
+      newStatus,
+      userId,
+    );
 
-  // Invalidate all sessions if deactivating
-  if (newStatus === 0) {
-    db.prepare("DELETE FROM session WHERE user_id = ?").run(userId);
-  }
+    // A deactivated account loses its sessions and the conversations it held.
+    // Turning it back on does not return them.
+    if (newStatus === 0) {
+      db.prepare("DELETE FROM session WHERE user_id = ?").run(userId);
+      MembershipService.clearAllAssignments(userId);
+    }
+  })();
 
   logAction(
     { userId: admin.id, tenantId },

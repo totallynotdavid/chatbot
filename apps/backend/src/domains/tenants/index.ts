@@ -63,6 +63,20 @@ export function tenantsOn(database: Database) {
 export function membershipsOn(database: Database) {
   const { getAll, getOne } = queriesOn(database);
 
+  /**
+   * Clear assignments when a user's membership ends or role changes. A
+   * re-added user starts clean, and another agent can take those conversations.
+   */
+  const clearAssignments = (tenantId: string, userId: string): void => {
+    database
+      .prepare(
+        `UPDATE conversations
+         SET assigned_agent = NULL, assignment_notified_at = NULL
+         WHERE tenant_id = ? AND assigned_agent = ?`,
+      )
+      .run(tenantId, userId);
+  };
+
   const service = {
     /** Open tenants the user belongs to, with the role they hold in each. */
     listForUser: (userId: string): Array<Tenant & { role: TenantRole }> =>
@@ -116,11 +130,16 @@ export function membershipsOn(database: Database) {
       const existing = service.get(data.tenantId, data.userId);
 
       if (existing) {
-        database
-          .prepare(
-            "UPDATE tenant_memberships SET role = ? WHERE tenant_id = ? AND user_id = ?",
-          )
-          .run(data.role, data.tenantId, data.userId);
+        database.transaction(() => {
+          database
+            .prepare(
+              "UPDATE tenant_memberships SET role = ? WHERE tenant_id = ? AND user_id = ?",
+            )
+            .run(data.role, data.tenantId, data.userId);
+          if (existing.role !== data.role) {
+            clearAssignments(data.tenantId, data.userId);
+          }
+        })();
       } else {
         database
           .prepare(
@@ -159,12 +178,30 @@ export function membershipsOn(database: Database) {
       return changed.changes > 0;
     },
 
-    remove: (tenantId: string, userId: string): void => {
+    /**
+     * Clear every assignment a user holds, in every tenant. A deactivated
+     * account cannot work its conversations, and the scope hides them from the
+     * other agents. The account is global, so the clear is too.
+     */
+    clearAllAssignments: (userId: string): void => {
       database
         .prepare(
-          "DELETE FROM tenant_memberships WHERE tenant_id = ? AND user_id = ?",
+          `UPDATE conversations
+           SET assigned_agent = NULL, assignment_notified_at = NULL
+           WHERE assigned_agent = ?`,
         )
-        .run(tenantId, userId);
+        .run(userId);
+    },
+
+    remove: (tenantId: string, userId: string): void => {
+      database.transaction(() => {
+        database
+          .prepare(
+            "DELETE FROM tenant_memberships WHERE tenant_id = ? AND user_id = ?",
+          )
+          .run(tenantId, userId);
+        clearAssignments(tenantId, userId);
+      })();
     },
   };
 
