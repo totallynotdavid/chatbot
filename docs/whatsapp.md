@@ -178,6 +178,7 @@ deletes the file. Stopping the tunnel with Ctrl-C leaves the file behind, and
 the links keep naming a dead address until it is deleted.
 
 With `NODE_ENV=development`, replies go out through the notifier's linked
-WhatsApp account, not the Cloud API. A tunnel test therefore receives through
-Meta and replies from a different number. Run the backend with another
-`NODE_ENV` to send through the Cloud API.
+WhatsApp account, not the Cloud API. The notifier only sends: it passes no
+inbound message to the backend. A tunnel test therefore receives through Meta
+and replies from a different number. Run the backend with another `NODE_ENV` to
+send through the Cloud API.

@@ -46,7 +46,7 @@ export function getFrontendUrl(): string {
   return publicOrigin();
 }
 
-/** Backend base URL for notifier webhooks and SSR API calls. */
+/** Backend base URL for the frontend's server-side API calls. */
 export function getBackendUrl(): string {
   return "http://localhost:3000";
 }

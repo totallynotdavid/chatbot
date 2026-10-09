@@ -27,7 +27,7 @@ core            -> types, utils
 intelligence    -> core, types
 backend         -> core, intelligence, logger, types, utils
 frontend        -> types, utils
-notifier        -> logger, types, utils
+notifier        -> logger
 ```
 
 The browser talks to the frontend. The frontend calls the backend over HTTP at
