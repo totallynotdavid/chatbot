@@ -159,6 +159,11 @@ export function isSessionTimedOut(metadata: ConversationMetadata): boolean {
   return hoursSince >= 3;
 }
 
+/**
+ * Hands the conversation back to the bot. A conversation a person had taken
+ * loses its agent, because nobody holds a conversation the bot answers. An
+ * agent assigned to a bot-owned conversation keeps it.
+ */
 export function resetSession(
   ref: ConversationRef,
   preserveCategory?: string,
@@ -171,9 +176,15 @@ export function resetSession(
     lastActivityAt: now,
   };
 
+  // SQLite evaluates every SET expression against the row before the update,
+  // so the CASE tests the status the conversation had.
   db.prepare(
     `UPDATE conversations
      SET context_data = ?,
+         assigned_agent = CASE WHEN status = 'human_takeover'
+                               THEN NULL ELSE assigned_agent END,
+         assignment_notified_at = CASE WHEN status = 'human_takeover'
+                                       THEN NULL ELSE assignment_notified_at END,
          status = 'active',
          handover_reason = NULL,
          last_activity_at = ?

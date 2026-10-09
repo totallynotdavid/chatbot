@@ -39,21 +39,41 @@ function identityParams(ref: ConversationRef): [string, string, string] {
 export async function takeoverConversation(
   ref: ConversationRef,
   userId: string,
-) {
+): Promise<{ success: boolean; error?: string }> {
   // A bot turn reads the phase when it starts and writes it when it ends.
   // Without the lock a takeover that lands mid-turn is overwritten and the bot
   // resumes. A turn already in flight may still send the replies it had ready.
-  await withLock(ref, async () => {
-    updateConversation(
-      ref,
-      { phase: "escalated", reason: MANUAL_TAKEOVER_REASON },
-      {},
+  // The lock makes checking and assigning the taker atomic.
+  return withLock(ref, async () => {
+    const current = getOne<{ assigned_agent: string | null }>(
+      `SELECT assigned_agent FROM conversations WHERE ${IDENTITY_WHERE}`,
+      identityParams(ref),
     );
+    if (current?.assigned_agent && current.assigned_agent !== userId) {
+      return {
+        success: false,
+        error: "Another agent has already taken this conversation",
+      };
+    }
 
-    // Replies the bot still owed are dropped, because the person now answers.
-    // A bot escalation does not come through here, so the "an advisor will
-    // contact you" text it queued still goes out.
-    const cancelledReplies = cancelPending(ref);
+    // One transaction, so a failure cannot leave the bot silenced with nobody
+    // holding the conversation.
+    const cancelledReplies = db.transaction(() => {
+      updateConversation(
+        ref,
+        { phase: "escalated", reason: MANUAL_TAKEOVER_REASON },
+        {},
+      );
+
+      db.prepare(
+        `UPDATE conversations SET assigned_agent = ? WHERE ${IDENTITY_WHERE}`,
+      ).run(userId, ...identityParams(ref));
+
+      // Replies the bot still owed are dropped, because the person now answers.
+      // A bot escalation does not come through here, so the "an advisor will
+      // contact you" text it queued still goes out.
+      return cancelPending(ref);
+    })();
 
     logAction(
       { userId, tenantId: ref.tenantId },
@@ -62,9 +82,9 @@ export async function takeoverConversation(
       ref.phoneNumber,
       { cancelledReplies },
     );
-  });
 
-  return { success: true };
+    return { success: true };
+  });
 }
 
 export async function releaseConversation(

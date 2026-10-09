@@ -105,6 +105,9 @@ conversations.post("/:phone/takeover", requireActiveTenant, async (c) => {
       refOf(conv),
       user.id,
     );
+    if (!result.success) {
+      return c.json({ error: result.error }, 409);
+    }
     return c.json(result);
   } catch (error) {
     return refuseIfBusy(c, error);
