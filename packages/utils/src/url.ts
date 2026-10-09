@@ -29,8 +29,8 @@ function readTunnelUrl(tunnelFile: string): string | null {
  *
  * Outside production a running tunnel wins over `PUBLIC_URL`, because `.env`
  * copied from `.env.example` sets `PUBLIC_URL` to localhost and Meta cannot
- * reach that. In production only `PUBLIC_URL` counts: `dev:tunnel` leaves
- * `.cloudflare-url` behind when it stops, and a stale file must not redirect
+ * reach that. In production only `PUBLIC_URL` counts: a `dev:tunnel` killed
+ * outright leaves `.cloudflare-url` behind, and a stale file must not redirect
  * links.
  */
 export function publicOrigin(tunnelFile: string = defaultTunnelFile()): string {

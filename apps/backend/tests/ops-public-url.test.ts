@@ -1,7 +1,7 @@
 /**
  * Alert links and the CORS origin name the deployment's public address. They
- * read `PUBLIC_URL`, and a tunnel file left behind by `dev:tunnel` decides
- * nothing in production.
+ * read `PUBLIC_URL`, and a tunnel file left behind by a killed `dev:tunnel`
+ * decides nothing in production.
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
@@ -47,7 +47,7 @@ describe("the public origin", () => {
   it("is PUBLIC_URL in production, whatever the tunnel file holds", () => {
     setEnv("production", PRODUCTION_URL);
 
-    // A tunnel file outlives the tunnel, so a stale one must not win.
+    // A killed tunnel leaves its file behind, so a stale one must not win.
     expect(utils.publicOrigin(tunnelFile(TUNNEL))).toBe(PRODUCTION_URL);
   });
 

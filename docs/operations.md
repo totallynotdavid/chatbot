@@ -74,9 +74,7 @@ Puppeteer does not download a browser during `bun install`. Point `CHROME_PATH`
 at Chrome or Chromium, or run `bunx puppeteer browsers install chrome` after
 installing dependencies.
 
-`JWT_SECRET`, `SESSION_SECRET` and `API_KEY` are read by nothing, although
-`scripts/generate-token.ts` has presets for them. `GEMINI_API_KEY` is read only
-by an image-extraction path nothing calls.
+`GEMINI_API_KEY` is read only by an image-extraction path nothing calls.
 
 ## Accounts
 
@@ -239,9 +237,9 @@ Alert links and the backend's CORS origin come from `PUBLIC_URL`, the address
 image links use too, with any trailing slash removed
 ([`packages/utils/src/url.ts`](../packages/utils/src/url.ts)). Outside
 production a running `bun run dev:tunnel` wins over it. Production ignores the
-tunnel's `.cloudflare-url` file, because the tunnel leaves it behind when it
-stops. The CORS origin is read once, at boot, so restart the backend after
-changing `PUBLIC_URL`.
+tunnel's `.cloudflare-url` file, because a killed tunnel leaves it behind. The
+CORS origin is read once, at boot, so restart the backend after changing
+`PUBLIC_URL`.
 
 ## The audit log
 
