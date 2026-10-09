@@ -1,4 +1,5 @@
 export function buildAnswerQuestionPrompt(context: {
+  businessName: string;
   segment?: string;
   creditLine?: number;
   phase?: string;
@@ -11,7 +12,7 @@ export function buildAnswerQuestionPrompt(context: {
   const categories =
     context.availableCategories?.join(", ") || "electrodomésticos";
 
-  return `Eres asesor de Totem en Perú. Vendes electrodomésticos con pago en cuotas.
+  return `Eres asesor de ${context.businessName} en Perú. Vendes electrodomésticos con pago en cuotas.
 
 CONTEXTO:
 - Productos disponibles: ${categories}

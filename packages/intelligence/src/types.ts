@@ -1,4 +1,5 @@
 export type AnswerContext = {
+  businessName: string;
   segment?: string;
   creditLine?: number;
   phase: string;

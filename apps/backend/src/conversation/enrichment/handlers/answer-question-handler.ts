@@ -1,4 +1,5 @@
 import type { EnrichmentRequest, EnrichmentResult } from "@vendeya/core";
+import { TenantService } from "../../../domains/tenants/index.ts";
 import type {
   EnrichmentHandler,
   EnrichmentContext,
@@ -23,10 +24,15 @@ export class AnswerQuestionHandler
     request: Extract<EnrichmentRequest, { type: "answer_question" }>,
     context: EnrichmentContext,
   ): Promise<Extract<EnrichmentResult, { type: "question_answered" }>> {
-    const answer = await context.provider.answerQuestion(
-      request.message,
-      request.context,
-    );
+    const tenant = TenantService.getById(context.ref.tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant ${context.ref.tenantId} not found`);
+    }
+
+    const answer = await context.provider.answerQuestion(request.message, {
+      ...request.context,
+      businessName: tenant.name,
+    });
 
     return {
       type: "question_answered",
