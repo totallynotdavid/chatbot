@@ -23,7 +23,7 @@
         "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.3.3",
         "@vendeya/tsconfig": "workspace:*",
-        "svelte": "^5.57.1",
+        "svelte": "^5.57.2",
         "svelte-check": "^4.7.6",
         "tailwindcss": "^4.3.3",
         "uuid": "^14.0.2",
