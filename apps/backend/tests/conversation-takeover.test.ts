@@ -486,6 +486,63 @@ describe("a person takes over a conversation", () => {
       await expectBotAnswersAgain();
     });
 
+    function assignedAgent(): string | null {
+      return (
+        db
+          .prepare(
+            `SELECT assigned_agent FROM conversations
+             WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
+          )
+          .get(ref.tenantId, ref.channelAccountId, ref.phoneNumber) as {
+          assigned_agent: string | null;
+        }
+      ).assigned_agent;
+    }
+
+    it("no longer assigns the agent who released it", async () => {
+      insert(OFFERING);
+
+      await takeoverConversation(ref, agent);
+      expect(assignedAgent()).toBe(agent);
+      await releaseConversation(ref, agent);
+
+      expect(assignedAgent()).toBeNull();
+    });
+
+    it("no longer assigns the agent when the session times out", async () => {
+      insert(OFFERING);
+      await takeoverConversation(ref, agent);
+      db.prepare(
+        `UPDATE conversations
+         SET context_data = json_set(context_data, '$.metadata.lastActivityAt', ?)
+         WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
+      ).run(
+        Date.now() - 4 * HOUR,
+        ref.tenantId,
+        ref.channelAccountId,
+        ref.phoneNumber,
+      );
+
+      await customerWrites("hola");
+      await processReadyMessages();
+
+      expect(conversation().status).toBe("active");
+      expect(assignedAgent()).toBeNull();
+    });
+
+    it("keeps the agent of a conversation the bot owns when the session times out", async () => {
+      insert(OFFERING, { lastActivityAt: Date.now() - 4 * HOUR });
+      db.prepare(
+        `UPDATE conversations SET assigned_agent = ?
+         WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
+      ).run(agent, ref.tenantId, ref.channelAccountId, ref.phoneNumber);
+
+      await customerWrites("hola");
+      await processReadyMessages();
+
+      expect(assignedAgent()).toBe(agent);
+    });
+
     it("starts over with the customer as a returning user", async () => {
       insert(OFFERING, {
         metadata: { lastCategory: "cocinas", name: "Juan", dni: "12345678" },

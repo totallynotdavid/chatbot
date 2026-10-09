@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { createMockProvider } from "@vendeya/intelligence";
 
 const TEST_CONTEXT = {
+  businessName: "Casa Lima",
   phase: "offering_products",
   availableCategories: ["celulares", "cocinas", "laptops"],
 };

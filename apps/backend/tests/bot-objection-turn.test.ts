@@ -14,6 +14,7 @@ import { createMockProvider } from "@vendeya/intelligence";
 import type { AnswerContext } from "@vendeya/intelligence";
 import type { DomainEvent } from "@vendeya/types";
 
+import { db } from "../src/db/index.ts";
 import { runEnrichmentLoop } from "../src/conversation/handler/enrichment-loop.ts";
 import { handleMessage } from "../src/conversation/handler/index.ts";
 import { initializeEnrichmentRegistry } from "../src/conversation/enrichment/index.ts";
@@ -181,6 +182,32 @@ describe("a question while browsing products", () => {
     expect(buildAnswerQuestionPrompt(answerContexts[0]!)).toContain(
       "Línea de crédito disponible: S/ 3000.",
     );
+  });
+
+  test("names the tenant's business in the answer prompt", async () => {
+    db.prepare("UPDATE tenants SET name = 'Casa Lima' WHERE id = ?").run(
+      tenant.tenantId,
+    );
+    const { provider, answerContexts } = countingProvider();
+    provider.setResponse("isQuestion", true);
+
+    await runEnrichmentLoop(
+      {
+        phase: "offering_products",
+        segment: "fnb",
+        credit: 3000,
+        name: "Ana",
+        availableCategories: ["celulares"],
+      },
+      "¿cuántas cuotas son?",
+      { createdAt: Date.now(), lastActivityAt: Date.now() },
+      tenant.ref(CUSTOMER),
+      provider,
+    );
+
+    const prompt = buildAnswerQuestionPrompt(answerContexts[0]!);
+    expect(prompt).toContain("Eres asesor de Casa Lima en Perú.");
+    expect(prompt).not.toContain("Totem");
   });
 });
 

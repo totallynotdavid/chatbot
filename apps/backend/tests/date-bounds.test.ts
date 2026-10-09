@@ -329,6 +329,9 @@ describe("date ranges over millisecond columns", () => {
       expect(typeof stored).toBe("number");
       expect(stored as number).toBeGreaterThanOrEqual(before);
 
+      db.prepare(
+        "UPDATE conversations SET assigned_agent = NULL WHERE assigned_agent = ?",
+      ).run(agent);
       db.prepare("DELETE FROM audit_log WHERE user_id = ?").run(agent);
       db.prepare("DELETE FROM users WHERE id = ?").run(agent);
     });

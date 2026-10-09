@@ -29,6 +29,7 @@ describe("MockProvider", () => {
     provider.setResponse("answerQuestion", "Esta es la respuesta");
 
     const result = await provider.answerQuestion("¿Cómo funciona?", {
+      businessName: "Casa Lima",
       phase: "offering_products",
       availableCategories: [],
     });
@@ -38,6 +39,7 @@ describe("MockProvider", () => {
   test("returns default answer for unconfigured answerQuestion", async () => {
     const provider = createMockProvider();
     const result = await provider.answerQuestion("¿Cómo funciona?", {
+      businessName: "Casa Lima",
       phase: "offering_products",
       availableCategories: [],
     });

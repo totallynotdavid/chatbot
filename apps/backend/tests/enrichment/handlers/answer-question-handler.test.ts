@@ -1,20 +1,29 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { createMockProvider } from "@vendeya/intelligence";
 import { AnswerQuestionHandler } from "../../../src/conversation/enrichment/handlers/answer-question-handler.ts";
-
-const TEST_REF = {
-  tenantId: "tenant-test",
-  channelAccountId: "channel-test",
-  phoneNumber: "51999999999",
-};
+import {
+  applySchema,
+  createTenantFixture,
+  dropTenantFixture,
+  type TenantFixture,
+} from "../../helpers/tenancy.ts";
 
 describe("AnswerQuestionHandler", () => {
   let handler: AnswerQuestionHandler;
   let mockProvider: ReturnType<typeof createMockProvider>;
+  let tenant: TenantFixture;
+  let TEST_REF: ReturnType<TenantFixture["ref"]>;
 
   beforeEach(() => {
+    applySchema();
+    tenant = createTenantFixture("answer-handler");
+    TEST_REF = tenant.ref("51999999999");
     handler = new AnswerQuestionHandler();
     mockProvider = createMockProvider();
+  });
+
+  afterEach(() => {
+    dropTenantFixture(tenant);
   });
 
   test("returns non-empty answer for valid question", async () => {
