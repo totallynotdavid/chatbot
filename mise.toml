@@ -1,4 +1,4 @@
 [tools]
-biome = "2.5.14"
+biome = "2.5.15"
 bun = "1.4.2"
-cloudflared = "2026.9.1"
+cloudflared = "2026.10.0"

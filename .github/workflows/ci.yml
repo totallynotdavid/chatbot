@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       # Tool versions come from mise.toml, the one place that pins them.
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.1.1
         with:
           install_args: biome
 
@@ -63,9 +63,9 @@ jobs:
             directory: apps/frontend
             command: bun run check
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.1.1
         with:
           install_args: bun
 
@@ -78,9 +78,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.1.1
         with:
           install_args: bun
 
@@ -101,9 +101,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.1.1
         with:
           install_args: bun
 
