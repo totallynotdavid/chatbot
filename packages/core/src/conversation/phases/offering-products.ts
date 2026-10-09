@@ -644,7 +644,7 @@ function rejectOffer(): TransitionResult {
 }
 
 function isRejection(lower: string): boolean {
-  return /(no\s+(quiero|me\s+interesa|gracias)|nada|paso|no\s+por\s+ahora)/.test(
+  return /(?<![\p{L}])(no\s+(quiero|me\s+interesa|gracias)|nada|paso|no\s+por\s+ahora)(?![\p{L}])/u.test(
     lower,
   );
 }
