@@ -2,9 +2,6 @@
 const PRESETS = {
   webhook: { bytes: 32, variable: "WHATSAPP_WEBHOOK_VERIFY_TOKEN" },
   secrets: { bytes: 32, variable: "SECRETS_KEY" },
-  session: { bytes: 32, variable: "SESSION_SECRET" },
-  api: { bytes: 64, variable: "API_KEY" },
-  jwt: { bytes: 32, variable: "JWT_SECRET" },
 } as const;
 
 type PresetName = keyof typeof PRESETS;
@@ -52,15 +49,6 @@ function main() {
       );
       console.log(
         "  bun run scripts/generate-token.ts secrets   # SECRETS_KEY (32 bytes)",
-      );
-      console.log(
-        "  bun run scripts/generate-token.ts session   # Session secret (32 bytes)",
-      );
-      console.log(
-        "  bun run scripts/generate-token.ts api       # API key (64 bytes)",
-      );
-      console.log(
-        "  bun run scripts/generate-token.ts jwt       # JWT secret (32 bytes)",
       );
       process.exit(1);
     }
