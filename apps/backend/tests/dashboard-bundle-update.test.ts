@@ -157,6 +157,108 @@ describe("editing a bundle", () => {
     expect(response.status).toBe(400);
   });
 
+  it.each([
+    ["stock_status", "sold_out"],
+    ["stock_status", 3],
+    ["is_active", 2],
+    ["is_active", "yes"],
+    ["is_active", true],
+    ["price", "999"],
+    ["price", -5],
+    ["price", 0],
+    ["price", null],
+    ["name", ""],
+    ["name", null],
+    ["notes", 7],
+  ])("refuses %s %p and stores none of the request", async (field, value) => {
+    const before = stored();
+
+    const response = await patch({
+      name: "Nuevo",
+      primary_category: "combos",
+      [field]: value,
+    });
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toContain(
+      field,
+    );
+    expect(stored()).toEqual(before);
+  });
+
+  it("stores a valid stock status, activity flag, price and notes", async () => {
+    const response = await patch({
+      stock_status: "low_stock",
+      is_active: 0,
+      price: 1500.5,
+      notes: "Sin garantía",
+    });
+
+    expect(response.status).toBe(200);
+    expect(stored()).toMatchObject({
+      stock_status: "low_stock",
+      is_active: 0,
+      price: 1500.5,
+      notes: "Sin garantía",
+    });
+  });
+
+  it("refuses a body that is not a JSON object", async () => {
+    for (const raw of ["[]", "7", "null", "{not json"]) {
+      const response = await app.request(`/api/catalog/bundles/${bundleId}`, {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: raw,
+      });
+      expect(response.status).toBe(400);
+    }
+  });
+
+  describe("editing many bundles", () => {
+    const bulk = (body: unknown) =>
+      app.request("/api/catalog/bundles/bulk-update", {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    it("stores a valid update on every bundle named", async () => {
+      const response = await bulk({
+        ids: [bundleId],
+        updates: { stock_status: "out_of_stock", is_active: 0 },
+      });
+
+      expect(response.status).toBe(200);
+      expect(stored()).toMatchObject({
+        stock_status: "out_of_stock",
+        is_active: 0,
+      });
+    });
+
+    it.each([
+      [{ stock_status: "sold_out" }],
+      [{ is_active: 5 }],
+      ["out_of_stock"],
+      [null],
+      [[]],
+      [{}],
+      [{ price: 1 }],
+    ])("refuses updates %p", async (updates) => {
+      const before = stored();
+
+      const response = await bulk({ ids: [bundleId], updates });
+
+      expect(response.status).toBe(400);
+      expect(stored()).toEqual(before);
+    });
+
+    it.each([[[]], [[7]], ["a"]])("refuses ids %p", async (ids) => {
+      const response = await bulk({ ids, updates: { is_active: 0 } });
+
+      expect(response.status).toBe(400);
+    });
+  });
+
   it("holds the create route to the same rule", async () => {
     const form = new FormData();
     form.append("image", new File([new Uint8Array([0xff, 0xd8])], "a.jpg"));
@@ -177,5 +279,29 @@ describe("editing a bundle", () => {
     expect(
       BundleService.getByPeriod(tenant.tenantId, periodId).map((b) => b.name),
     ).toEqual(["Cocina"]);
+  });
+
+  it.each([
+    ["price", "abc"],
+    ["price", "0"],
+    ["segment", "retail"],
+  ])("refuses a new bundle with %s %p", async (field, value) => {
+    const form = new FormData();
+    form.append("image", new File([new Uint8Array([0xff, 0xd8])], "a.jpg"));
+    form.append("period_id", periodId);
+    form.append("name", "Roto");
+    form.append("price", "100");
+    form.append("primary_category", "cocinas");
+    form.append("composition_json", COMPOSITION);
+    form.append("installments_json", INSTALLMENTS);
+    form.set(field, value);
+
+    const response = await app.request("/api/catalog/bundles", {
+      method: "POST",
+      headers: auth,
+      body: form,
+    });
+
+    expect(response.status).toBe(400);
   });
 });
