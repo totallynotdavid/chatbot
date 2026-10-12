@@ -101,9 +101,11 @@ runs one turn for one grouped message:
    ms, counted from the customer's message. A message older than 10 minutes gets
    no delay.
 5. Execute the commands.
-6. Emit the transition's events, then `escalation_triggered` if the new phase is
-   `escalated`. Core and the enrichment loop never put `escalation_triggered` in
-   the events, so an escalation alerts once.
+6. Emit the transition's events. If the turn moved the conversation into
+   `escalated`, assign an agent ([Escalation](#escalation)) and emit
+   `escalation_triggered`. Core and the enrichment loop never put
+   `escalation_triggered` in the events, and a turn on an already escalated
+   conversation emits nothing, so an escalation alerts once.
 
 The simulator and the maintenance sweep call the same `handleMessage`.
 
@@ -252,7 +254,7 @@ handed off. Inside the lock it:
 
 1. cancels the conversation's pending replies,
 2. escalates the conversation with reason `reply_undeliverable` if it is still
-   `active`,
+   `active`, and assigns it an agent,
 3. emits `escalation_triggered`,
 4. stamps `handed_off_at` on the failed rows.
 
@@ -332,16 +334,30 @@ The alert goes to the conversation's assigned agent if it has one, else to the
 tenant's sales target: the `whatsapp_group_sales` tenant setting, else
 `WHATSAPP_GROUP_AGENT`
 ([`notifications/resolver.ts`](../apps/backend/src/domains/notifications/resolver.ts)).
-Nothing assigns an agent when a conversation escalates. The escalation alerts
-the sales target and picks nobody.
-
-An agent becomes assigned by taking the conversation over (below) or by saving
-agent data on an unassigned one (`PATCH /api/conversations/:phone/agent-data`).
-The round-robin in
+The turn that escalates a conversation also assigns it before the alert goes
+out, so the alert reaches the assigned agent. The round-robin in
 [`conversations/assignment.ts`](../apps/backend/src/domains/conversations/assignment.ts)
-runs only when an assigned agent declines the conversation. After that, a timer
-passes the conversation to the next available sales agent every 5 minutes until
-someone takes it over.
+picks the next available `sales_agent` of the tenant, stamps
+`assignment_notified_at`, and notifies the agent (`agent_assigned`). With no
+available agent the conversation stays unassigned and the alert goes to the
+sales target. The undeliverable-reply handoff escalates and assigns the same
+way.
+
+A conversation escalates once. While it stays `escalated`, a later customer
+message neither alerts nor assigns again, because the alert would repeat what
+the agent already knows.
+
+An assignment waits for the agent to take the conversation over, which clears
+`assignment_notified_at`. If 5 minutes pass first, a timer (checked every 60 s)
+passes the conversation to the next available agent. The agent can also decline
+(`POST /api/conversations/:phone/decline-assignment`), which does the same at
+once. Both run under the conversation lock, and decline answers 409 while the
+conversation is busy. Assigning always leaves the conversation `escalated`, so
+the bot stays silent while an agent holds it.
+
+An agent also becomes assigned by taking the conversation over (below) or by
+saving agent data on an unassigned one
+(`PATCH /api/conversations/:phone/agent-data`).
 
 ## Takeover and release
 
@@ -350,9 +366,10 @@ An agent takes a conversation from the dashboard:
 - **Takeover** (`POST /api/conversations/:phone/takeover`) sets the phase to
   `escalated` with reason "Manual takeover by agent" and cancels the replies the
   bot still owed. A turn already running may still send what it had ready. It
-  also assigns the conversation to the person who takes it. A conversation
-  already assigned to someone else is refused with 409, and the same person may
-  repeat the takeover.
+  also assigns the conversation to the person who takes it and accepts a pending
+  assignment (it clears `assignment_notified_at`). A conversation already
+  assigned to someone else is refused with 409, and the same person may repeat
+  the takeover.
 - **Manual message** (`POST /api/conversations/:phone/message`) sends once and
   moves `lastActivityAt`. It works whether or not the bot is silenced.
 - **Release** (`POST /api/conversations/:phone/release`) resets a taken-over
