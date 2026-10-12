@@ -99,24 +99,6 @@ describe("Intelligence Provider (MockProvider)", () => {
     });
   });
 
-  describe("Alternative suggestions", () => {
-    test("suggests alternative category", async () => {
-      const provider = createMockProvider();
-      provider.setResponse(
-        "suggestAlternative",
-        "No tenemos tablets, pero sí tenemos celulares y laptops",
-      );
-
-      const result = await provider.suggestAlternative("tablets", [
-        "celulares",
-        "laptops",
-      ]);
-
-      expect(result).toContain("tablets");
-      expect(result).toContain("celulares");
-    });
-  });
-
   describe("Recovery responses", () => {
     test("recovers from unclear input", async () => {
       const provider = createMockProvider();

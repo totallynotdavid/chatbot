@@ -31,6 +31,34 @@ describe("offering products: short replies", () => {
     },
   );
 
+  test.each(["nada", "paso", "no por ahora", "paso, gracias"])(
+    "%p closes the conversation",
+    (message) => {
+      const result = transition({
+        phase: browsing,
+        message,
+        metadata: metadata(),
+      });
+      expect(result.type === "update" && result.nextPhase.phase).toBe(
+        "closing",
+      );
+    },
+  );
+
+  test.each([
+    "¿cuáles son los pasos para comprar?",
+    "mi hijo estudia en Granada",
+    "¿entregan en Granada y en el pasaje Lima?",
+    "hay pasadizo en mi calle",
+  ])("%p is not a rejection", (message) => {
+    const result = transition({
+      phase: browsing,
+      message,
+      metadata: metadata(),
+    });
+    expect(result.type).toBe("need_enrichment");
+  });
+
   test.each(["a", "te", "y"])("%p does not pick a group", (message) => {
     const result = transition({
       phase: browsing,

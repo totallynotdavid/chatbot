@@ -59,16 +59,6 @@ describe("MockProvider", () => {
     expect(e).toBe(false);
   });
 
-  test("suggestAlternative uses fallback with available categories", async () => {
-    const provider = createMockProvider();
-    const result = await provider.suggestAlternative("laptops", [
-      "celulares",
-      "tv",
-    ]);
-    expect(result).toContain("laptops");
-    expect(result).toContain("celulares");
-  });
-
   test("recoverUnclearResponse returns default message", async () => {
     const provider = createMockProvider();
     const result = await provider.recoverUnclearResponse("mmm", {

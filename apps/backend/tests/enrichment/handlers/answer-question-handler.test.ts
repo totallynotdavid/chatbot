@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { buildAnswerQuestionPrompt } from "@vendeya/core";
 import { createMockProvider } from "@vendeya/intelligence";
+import type { AnswerContext } from "@vendeya/intelligence";
 import { AnswerQuestionHandler } from "../../../src/conversation/enrichment/handlers/answer-question-handler.ts";
 import {
   applySchema,
@@ -47,6 +49,46 @@ describe("AnswerQuestionHandler", () => {
     expect(result.type).toBe("question_answered");
     expect(result.answer).toBe("Ofrecemos celulares, cocinas y laptops.");
     expect(result.answer.length).toBeGreaterThan(0);
+  });
+
+  test("each tenant's answer prompt names its own business", async () => {
+    const other = createTenantFixture("Hogar Norte");
+    const own = createTenantFixture("Casa Lima");
+    try {
+      const prompts: string[] = [];
+      const capturing = {
+        ...mockProvider,
+        answerQuestion: async (_message: string, context: AnswerContext) => {
+          prompts.push(buildAnswerQuestionPrompt(context));
+          return "ok";
+        },
+      };
+
+      for (const fixture of [own, other]) {
+        await handler.execute(
+          {
+            type: "answer_question",
+            message: "¿Cuántas cuotas hay?",
+            context: {
+              phase: "offering_products",
+              availableCategories: ["celulares"],
+            },
+          },
+          { ref: fixture.ref("51999999998"), provider: capturing },
+        );
+      }
+
+      expect(prompts[0]).toContain("Eres asesor de Casa Lima en Perú.");
+      expect(prompts[1]).toContain("Eres asesor de Hogar Norte en Perú.");
+      for (const prompt of prompts) {
+        expect(prompt).not.toContain("Totem");
+      }
+      expect(prompts[0]).not.toContain("Hogar Norte");
+      expect(prompts[1]).not.toContain("Casa Lima");
+    } finally {
+      dropTenantFixture(own);
+      dropTenantFixture(other);
+    }
   });
 
   test("handles LLM error with fallback", async () => {
