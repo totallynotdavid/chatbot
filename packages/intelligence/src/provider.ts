@@ -7,10 +7,6 @@ export interface IntelligenceProvider {
 
   // Generation operations
   answerQuestion(message: string, context: AnswerContext): Promise<string>;
-  suggestAlternative(
-    requestedCategory: string,
-    availableCategories: string[],
-  ): Promise<string>;
   recoverUnclearResponse(
     message: string,
     context: RecoveryContext,

@@ -75,23 +75,6 @@ export const LLM = {
       "Déjame revisar eso y te respondo.",
     ),
 
-  suggestAlternative: (
-    requestedCategory: string,
-    availableCategories: string[],
-    ref: ConversationRef,
-  ) =>
-    withObservability(
-      ref,
-      "suggestAlternative",
-      MODEL_CONFIG.generation.model,
-      () =>
-        getProvider().suggestAlternative(
-          requestedCategory,
-          availableCategories,
-        ),
-      `No tenemos ${requestedCategory} disponible ahorita. ¿Te interesa algo más?`,
-    ),
-
   recoverUnclearResponse: (
     message: string,
     context: RecoveryContext,

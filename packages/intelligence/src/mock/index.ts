@@ -15,10 +15,6 @@ export function createMockProvider(): IntelligenceProvider & {
     answerQuestion: async () =>
       (responses.get("answerQuestion") as string) ?? "Déjame ayudarte con eso.",
 
-    suggestAlternative: async (requested, available) =>
-      (responses.get("suggestAlternative") as string) ??
-      `No tenemos ${requested}. ¿Te interesa ${available[0] || "algo más"}?`,
-
     recoverUnclearResponse: async () =>
       (responses.get("recoverUnclearResponse") as string) ??
       "Disculpa, no te entendí. ¿Puedes repetirlo?",

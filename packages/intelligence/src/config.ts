@@ -9,7 +9,6 @@ export const MODEL_CONFIG = {
   generation: {
     model: "gpt-5-nano-2025-08-07",
     answerQuestion: {} as OpConfig,
-    suggestAlternative: {} as OpConfig,
     recoverUnclear: {} as OpConfig,
   },
   vision: {

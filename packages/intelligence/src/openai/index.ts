@@ -1,7 +1,6 @@
 import type { IntelligenceProvider } from "../provider";
 import * as Classification from "./classification";
 import * as Answer from "./models/answer";
-import * as Suggest from "./models/suggest";
 import * as Recover from "./models/recover";
 import * as Vision from "./models/vision";
 
@@ -16,9 +15,6 @@ export function getProvider(): IntelligenceProvider {
 
       answerQuestion: (message, context) =>
         Answer.answerQuestion(message, context),
-
-      suggestAlternative: (requested, available) =>
-        Suggest.suggestAlternative(requested, available),
 
       recoverUnclearResponse: (message, context) =>
         Recover.recoverUnclearResponse(message, context),
