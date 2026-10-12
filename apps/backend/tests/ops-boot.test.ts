@@ -74,6 +74,7 @@ async function boot(env: Record<string, string>): Promise<Server> {
       DB_PATH: join(dir, "boot.sqlite"),
       UPLOAD_DIR: join(dir, "uploads"),
       PRIVATE_DIR: join(dir, "private"),
+      LOG_DIR: join(dir, "logs"),
       ...env,
     },
   });

@@ -1,7 +1,7 @@
 /**
  * Boots the database named by DB_PATH, then gives it two conversations whose
  * `last_activity_at` SQLite cannot parse and runs the backfill. The log lines
- * land in `data/logs` under the working directory.
+ * land in `data/logs` under the working directory, as LOG_DIR is not set.
  */
 
 import { db } from "../../src/db/connection.ts";

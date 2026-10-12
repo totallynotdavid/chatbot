@@ -24,6 +24,9 @@ process.env.DB_PATH = join(dir, "test.sqlite");
 // that is killed mid-test would leave stray files in it.
 process.env.UPLOAD_DIR = join(dir, "uploads");
 process.env.PRIVATE_DIR = join(dir, "private");
+// The default log directory is under the working directory, which would fill
+// `apps/backend/data/logs` with test output.
+process.env.LOG_DIR = join(dir, "logs");
 process.env.WHATSAPP_APP_SECRET = TEST_APP_SECRET;
 
 process.on("exit", () => {

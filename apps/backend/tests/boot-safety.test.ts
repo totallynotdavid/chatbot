@@ -98,6 +98,7 @@ async function boot(
       DB_PATH: dbPath,
       UPLOAD_DIR: join(dir, "uploads"),
       PRIVATE_DIR: join(dir, "private"),
+      LOG_DIR: join(dir, "logs"),
       ...env,
     },
   });
