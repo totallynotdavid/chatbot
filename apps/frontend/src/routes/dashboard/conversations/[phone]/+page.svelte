@@ -8,6 +8,12 @@ import type {
 } from "@vendeya/types";
 import { fetchApi } from "#lib/utils/api.js";
 import {
+  acceptAssignment,
+  releaseConversation,
+  takeOverConversation,
+  type ConversationActionContext,
+} from "#lib/utils/conversation-actions.js";
+import {
   formatPhone,
   formatPrice,
   formatDateTime,
@@ -66,10 +72,9 @@ const channelQuery = $derived(
 );
 
 const isHumanTakeover = $derived(conversation?.status === "human_takeover");
+// The agent clears `assignment_notified_at` by taking the conversation over.
 const isPendingAssignment = $derived(
-  conversation?.assigned_agent &&
-    conversation?.assignment_notified_at &&
-    !conversation?.handover_reason,
+  conversation?.assigned_agent && conversation?.assignment_notified_at,
 );
 const isAssignedToCurrentUser = $derived(
   conversation?.assigned_agent === data.user?.id,
@@ -82,28 +87,24 @@ const saleStatusOptions: { value: SaleStatus; label: string }[] = [
   { value: "no_answer", label: "Sin respuesta" },
 ];
 
+/** Shared context keeps action failures in the page's toast flow. */
+function actionContext(current: Conversation): ConversationActionContext {
+  return {
+    phoneNumber: current.phone_number,
+    channelQuery,
+    refresh: refreshConversation,
+    notify: toast,
+  };
+}
+
 async function handleTakeover() {
   if (!conversation) return;
-  await fetchApi(
-    `/api/conversations/${conversation.phone_number}/takeover${channelQuery}`,
-    {
-      method: "POST",
-    },
-  );
-  await refreshConversation();
-  toast.success("Has tomado control de la conversación");
+  await takeOverConversation(actionContext(conversation));
 }
 
 async function handleAcceptAssignment() {
   if (!conversation) return;
-  await fetchApi(
-    `/api/conversations/${conversation.phone_number}/takeover${channelQuery}`,
-    {
-      method: "POST",
-    },
-  );
-  await refreshConversation();
-  toast.success("Asignación aceptada");
+  await acceptAssignment(actionContext(conversation));
 }
 
 async function handleDeclineAssignment() {
@@ -125,13 +126,7 @@ async function handleDeclineAssignment() {
 
 async function handleRelease() {
   if (!conversation) return;
-  await fetchApi(
-    `/api/conversations/${conversation.phone_number}/release${channelQuery}`,
-    {
-      method: "POST",
-    },
-  );
-  await refreshConversation();
+  await releaseConversation(actionContext(conversation));
 }
 
 async function handleSendMessage() {
