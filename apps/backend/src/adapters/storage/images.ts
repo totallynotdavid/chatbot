@@ -9,7 +9,6 @@ export interface ImageStorage {
   /** Key recorded on the `assets` row for this image. */
   storageKey(imageId: string): string;
   delete(imageId: string): Promise<void>;
-  exists(imageId: string): Promise<boolean>;
 }
 
 const MAX_SIZE = 1024;
@@ -58,11 +57,6 @@ export const LocalImageStorage: ImageStorage = {
     } catch {
       // File might not exist, ignore
     }
-  },
-
-  async exists(imageId: string): Promise<boolean> {
-    const filePath = path.join(IMAGES_DIR, `${imageId}.jpg`);
-    return fs.existsSync(filePath);
   },
 };
 

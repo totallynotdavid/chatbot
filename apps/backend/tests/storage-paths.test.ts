@@ -195,22 +195,17 @@ describe("the catalog image store under a production-shaped environment", () => 
       )};
        const jpeg = Buffer.from(${JSON.stringify(jpeg.toString("base64"))}, "base64");
        const id = await imageStorage.store(jpeg);
-       console.log(JSON.stringify({ id, exists: await imageStorage.exists(id) }));`,
+       console.log(JSON.stringify({ id }));`,
       join(volume, "uploads"),
       workdir,
     );
 
-    const { id, exists } = JSON.parse(reported) as {
-      id: string;
-      exists: boolean;
-    };
+    const { id } = JSON.parse(reported) as { id: string };
 
     // On the volume, where the static mount and the next deploy will find it.
     expect(existsSync(join(volume, "uploads", "images", `${id}.jpg`))).toBe(
       true,
     );
-    // The store's own `exists()` must agree with the file on the volume.
-    expect(exists).toBe(true);
     // No `data` directory may appear under the working directory.
     expect(existsSync(join(workdir, "data"))).toBe(false);
 

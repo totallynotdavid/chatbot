@@ -34,6 +34,10 @@ function writeImage(imageId: string): string {
   return imageId;
 }
 
+function onDisk(imageId: string): boolean {
+  return fs.existsSync(path.join(IMAGES_DIR, `${imageId}.jpg`));
+}
+
 /** One tenant's copy of a base-catalog bundle, image id and all. */
 function seedBundle(fixture: TenantFixture, imageId: string): string {
   const periodId = `per-${crypto.randomUUID()}`;
@@ -96,7 +100,7 @@ describe("a catalog image two tenants were seeded with", () => {
 
     await BundleService.updateImage(alpha.tenantId, alphaBundle, replacement);
 
-    expect(await imageStorage.exists(sharedImage)).toBe(true);
+    expect(onDisk(sharedImage)).toBe(true);
     expect(BundleService.getById(beta.tenantId, betaBundle)?.image_id).toBe(
       sharedImage,
     );
@@ -108,7 +112,7 @@ describe("a catalog image two tenants were seeded with", () => {
   it("survives one tenant deleting its own bundle", async () => {
     await BundleService.delete(alpha.tenantId, alphaBundle);
 
-    expect(await imageStorage.exists(sharedImage)).toBe(true);
+    expect(onDisk(sharedImage)).toBe(true);
     expect(BundleService.getById(beta.tenantId, betaBundle)).not.toBeNull();
   });
 
@@ -116,7 +120,7 @@ describe("a catalog image two tenants were seeded with", () => {
     await BundleService.delete(alpha.tenantId, alphaBundle);
     await BundleService.delete(beta.tenantId, betaBundle);
 
-    expect(await imageStorage.exists(sharedImage)).toBe(false);
+    expect(onDisk(sharedImage)).toBe(false);
   });
 
   it("takes only the deleting tenant's asset row with it", async () => {
@@ -162,7 +166,7 @@ describe("a catalog image only one tenant has", () => {
   it("is deleted when its bundle is", async () => {
     await BundleService.delete(alpha.tenantId, bundleId);
 
-    expect(await imageStorage.exists(ownImage)).toBe(false);
+    expect(onDisk(ownImage)).toBe(false);
   });
 
   it("is deleted when its bundle is given a new one", async () => {
@@ -170,7 +174,7 @@ describe("a catalog image only one tenant has", () => {
 
     await BundleService.updateImage(alpha.tenantId, bundleId, replacement);
 
-    expect(await imageStorage.exists(ownImage)).toBe(false);
-    expect(await imageStorage.exists(replacement)).toBe(true);
+    expect(onDisk(ownImage)).toBe(false);
+    expect(onDisk(replacement)).toBe(true);
   });
 });
