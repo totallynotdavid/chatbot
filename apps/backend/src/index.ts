@@ -175,8 +175,8 @@ app.route("/api/providers", providerRoutes);
 // Error handler
 app.onError(errorHandler);
 
-// PORT lets a second instance, or a test that boots the real server, listen
-// somewhere other than the development default.
+// PORT lets a test that boots the real server, or a developer whose port 3000
+// is taken, listen elsewhere. Only one backend runs per database.
 const port = Number(process.env.PORT) || 3000;
 
 process.on("SIGINT", async () => {

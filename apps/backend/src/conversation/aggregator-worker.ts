@@ -20,6 +20,7 @@ const logger = createLogger("aggregator");
 const QUIET_WINDOW_MS = 2000;
 const POLL_INTERVAL_MS = 100; // Check for ready messages every 100ms
 
+// The single backend process owns this poll loop and its inbox claims.
 let isRunning = false;
 let workerPromise: Promise<void> | null = null;
 

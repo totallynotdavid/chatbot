@@ -1,6 +1,7 @@
 /**
  * Messages of one conversation run sequentially. Different conversations run
- * in parallel.
+ * in parallel. The queues live in this process's memory, which is sound
+ * because one backend process serves a database.
  *
  * An acquisition moves only from waiting to holding to released. It holds once
  * every earlier acquisition on its key is released. It is released only through
