@@ -159,8 +159,10 @@ The LLM is OpenAI `gpt-5-nano-2025-08-07`, set in
 [`packages/intelligence/src/config.ts`](../packages/intelligence/src/config.ts).
 No environment variable switches it off or to a mock.
 
-A `pendingPhase` is written to the database before its handler runs, so a
-customer mid-eligibility-check shows `checking_eligibility` in the dashboard.
+A `pendingPhase` is the phase core is re-called with once the handler answers.
+It stays in memory. The database holds the phase the turn started from until
+[the executor](#the-executor) writes the final one after the sends, so a
+customer mid-eligibility-check still shows `collecting_dni` in the dashboard.
 
 The loop stops after 10 rounds and escalates with reason
 `enrichment_loop_exceeded`. A handler that throws ends the turn: no reply, the

@@ -232,9 +232,12 @@ curl -X POST -b "session=<token>" -H 'content-type: application/json' \
   https://<frontend>/api/admin/settings
 ```
 
-An alert goes out on the event's own number, else the tenant's default number,
-else the platform operations number. Every decision is recorded in
-`notification_traces`.
+An alert about a tenant goes out on the event's own number, else the tenant's
+default number. A tenant with no number gets no alert: the trace is recorded as
+failed with reason `no_channel_account`, and the alert never leaves from the
+platform operations number. An alert with no tenant, such as both eligibility
+providers being down, goes out on the platform operations number. Every decision
+is recorded in `notification_traces`.
 
 `WHATSAPP_GROUP_AGENT` and `WHATSAPP_GROUP_DEV` are VendeYa's own operations
 groups. They receive the alerts of every tenant that has no setting of its own,
