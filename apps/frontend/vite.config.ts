@@ -11,6 +11,11 @@ export default defineConfig({
       adapter: adapter({
         out: "dist",
         precompress: true,
+        // The built server refuses a larger request body before any route
+        // runs. Call recordings are the largest upload: an hour of 8 kHz mono
+        // WAV is about 55 MiB. `routes/api/webhook` holds Meta's webhook to
+        // its own, smaller bound. `BODY_SIZE_LIMIT` overrides this at run time.
+        serverOptions: { maxRequestBodySize: 64 * 1024 * 1024 },
       }),
       inspector: {
         toggleKeyCombo: "control-shift",

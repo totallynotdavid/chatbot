@@ -3,6 +3,9 @@ import { getBackendUrl } from "@vendeya/utils";
 
 const backendUrl = getBackendUrl();
 const BACKEND_TIMEOUT_MS = 10_000;
+// Meta documents webhook payloads of up to 3 MB. The backend holds the same
+// bound.
+const MAX_BODY_BYTES = 3 * 1024 * 1024;
 
 /**
  * Webhook proxy for Meta WhatsApp events
@@ -21,9 +24,36 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 };
 
+/**
+ * The body as text, or null once it passes `MAX_BODY_BYTES`. The server accepts
+ * bodies far larger than a webhook for the dashboard's uploads, so this route
+ * bounds its own read, and stops pulling from a chunked body at the limit.
+ */
+async function readBoundedText(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > MAX_BODY_BYTES) return null;
+  if (!request.body) return "";
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for await (const chunk of request.body) {
+    total += chunk.byteLength;
+    if (total > MAX_BODY_BYTES) return null;
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks).toString("utf-8");
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const body = await request.text();
+    const body = await readBoundedText(request);
+    if (body === null) {
+      return new Response(JSON.stringify({ error: "payload_too_large" }), {
+        status: 413,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     // The backend verifies Meta's signature over this exact body.
     const headers: Record<string, string> = {
