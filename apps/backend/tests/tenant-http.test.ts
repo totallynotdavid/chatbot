@@ -1944,10 +1944,7 @@ describe("HTTP authorization", () => {
         role: "sales_agent",
       });
 
-      const assigned = await assignNextAgent(
-        alpha.ref(SHARED_PHONE),
-        "Alpha Client",
-      );
+      const assigned = await assignNextAgent(alpha.ref(SHARED_PHONE));
 
       expect(assigned).toBe(agentId);
       expect(TenantSettings.get(alpha.tenantId, ROUND_ROBIN_KEY)).toBe("0");

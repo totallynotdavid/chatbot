@@ -180,7 +180,7 @@ describe("a channel account that is not active", () => {
         ).assignment_notified_at;
       }
 
-      it("while the business's other number is still reassigned", () => {
+      it("while the business's other number is still reassigned", async () => {
         const agent = createMember(tenant, "sales_agent");
         const stale = Date.now() - 10 * 60 * 1000;
         abandoned(tenant.ref(CUSTOMER), agent.userId, stale);
@@ -188,7 +188,7 @@ describe("a channel account that is not active", () => {
 
         setStatus(tenant.channelAccountId, status);
 
-        checkAndReassignTimeouts();
+        await checkAndReassignTimeouts();
 
         expect(notifiedAt(tenant.channelAccountId)).toBe(stale);
         expect(notifiedAt(untouched.channelAccountId)).toBeGreaterThan(stale);

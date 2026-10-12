@@ -203,7 +203,7 @@ describe("created_at over HTTP", () => {
 
   it("returns Conversation.assignment_notified_at and recording_uploaded_at as numbers once set", async () => {
     const agent = createMember(tenant, "sales_agent");
-    await assignNextAgent(tenant.ref(PHONE), "Client");
+    await assignNextAgent(tenant.ref(PHONE));
     await uploadContract({
       ref: tenant.ref(PHONE),
       userId: agent.userId,

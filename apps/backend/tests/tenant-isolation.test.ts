@@ -381,20 +381,20 @@ describe("tenant isolation", () => {
     it("stays in the other tenant's rotation after going offline in one", async () => {
       MembershipService.setAvailability(alpha.tenantId, agentId, false);
 
-      expect(await assignNextAgent(alphaRef, "Cliente")).toBeNull();
-      expect(await assignNextAgent(betaRef, "Cliente")).toBe(agentId);
+      expect(await assignNextAgent(alphaRef)).toBeNull();
+      expect(await assignNextAgent(betaRef)).toBe(agentId);
     });
 
     it("is assigned in both while available in both", async () => {
-      expect(await assignNextAgent(alphaRef, "Cliente")).toBe(agentId);
-      expect(await assignNextAgent(betaRef, "Cliente")).toBe(agentId);
+      expect(await assignNextAgent(alphaRef)).toBe(agentId);
+      expect(await assignNextAgent(betaRef)).toBe(agentId);
     });
 
     it("is out of both when the account itself is deactivated", async () => {
       db.prepare("UPDATE users SET is_active = 0 WHERE id = ?").run(agentId);
 
-      expect(await assignNextAgent(alphaRef, "Cliente")).toBeNull();
-      expect(await assignNextAgent(betaRef, "Cliente")).toBeNull();
+      expect(await assignNextAgent(alphaRef)).toBeNull();
+      expect(await assignNextAgent(betaRef)).toBeNull();
     });
   });
 

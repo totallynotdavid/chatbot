@@ -17,6 +17,9 @@ import {
   createSession,
   generateSessionToken,
 } from "../src/platform/auth/session.ts";
+import { TIMEOUTS } from "../src/config/timeouts.ts";
+import { acquireLock } from "../src/conversation/locks.ts";
+import { checkAndReassignTimeouts } from "../src/domains/conversations/assignment.ts";
 import conversationRoutes from "../src/routes/conversations.ts";
 import adminUserRoutes from "../src/routes/admin/users.ts";
 import tenantRoutes from "../src/routes/tenants.ts";
@@ -280,6 +283,177 @@ describe("conversation assignment", () => {
       const next = newAgent();
       expect((await takeover(next.auth)).status).toBe(200);
       expect(assignedAgent()).toBe(next.userId);
+    });
+  });
+
+  describe("an assignment waiting to be accepted", () => {
+    const TEN_MINUTES = 10 * 60 * 1000;
+
+    function state() {
+      const row = db
+        .prepare(
+          `SELECT assigned_agent, assignment_notified_at, status, handover_reason, context_data
+           FROM conversations WHERE tenant_id = ? AND phone_number = ?`,
+        )
+        .get(tenant.tenantId, CUSTOMER) as {
+        assigned_agent: string | null;
+        assignment_notified_at: number | null;
+        status: string;
+        handover_reason: string | null;
+        context_data: string;
+      };
+      return {
+        assignedAgent: row.assigned_agent,
+        notifiedAt: row.assignment_notified_at,
+        status: row.status,
+        handoverReason: row.handover_reason,
+        phase: JSON.parse(row.context_data).phase.phase as string,
+      };
+    }
+
+    function assignedTo(userId: string, notifiedAt = Date.now()) {
+      db.prepare(
+        `UPDATE conversations
+         SET assigned_agent = ?, assignment_notified_at = ?, status = 'human_takeover',
+             handover_reason = 'multiple_objections', context_data = ?
+         WHERE tenant_id = ? AND phone_number = ?`,
+      ).run(
+        userId,
+        notifiedAt,
+        JSON.stringify({
+          phase: { phase: "escalated", reason: "multiple_objections" },
+          metadata: { createdAt: Date.now(), lastActivityAt: Date.now() },
+        }),
+        tenant.tenantId,
+        CUSTOMER,
+      );
+    }
+
+    function goOffline(userId: string) {
+      db.prepare(
+        "UPDATE tenant_memberships SET is_available = 0 WHERE tenant_id = ? AND user_id = ?",
+      ).run(tenant.tenantId, userId);
+    }
+
+    const decline = (auth: Auth) =>
+      request(
+        "POST",
+        `/api/conversations/${CUSTOMER}/decline-assignment`,
+        auth,
+      );
+
+    it("is accepted by the takeover, so the timer leaves the conversation with the agent", async () => {
+      const agent = newAgent();
+      newAgent();
+      assignedTo(agent.userId, Date.now() - TEN_MINUTES);
+
+      expect((await takeover(agent.auth)).status).toBe(200);
+      expect(state().notifiedAt).toBeNull();
+
+      await checkAndReassignTimeouts();
+
+      expect(state().assignedAgent).toBe(agent.userId);
+    });
+
+    it("goes to the next agent when it times out, and the conversation stays with a person", async () => {
+      const silent = newAgent();
+      const next = newAgent();
+      goOffline(silent.userId);
+      assignedTo(silent.userId, Date.now() - TEN_MINUTES);
+
+      await checkAndReassignTimeouts();
+
+      expect(state()).toMatchObject({
+        assignedAgent: next.userId,
+        status: "human_takeover",
+        handoverReason: "multiple_objections",
+        phase: "escalated",
+      });
+      expect(state().notifiedAt).toBeGreaterThan(Date.now() - TEN_MINUTES);
+    });
+
+    it("is not reassigned before the window passes", async () => {
+      const agent = newAgent();
+      newAgent();
+      assignedTo(agent.userId);
+
+      await checkAndReassignTimeouts();
+
+      expect(state().assignedAgent).toBe(agent.userId);
+    });
+
+    describe("declined by the agent", () => {
+      it("goes to the next agent and moves a conversation the bot owned to a person", async () => {
+        const first = newAgent();
+        const next = newAgent();
+        goOffline(first.userId);
+        db.prepare(
+          "UPDATE conversations SET assigned_agent = ? WHERE tenant_id = ? AND phone_number = ?",
+        ).run(first.userId, tenant.tenantId, CUSTOMER);
+        expect(state()).toMatchObject({ status: "active", phase: "greeting" });
+
+        const response = await decline(first.auth);
+
+        expect(response.status).toBe(200);
+        expect(state()).toMatchObject({
+          assignedAgent: next.userId,
+          status: "human_takeover",
+          phase: "escalated",
+        });
+        expect(state().notifiedAt).toBeGreaterThan(0);
+      });
+
+      it("leaves a conversation the bot owned escalated and unassigned when no other agent is available", async () => {
+        const only = newAgent();
+        goOffline(only.userId);
+        db.prepare(
+          "UPDATE conversations SET assigned_agent = ? WHERE tenant_id = ? AND phone_number = ?",
+        ).run(only.userId, tenant.tenantId, CUSTOMER);
+        expect(state()).toMatchObject({ status: "active", phase: "greeting" });
+
+        const response = await decline(only.auth);
+
+        expect(response.status).toBe(200);
+        expect(state()).toEqual({
+          assignedAgent: null,
+          notifiedAt: null,
+          status: "human_takeover",
+          handoverReason: "agent_assigned",
+          phase: "escalated",
+        });
+      });
+
+      it("does not let an agent decline a conversation held by another", async () => {
+        const holder = newAgent();
+        const other = newAgent();
+        assignedTo(holder.userId);
+
+        const response = await decline(other.auth);
+
+        expect(response.status).toBe(404);
+        expect(state().assignedAgent).toBe(holder.userId);
+      });
+
+      it("answers busy and changes nothing while the conversation is locked", async () => {
+        const agent = newAgent();
+        newAgent();
+        assignedTo(agent.userId);
+        const before = state();
+        const timeouts = TIMEOUTS as { LOCK_DEFAULT: number };
+        const saved = timeouts.LOCK_DEFAULT;
+        const release = await acquireLock(tenant.ref(CUSTOMER));
+        timeouts.LOCK_DEFAULT = 30;
+
+        try {
+          const response = await decline(agent.auth);
+
+          expect(response.status).toBe(409);
+        } finally {
+          timeouts.LOCK_DEFAULT = saved;
+          release();
+        }
+        expect(state()).toEqual(before);
+      });
     });
   });
 

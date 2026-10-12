@@ -113,6 +113,18 @@ describe("handing a conversation to a person when a reply cannot be delivered", 
     };
   }
 
+  function assignmentOf(of: ConversationRef) {
+    return db
+      .prepare(
+        `SELECT assigned_agent, assignment_notified_at FROM conversations
+         WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
+      )
+      .get(of.tenantId, of.channelAccountId, of.phoneNumber) as {
+      assigned_agent: string | null;
+      assignment_notified_at: number | null;
+    };
+  }
+
   /** Queue one reply by letting its inline send fail the way `answer` says. */
   async function queue(text: string, of = ref): Promise<OutboxRow> {
     const before = rowsOf(of).length;
@@ -292,6 +304,9 @@ describe("handing a conversation to a person when a reply cannot be delivered", 
           handover_reason: "reply_undeliverable",
           phase: { phase: "escalated", reason: "reply_undeliverable" },
         });
+
+        expect(assignmentOf(ref).assigned_agent).toBe(agent);
+        expect(assignmentOf(ref).assignment_notified_at).toBeGreaterThan(0);
 
         expect(alerts).toHaveLength(1);
         expect(alerts[0]).toMatchObject({

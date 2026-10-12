@@ -210,7 +210,7 @@ describe("a suspended tenant", () => {
       };
     }
 
-    it("leaves its conversations assigned where they are", () => {
+    it("leaves its conversations assigned where they are", async () => {
       const closedAgent = createMember(closed, "sales_agent");
       const openAgent = createMember(open, "sales_agent");
 
@@ -221,7 +221,7 @@ describe("a suspended tenant", () => {
 
       suspend(closed.tenantId);
 
-      checkAndReassignTimeouts();
+      await checkAndReassignTimeouts();
 
       // The assignment is not cleared, so no agent of a closed business is
       // paged for a conversation it cannot answer.
