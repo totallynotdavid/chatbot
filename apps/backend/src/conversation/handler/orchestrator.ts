@@ -5,6 +5,7 @@ import {
   WhatsAppService,
 } from "../../adapters/whatsapp/index.ts";
 import { ProductService } from "../../domains/catalog/products.ts";
+import { assignNextAgentHeld } from "../../domains/conversations/assignment.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { createEvent, eventBus } from "../../shared/events/index.ts";
 import { withLock } from "../locks.ts";
@@ -105,8 +106,16 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
       }
 
       // The only place a turn emits `escalation_triggered`. Core and the
-      // enrichment loop leave it out of `result.events`, so it goes out once.
-      if (result.type === "update" && result.nextPhase.phase === "escalated") {
+      // enrichment loop leave it out of `result.events`. An escalated
+      // conversation stays escalated on every later message, and only the turn
+      // that escalates it alerts and picks an agent. The agent is assigned
+      // first, so the alert reaches them and not the sales group.
+      if (
+        result.type === "update" &&
+        result.nextPhase.phase === "escalated" &&
+        conversation.phase.phase !== "escalated"
+      ) {
+        assignNextAgentHeld(ref);
         eventBus.emit(
           createEvent(
             "escalation_triggered",

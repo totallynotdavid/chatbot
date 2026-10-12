@@ -7,6 +7,7 @@ import {
   WhatsAppService,
 } from "../../adapters/whatsapp/index.ts";
 import { logAction } from "../../platform/audit/logger.ts";
+import { assignNextAgentHeld } from "./assignment.ts";
 import { withLock } from "../../conversation/locks.ts";
 import { cancelPending } from "../../conversation/outbox.ts";
 import {
@@ -65,8 +66,12 @@ export async function takeoverConversation(
         {},
       );
 
+      // Taking the conversation over accepts an assignment, so the timer that
+      // would hand it to the next agent has nothing left to wait for.
       db.prepare(
-        `UPDATE conversations SET assigned_agent = ? WHERE ${IDENTITY_WHERE}`,
+        `UPDATE conversations
+         SET assigned_agent = ?, assignment_notified_at = NULL
+         WHERE ${IDENTITY_WHERE}`,
       ).run(userId, ...identityParams(ref));
 
       // Replies the bot still owed are dropped, because the person now answers.
@@ -167,36 +172,45 @@ export async function sendManualMessage(
   return { success: true };
 }
 
+/**
+ * The assigned agent gives the conversation up and the next agent in rotation
+ * gets it. The check and the hand-over happen under the conversation lock, so a
+ * decline cannot reassign a conversation the agent took over meanwhile.
+ *
+ * @throws ConversationBusyError if the lock does not come free
+ * @throws LockTimeoutError if the decline outlasts the lock timeout
+ */
 export function declineAssignment(
   ref: ConversationRef,
   userId: string,
-): { success: boolean; error?: string; clientName?: string | null } {
-  const conv = getOne<{
-    assigned_agent: string | null;
-    client_name: string | null;
-  }>(
-    `SELECT assigned_agent, client_name FROM conversations WHERE ${IDENTITY_WHERE}`,
-    identityParams(ref),
-  );
+): Promise<{ success: boolean; error?: string }> {
+  return withLock(ref, async () => {
+    const conv = getOne<{ assigned_agent: string | null }>(
+      `SELECT assigned_agent FROM conversations WHERE ${IDENTITY_WHERE}`,
+      identityParams(ref),
+    );
 
-  if (!conv || conv.assigned_agent !== userId) {
-    return { success: false, error: "Not assigned to you" };
-  }
+    if (!conv || conv.assigned_agent !== userId) {
+      return { success: false, error: "Not assigned to you" };
+    }
 
-  db.prepare(
-    `UPDATE conversations
-     SET assignment_notified_at = NULL, assigned_agent = NULL
-     WHERE ${IDENTITY_WHERE}`,
-  ).run(...identityParams(ref));
+    db.prepare(
+      `UPDATE conversations
+       SET assignment_notified_at = NULL, assigned_agent = NULL
+       WHERE ${IDENTITY_WHERE}`,
+    ).run(...identityParams(ref));
 
-  logAction(
-    { userId, tenantId: ref.tenantId },
-    "decline_assignment",
-    "conversation",
-    ref.phoneNumber,
-  );
+    assignNextAgentHeld(ref);
 
-  return { success: true, clientName: conv.client_name };
+    logAction(
+      { userId, tenantId: ref.tenantId },
+      "decline_assignment",
+      "conversation",
+      ref.phoneNumber,
+    );
+
+    return { success: true };
+  });
 }
 
 export function updateAgentData(

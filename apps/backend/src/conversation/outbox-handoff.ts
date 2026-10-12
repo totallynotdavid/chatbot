@@ -1,4 +1,5 @@
 import type { ConversationRef } from "@vendeya/types";
+import { assignNextAgentHeld } from "../domains/conversations/assignment.ts";
 import { createLogger } from "../lib/logger.ts";
 import { createEvent, eventBus } from "../shared/events/index.ts";
 import { ConversationBusyError, LockTimeoutError, withLock } from "./locks.ts";
@@ -21,7 +22,7 @@ import { escalateConversation, findConversation } from "./store.ts";
  * Inside the conversation lock, in this order:
  *  1. Read the failed rows that are not handed off. None means return.
  *  2. Cancel the conversation's pending rows.
- *  3. Escalate the conversation if it is `active`.
+ *  3. Escalate the conversation if it is `active`. Assign it an agent.
  *  4. Emit `escalation_triggered`.
  *  5. Stamp `handed_off_at` on the rows read in step 1.
  *
@@ -65,6 +66,7 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
       const statusBefore = findConversation(ref)?.status;
       if (statusBefore === "active") {
         escalateConversation(ref, REPLY_UNDELIVERABLE);
+        assignNextAgentHeld(ref);
       }
 
       await eventBus.emit(

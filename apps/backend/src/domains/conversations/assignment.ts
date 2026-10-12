@@ -5,6 +5,15 @@ import {
   getOne,
   openTenantsOnly,
 } from "../../db/query.ts";
+import {
+  ConversationBusyError,
+  LockTimeoutError,
+  withLock,
+} from "../../conversation/locks.ts";
+import {
+  findConversation,
+  updateConversation,
+} from "../../conversation/store.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { eventBus, createEvent } from "../../shared/events/index.ts";
 import { TenantSettings } from "../settings/system.ts";
@@ -14,22 +23,65 @@ const logger = createLogger("assignment");
 
 type Agent = {
   id: string;
-  name: string;
   phone_number: string | null;
 };
 
 const AGENT_INDEX_KEY = "last_agent_index";
 
-/** Round-robin over the agents of one tenant. */
-export async function assignNextAgent(
-  ref: ConversationRef,
-  clientName: string | null,
-): Promise<string | null> {
+const ACCEPT_WINDOW_MS = 5 * 60 * 1000;
+
+const ASSIGNED_REASON = "agent_assigned";
+
+const IDENTITY_WHERE =
+  "tenant_id = ? AND channel_account_id = ? AND phone_number = ?";
+
+function identityParams(ref: ConversationRef): [string, string, string] {
+  return [ref.tenantId, ref.channelAccountId, ref.phoneNumber];
+}
+
+/**
+ * Assigns the next agent in rotation and notifies them. Takes the conversation
+ * lock, so it is for callers that do not hold it: the decline route and the
+ * timer. A caller inside the lock, such as an escalating bot turn, uses
+ * `assignNextAgentHeld`.
+ *
+ * @throws ConversationBusyError if the lock does not come free
+ * @throws LockTimeoutError if the assignment outlasts the lock timeout
+ */
+export function assignNextAgent(ref: ConversationRef): Promise<string | null> {
+  return withLock(ref, async () => assignNextAgentHeld(ref));
+}
+
+/**
+ * Round-robin over the agents of one tenant. The caller holds the conversation
+ * lock. The conversation ends up escalated, so the bot stays silent, and
+ * assigned when an agent is available. Returns null, leaving it escalated and
+ * unassigned, when none is.
+ */
+export function assignNextAgentHeld(ref: ConversationRef): string | null {
+  const conversation = findConversation(ref);
+  if (!conversation) return null;
+
+  // Whoever gives up a conversation, or a turn that escalates it, is asking for
+  // a person. That holds when no agent is free, so the bot must stay silent
+  // either way. `updateConversation` sets the status and the reason with the
+  // phase. An escalated conversation keeps its own reason.
+  if (!isEscalated(conversation.context_data)) {
+    updateConversation(
+      ref,
+      {
+        phase: "escalated",
+        reason: conversation.handover_reason ?? ASSIGNED_REASON,
+      },
+      {},
+    );
+  }
+
   // Agents are found through membership, so a sales agent in tenant A is never
   // handed tenant B's client. Availability is read from the membership too, so
   // going offline for one business leaves the agent in the other's rotation.
   const agents = getAll<Agent>(
-    `SELECT u.id, u.name, u.phone_number FROM users u
+    `SELECT u.id, u.phone_number FROM users u
      JOIN tenant_memberships m ON m.user_id = u.id
      WHERE m.tenant_id = ? AND m.role = 'sales_agent'
        AND m.is_available = 1 AND u.is_active = 1
@@ -65,21 +117,9 @@ export async function assignNextAgent(
 
   db.prepare(
     `UPDATE conversations
-     SET assigned_agent = ?, assignment_notified_at = ?, status = 'human_takeover'
-     WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
-  ).run(
-    assignedAgent.id,
-    Date.now(),
-    ref.tenantId,
-    ref.channelAccountId,
-    ref.phoneNumber,
-  );
-
-  const conversation = getOne<{ dni: string }>(
-    `SELECT dni FROM conversations
-     WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
-    [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
-  );
+     SET assigned_agent = ?, assignment_notified_at = ?
+     WHERE ${IDENTITY_WHERE}`,
+  ).run(assignedAgent.id, Date.now(), ...identityParams(ref));
 
   if (assignedAgent.phone_number) {
     eventBus.emit(
@@ -87,10 +127,10 @@ export async function assignNextAgent(
         "agent_assigned",
         {
           phoneNumber: ref.phoneNumber,
-          clientName,
+          clientName: conversation.client_name,
           agentId: assignedAgent.id,
           agentPhone: assignedAgent.phone_number,
-          dni: conversation?.dni,
+          dni: conversation.dni,
         },
         { tenantId: ref.tenantId, channelAccountId: ref.channelAccountId },
       ),
@@ -100,13 +140,23 @@ export async function assignNextAgent(
   return assignedAgent.id;
 }
 
+function isEscalated(contextData: string | null): boolean {
+  try {
+    return JSON.parse(contextData ?? "{}").phase?.phase === "escalated";
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Hands conversations nobody picked up to the next agent. It runs on a timer
- * across every tenant, so it takes the restriction the scope-driven reads take.
- * A suspended business must not keep churning assignments and notifying agents.
+ * Hands conversations nobody took over to the next agent. An assignment waits
+ * for the agent to take the conversation over, which clears
+ * `assignment_notified_at`. It runs on a timer across every tenant, so it takes
+ * the restriction the scope-driven reads take. A suspended business must not
+ * keep churning assignments and notifying agents.
  */
-export function checkAndReassignTimeouts(): void {
-  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+export async function checkAndReassignTimeouts(): Promise<void> {
+  const cutoff = Date.now() - ACCEPT_WINDOW_MS;
 
   // A conversation on a number that is not active is left alone, as the queues
   // leave its messages. Nobody can answer the customer there, so reassigning
@@ -116,18 +166,15 @@ export function checkAndReassignTimeouts(): void {
     tenant_id: string;
     channel_account_id: string;
     phone_number: string;
-    client_name: string | null;
-    assigned_agent: string | null;
   }>(
-    `SELECT tenant_id, channel_account_id, phone_number, client_name, assigned_agent
+    `SELECT tenant_id, channel_account_id, phone_number
      FROM conversations
      WHERE assignment_notified_at IS NOT NULL
        AND assignment_notified_at < ?
        AND status = 'human_takeover'
-       AND handover_reason IS NULL
        AND ${openTenantsOnly()}
        AND ${activeChannelAccountsOnly()}`,
-    [fiveMinutesAgo],
+    [cutoff],
   );
 
   for (const conv of timedOutConversations) {
@@ -137,21 +184,52 @@ export function checkAndReassignTimeouts(): void {
       phoneNumber: conv.phone_number,
     };
 
-    logger.info(
-      {
-        tenantId: ref.tenantId,
-        phoneNumber: ref.phoneNumber,
-        previousAgent: conv.assigned_agent,
-      },
-      "Reassigning timed-out conversation",
-    );
-
-    db.prepare(
-      `UPDATE conversations
-       SET assignment_notified_at = NULL, assigned_agent = NULL
-       WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?`,
-    ).run(ref.tenantId, ref.channelAccountId, ref.phoneNumber);
-
-    assignNextAgent(ref, conv.client_name);
+    try {
+      await withLock(ref, async () => reassignIfStillWaiting(ref, cutoff));
+    } catch (error) {
+      if (
+        error instanceof ConversationBusyError ||
+        error instanceof LockTimeoutError
+      ) {
+        logger.debug(
+          { tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
+          "Conversation busy; left the reassignment for later",
+        );
+        continue;
+      }
+      logger.error(
+        { error, tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
+        "Reassigning a timed-out conversation failed",
+      );
+    }
   }
+}
+
+function reassignIfStillWaiting(ref: ConversationRef, cutoff: number): void {
+  const current = getOne<{ assigned_agent: string | null }>(
+    `SELECT assigned_agent FROM conversations
+     WHERE ${IDENTITY_WHERE}
+       AND assignment_notified_at IS NOT NULL
+       AND assignment_notified_at < ?
+       AND status = 'human_takeover'`,
+    [...identityParams(ref), cutoff],
+  );
+  if (!current) return;
+
+  logger.info(
+    {
+      tenantId: ref.tenantId,
+      phoneNumber: ref.phoneNumber,
+      previousAgent: current.assigned_agent,
+    },
+    "Reassigning timed-out conversation",
+  );
+
+  db.prepare(
+    `UPDATE conversations
+     SET assignment_notified_at = NULL, assigned_agent = NULL
+     WHERE ${IDENTITY_WHERE}`,
+  ).run(...identityParams(ref));
+
+  assignNextAgentHeld(ref);
 }

@@ -10,7 +10,6 @@ import {
 import { refOf } from "../conversation/store.ts";
 import * as ConversationWrite from "../domains/conversations/write.ts";
 import * as ConversationMedia from "../domains/conversations/media.ts";
-import { assignNextAgent } from "../domains/conversations/assignment.ts";
 import { requireActiveTenant, requireTenantScope } from "../middleware/auth.ts";
 
 const conversations = new Hono();
@@ -162,18 +161,21 @@ conversations.post(
     const conv = found.conversation;
 
     const user = c.get("user");
-    const ref = refOf(conv);
-    const result = ConversationWrite.declineAssignment(ref, user.id);
 
-    if (!result.success) {
-      return c.json({ error: result.error }, 403);
+    try {
+      const result = await ConversationWrite.declineAssignment(
+        refOf(conv),
+        user.id,
+      );
+
+      if (!result.success) {
+        return c.json({ error: result.error }, 403);
+      }
+
+      return c.json({ success: true });
+    } catch (error) {
+      return refuseIfBusy(c, error);
     }
-
-    if (result.clientName !== undefined) {
-      await assignNextAgent(ref, result.clientName);
-    }
-
-    return c.json({ success: true });
   },
 );
 

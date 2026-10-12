@@ -77,10 +77,10 @@ startOutboxWorker();
 
 // An error that escapes a timer callback ends the process, so a busy or full
 // database must cost one tick, not the server.
-function everyGuarded(name: string, ms: number, task: () => void): void {
-  setInterval(() => {
+function everyGuarded(name: string, ms: number, task: () => unknown): void {
+  setInterval(async () => {
     try {
-      task();
+      await task();
     } catch (error) {
       logger.error({ error, task: name }, "Scheduled task failed");
     }
