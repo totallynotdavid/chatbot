@@ -30,7 +30,10 @@ const adapters: Record<string, NotificationChannelAdapter> = {
 
 /**
  * Picks the account a notification goes out on. The event's own channel account
- * wins, then its tenant's default account, then the platform operations account.
+ * wins, then its tenant's default account. A tenant's alert carries customer
+ * data, so it must not leave from the platform's number. A tenant with no
+ * account gets null and a failed trace. Only an event with no tenant, such as
+ * both eligibility providers being down, uses the platform operations account.
  */
 export function accountForEvent(event: DomainEvent): ChannelAccount | null {
   if (event.channelAccountId) {
@@ -39,14 +42,9 @@ export function accountForEvent(event: DomainEvent): ChannelAccount | null {
   }
 
   if (event.tenantId) {
-    const account = ChannelAccountService.getDefaultForTenant(event.tenantId);
-    if (account) return account;
+    return ChannelAccountService.getDefaultForTenant(event.tenantId);
   }
 
-  // A platform-wide alert, such as both eligibility providers being down, has
-  // no tenant, and `notification_traces.tenant_id` is nullable for that case.
-  // Any event that found no account above takes this fallback, a tenant's own
-  // event included.
   return ChannelAccountService.getPlatformOps();
 }
 
