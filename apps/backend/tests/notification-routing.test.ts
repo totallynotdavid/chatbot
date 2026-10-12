@@ -381,4 +381,74 @@ describe("a platform-wide alert with no tenant", () => {
       } as DomainEvent)?.id,
     ).toBe(tenant.channelAccountId);
   });
+
+  describe("and a tenant's alert when that tenant has no number", () => {
+    let bare: TenantFixture;
+
+    function tenantEvent(traceId: string, channelAccountId?: string) {
+      return {
+        type: "system_error_occurred",
+        traceId,
+        timestamp: Date.now(),
+        tenantId: bare.tenantId,
+        channelAccountId,
+        payload: { phoneNumber: CUSTOMER, error: "boom" },
+      } as DomainEvent;
+    }
+
+    beforeEach(() => {
+      bare = createTenantFixture("no-number");
+      db.prepare("DELETE FROM channel_accounts WHERE tenant_id = ?").run(
+        bare.tenantId,
+      );
+      SystemSettings.set("platform_ops_channel_account_id", opsAccountId);
+    });
+
+    afterEach(() => {
+      dropTenantFixture(bare);
+    });
+
+    it("is recorded as failed and sends nothing", async () => {
+      const traceId = `trace-${crypto.randomUUID()}`;
+      await dispatchNotifications(outageDecisions(), tenantEvent(traceId));
+
+      expect(trace(traceId)).toEqual({
+        status: "failed",
+        reason: "no_channel_account",
+        tenant_id: bare.tenantId,
+      });
+      expect(sends).toHaveLength(0);
+    });
+
+    it("is not rescued by a stale channel account id on the event", async () => {
+      const traceId = `trace-${crypto.randomUUID()}`;
+      await dispatchNotifications(
+        outageDecisions(),
+        tenantEvent(traceId, "ch-deleted"),
+      );
+
+      expect(trace(traceId).reason).toBe("no_channel_account");
+      expect(sends).toHaveLength(0);
+    });
+
+    it("goes out on the tenant's default number once it has one", async () => {
+      const own = ChannelAccountService.create({
+        tenantId: bare.tenantId,
+        phoneNumberId: `pnid-own-${crypto.randomUUID().slice(0, 8)}`,
+        label: "Propio",
+        accessToken: "own-token",
+      });
+
+      const traceId = `trace-${crypto.randomUUID()}`;
+      await dispatchNotifications(
+        outageDecisions(),
+        tenantEvent(traceId, "ch-deleted"),
+      );
+
+      expect(trace(traceId).status).toBe("sent");
+      expect(sends).toHaveLength(1);
+      expect(sends[0]!.url).toContain(`/${own.phone_number_id}/messages`);
+      expect(sends[0]!.url).not.toContain(`/${opsPhoneNumberId}/messages`);
+    });
+  });
 });
