@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { pathParam } from "../lib/http.ts";
 import {
   ProductService,
@@ -19,6 +19,16 @@ import {
 const catalog = new Hono();
 
 const requireCatalogWrite = requireRole("admin", "developer", "supervisor");
+
+const NOT_AN_OBJECT = "Request body must be a JSON object";
+
+async function jsonObject(c: Context): Promise<Record<string, unknown> | null> {
+  const body: unknown = await c.req.json().catch(() => null);
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return null;
+  }
+  return body as Record<string, unknown>;
+}
 
 // Reads use the pinned tenant, or every open tenant for an unpinned platform
 // operator. Writes additionally need a pinned tenant to write into.
@@ -179,11 +189,16 @@ catalog.post(
     }
 
     const fieldsError = bundleFieldsError({
+      name,
+      price: Number(price),
       primary_category: primaryCategory,
       composition_json: compositionJson,
       installments_json: installmentsJson,
     });
     if (fieldsError) return c.json({ error: fieldsError }, 400);
+    if (segment !== "gaso" && segment !== "fnb") {
+      return c.json({ error: "segment must be gaso or fnb" }, 400);
+    }
 
     const period = PeriodService.getById(tenantId, periodId);
     if (!period) return c.json({ error: "Period not found" }, 404);
@@ -213,7 +228,7 @@ catalog.post(
       period_id: periodId,
       segment: segment as "gaso" | "fnb",
       name,
-      price: parseFloat(price),
+      price: Number(price),
       primary_category: primaryCategory,
       categories_json: categoriesJson || "[]",
       image_id: imageId,
@@ -240,9 +255,10 @@ catalog.patch(
     const id = pathParam(c, "id");
     const user = c.get("user");
     const tenantId = activeTenantId(c);
-    const updates = await c.req.json();
+    const updates = await jsonObject(c);
+    if (!updates) return c.json({ error: NOT_AN_OBJECT }, 400);
 
-    const fieldsError = bundleFieldsError(updates ?? {});
+    const fieldsError = bundleFieldsError(updates);
     if (fieldsError) return c.json({ error: fieldsError }, 400);
 
     const bundle = BundleService.update(tenantId, id, updates);
@@ -331,11 +347,36 @@ catalog.post(
   async (c) => {
     const user = c.get("user");
     const tenantId = activeTenantId(c);
-    const { ids, updates } = await c.req.json();
+    const body = await jsonObject(c);
+    if (!body) return c.json({ error: NOT_AN_OBJECT }, 400);
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return c.json({ error: "ids must be non-empty array" }, 400);
+    const { ids, updates } = body;
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      !ids.every((id) => typeof id === "string")
+    ) {
+      return c.json({ error: "ids must be a non-empty array of ids" }, 400);
     }
+
+    if (
+      updates === null ||
+      typeof updates !== "object" ||
+      Array.isArray(updates)
+    ) {
+      return c.json({ error: "updates must be an object" }, 400);
+    }
+
+    // Bulk updates support only these two columns.
+    const { is_active, stock_status } = updates as Record<string, unknown>;
+    if (is_active === undefined && stock_status === undefined) {
+      return c.json(
+        { error: "updates must set is_active or stock_status" },
+        400,
+      );
+    }
+    const fieldsError = bundleFieldsError({ is_active, stock_status });
+    if (fieldsError) return c.json({ error: fieldsError }, 400);
 
     const count = BundleService.bulkUpdate(tenantId, ids, updates);
     logAction(

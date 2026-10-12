@@ -35,6 +35,7 @@ async function releaseImage(
 }
 
 const REQUIRED_TEXT_FIELDS = [
+  "name",
   "primary_category",
   "composition_json",
   "installments_json",
@@ -42,13 +43,26 @@ const REQUIRED_TEXT_FIELDS = [
 
 const JSON_FIELDS = ["composition_json", "installments_json"] as const;
 
+export const STOCK_STATUSES = [
+  "in_stock",
+  "low_stock",
+  "out_of_stock",
+] as const;
+
 /**
- * Why a bundle's category, composition or installments cannot be stored, or
- * null when the ones given are fine. A field left out is not checked. Both JSON
+ * Why an edit to a bundle cannot be stored, or null when the fields given are
+ * fine. A field left out is not checked, and a key that is not an editable
+ * column is ignored, as `update` ignores it. Each rule mirrors the column it
+ * guards, so a refusal here is a 400 instead of a CHECK failure. Both JSON
  * columns are parsed on every catalog read (`json_tree`, the image caption), so
  * a value that does not parse would break the bot's replies.
  */
 export function bundleFieldsError(fields: {
+  name?: unknown;
+  price?: unknown;
+  is_active?: unknown;
+  stock_status?: unknown;
+  notes?: unknown;
   primary_category?: unknown;
   composition_json?: unknown;
   installments_json?: unknown;
@@ -59,6 +73,26 @@ export function bundleFieldsError(fields: {
     if (typeof value !== "string" || value.trim() === "") {
       return `${key} must be a non-empty string`;
     }
+  }
+
+  const { price, is_active, stock_status, notes } = fields;
+  if (
+    price !== undefined &&
+    (typeof price !== "number" || !Number.isFinite(price) || price <= 0)
+  ) {
+    return "price must be a number above zero";
+  }
+  if (is_active !== undefined && is_active !== 0 && is_active !== 1) {
+    return "is_active must be 0 or 1";
+  }
+  if (
+    stock_status !== undefined &&
+    !(STOCK_STATUSES as readonly unknown[]).includes(stock_status)
+  ) {
+    return `stock_status must be one of ${STOCK_STATUSES.join(", ")}`;
+  }
+  if (notes !== undefined && typeof notes !== "string") {
+    return "notes must be a string";
   }
 
   for (const key of JSON_FIELDS) {
@@ -203,7 +237,7 @@ export const BundleService = {
   /**
    * Editable bundle fields, one `if` per column. Unknown keys are ignored, not
    * rejected. The type is the contract and this list is the enforcement. The
-   * caller checks the category and the JSON columns with `bundleFieldsError`.
+   * caller checks every field with `bundleFieldsError` first.
    */
   update: (
     tenantId: string,
