@@ -11,7 +11,6 @@ import { createTraceId } from "@vendeya/utils";
 import { createLogger } from "../../lib/logger.ts";
 import { enrichmentRegistry } from "../enrichment/index.ts";
 import { applyEnrichmentToMetadata } from "../enrichment/metadata-manager.ts";
-import { updateConversation } from "../store.ts";
 
 const logger = createLogger("enrichment");
 const MAX_ENRICHMENT_LOOPS = 10; // Safety limit
@@ -78,9 +77,10 @@ export async function runEnrichmentLoop(
       "Enrichment needed",
     );
 
+    // Keep the pending phase in memory. The executor writes the phase after
+    // sending, so a send failure replays the message from its stored phase.
     if (result.pendingPhase) {
       currentPhase = result.pendingPhase;
-      updateConversation(ref, currentPhase, metadata);
     }
 
     const handler = enrichmentRegistry.get(result.enrichment.type);
