@@ -10,14 +10,13 @@ A production deployment runs two processes on one host:
 bun install --frozen-lockfile
 bun run build                                    # builds apps/frontend/dist
 bun run --cwd apps/backend start                 # backend on :3000
-PORT=5173 BODY_SIZE_LIMIT=3M bun apps/frontend/dist/index.js
+PORT=5173 bun apps/frontend/dist/index.js
 ```
 
 - The backend listens on `PORT`, default 3000. The frontend reaches it at
   `http://localhost:3000` whatever `PORT` says, so leave it at 3000.
 - The built frontend also reads `PORT`, and its default is 3000 too. Give it
-  another port. `BODY_SIZE_LIMIT` must be `3M` for Meta's webhook (see
-  [Connecting WhatsApp](./whatsapp.md#body-size)).
+  another port.
 - The notifier is not run, so a production `.env` needs none of its variables.
   With `NODE_ENV` other than `development`, the backend sends through the Cloud
   API. In development the notifier listens on `127.0.0.1` only, because its
@@ -66,7 +65,8 @@ or `PUBLIC_URL` shows up when it is first used.
 | `BOT_RESPONSE_DELAY_MS`                                                | backend           | 2300                                                                                                         |
 | `COOKIE_SECURE`                                                        | backend           | secure cookies only in production                                                                            |
 | `PORT`                                                                 | backend, frontend | 3000                                                                                                         |
-| `BODY_SIZE_LIMIT`                                                      | built frontend    | 512K                                                                                                         |
+| `BODY_SIZE_LIMIT`                                                      | built frontend    | 64M. See [Uploads](#uploads)                                                                                 |
+| `LOG_DIR`                                                              | backend           | `./data/logs`, relative to `apps/backend`                                                                    |
 | `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all               | `info`                                                                                                       |
 | `NOTIFIER_DATA_PATH`, `CHROME_PATH`, `NOTIFIER_PORT`                   | notifier          | `./data`, a Chrome/Chromium executable or Puppeteer browser, 3001. The backend always calls `127.0.0.1:3001` |
 
@@ -135,6 +135,14 @@ beside `UPLOAD_DIR`. Both are relative to `apps/backend` unless absolute. In
 production, point `UPLOAD_DIR` at a persistent volume: the asset rows in the
 database outlive a redeploy, and the files must too.
 
+The built frontend server refuses a request body over 64 MiB with 413, before
+any route runs. That is the largest upload: an hour of 8 kHz mono WAV is about
+55 MiB. The limit is set at build time in
+[`vite.config.ts`](../apps/frontend/vite.config.ts), and `BODY_SIZE_LIMIT` at
+run time replaces it. The webhook route holds Meta's webhook to 3 MiB regardless
+(see [Connecting WhatsApp](./whatsapp.md#body-size)), so leave `BODY_SIZE_LIMIT`
+unset.
+
 The seeded catalog photos are tracked in `apps/backend/data/uploads/images`.
 Every boot copies any that are missing into `<UPLOAD_DIR>/images`.
 
@@ -190,16 +198,17 @@ Nothing in the repository calls `/health`.
 
 ## Logs
 
-The backend writes one JSON object per line to `data/logs/backend.log`, relative
-to `apps/backend`. In production that file is the only output. In development
-the same lines also print to the terminal. `LOG_LEVEL` sets the level, and
-`LOG_LEVEL_<MODULE>` overrides it for one module.
+The backend writes one JSON object per line to `backend.log` in `LOG_DIR`,
+default `data/logs` relative to `apps/backend`. In production that file is the
+only output. In development the same lines also print to the terminal.
+`LOG_LEVEL` sets the level, and `LOG_LEVEL_<MODULE>` overrides it for one
+module.
 
 A failure carries an `error` object with `type`, `message` and `stack`, and the
 `code` or cause the error has. To list every error:
 
 ```sh
-grep '"level":50' apps/backend/data/logs/backend.log
+grep '"level":50' "${LOG_DIR:-apps/backend/data/logs}/backend.log"
 ```
 
 ## Alerts

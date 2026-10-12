@@ -146,9 +146,10 @@ Meta documents webhook payloads of up to 3 MB. Two limits apply:
 
 - The backend refuses a body over 3 MiB with 413, before it checks the
   signature.
-- The built frontend server refuses a body over `BODY_SIZE_LIMIT`. Its default
-  is 512K, read by @sveltejs/adapter-bun. Set it to `3M` in production, as
-  `.env.production.example` does. `vite dev` does not apply it.
+- The frontend's webhook route refuses a body over 3 MiB with 413 and stops
+  reading a chunked body at the limit. The built server itself accepts bodies up
+  to 64 MiB for the dashboard's uploads, so leave `BODY_SIZE_LIMIT` unset (see
+  [Uploads](./operations.md#uploads)).
 
 A refused delivery is not stored.
 

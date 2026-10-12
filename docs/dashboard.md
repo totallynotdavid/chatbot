@@ -20,8 +20,8 @@ the backend run on one host:
 The `/api` proxy forwards the request body as bytes, so a binary upload (a
 bundle image, a contract PDF, a call recording) reaches the backend as the
 browser sent it. It holds the whole body in memory. The built frontend refuses a
-body over `BODY_SIZE_LIMIT` before the proxy sees it
-([Operations](./operations.md)).
+body over 64 MiB before the proxy sees it
+([Operations](./operations.md#uploads)).
 
 Components call the API with `fetchApi` from
 [`lib/utils/api.ts`](../apps/frontend/src/lib/utils/api.ts), a thin `fetch`
@@ -158,10 +158,15 @@ badge on a bundle card sends `stock_status` to the same route. The route stores
 `name`, `price`, `is_active`, `stock_status`, `notes`, `primary_category`,
 `composition_json` and `installments_json`, and ignores any other key.
 
-The category must be a non-empty string. Each JSON column must be a string that
-parses to an object or an array. The bot parses both on every catalog read, so
-the create route holds them to the same rule. A value that fails answers 400 and
-changes nothing.
+The request body must be a JSON object. `name` and the category must be
+non-empty strings. `price` must be a number above zero, `is_active` 0 or 1, and
+`stock_status` one of `in_stock`, `low_stock` and `out_of_stock`. `notes` must
+be a string. Each JSON column must be a string that parses to an object or an
+array. The bot parses both on every catalog read. The create route holds `name`,
+`price`, the category and the JSON columns to the same rules, and
+`POST /api/catalog/bundles/bulk-update` holds `is_active` and `stock_status` to
+them, and answers 400 when `ids` is empty or `updates` is not an object that
+sets one of the two. A value that fails answers 400 and changes nothing.
 
 ## What has no page
 
