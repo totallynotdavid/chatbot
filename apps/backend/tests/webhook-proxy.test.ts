@@ -13,7 +13,11 @@ import {
   dropTenantFixture,
   type TenantFixture,
 } from "./helpers/tenancy.ts";
-import { signWebhookBody, TEST_APP_SECRET } from "./helpers/webhook.ts";
+import {
+  chunkedSpaces,
+  signWebhookBody,
+  TEST_APP_SECRET,
+} from "./helpers/webhook.ts";
 
 import webhook from "../src/routes/webhook.ts";
 
@@ -141,6 +145,57 @@ describe("webhook proxy", () => {
 
     expect(response.status).toBe(503);
     expect(inboxRows()).toBe(0);
+  });
+
+  describe("a body over 3 MiB", () => {
+    const LIMIT_BYTES = 3 * 1024 * 1024;
+    let backendCalls: number;
+
+    beforeEach(() => {
+      backendCalls = 0;
+      routeBackendCallsTo(() => {
+        backendCalls++;
+        return new Response("{}");
+      });
+    });
+
+    it("is refused with 413 before it reaches the backend", async () => {
+      const body = rawBody + " ".repeat(LIMIT_BYTES + 1 - rawBody.length);
+
+      const response = await POST({
+        request: new Request("http://localhost:5173/api/webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Hub-Signature-256": signWebhookBody(body),
+          },
+          body,
+        }),
+      });
+
+      expect(response.status).toBe(413);
+      expect(backendCalls).toBe(0);
+      expect(inboxRows()).toBe(0);
+    });
+
+    it("stops reading a chunked body at the limit", async () => {
+      const source = chunkedSpaces(LIMIT_BYTES + 20 * 64 * 1024);
+
+      const response = await POST({
+        request: new Request("http://localhost:5173/api/webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: source.stream,
+          duplex: "half",
+        } as RequestInit),
+      });
+
+      expect(response.status).toBe(413);
+      expect(backendCalls).toBe(0);
+      expect(source.pulledBytes()).toBeLessThanOrEqual(
+        LIMIT_BYTES + 2 * source.chunkBytes,
+      );
+    });
   });
 
   it("answers 503 when the backend cannot be reached", async () => {

@@ -125,6 +125,15 @@ describe("uploading a contract", () => {
     expect(conversation.recording_audio_asset_id).toBe(second.audioAssetId);
   });
 
+  it("stores a recording larger than the 3 MiB webhook bound whole", async () => {
+    const recording = "r".repeat(5 * 1024 * 1024);
+
+    const { audioAssetId } = await upload("contract", recording);
+
+    expect(assetOf(audioAssetId).byte_size).toBe(recording.length);
+    expect(await bytesOf(audioAssetId)).toBe(recording);
+  });
+
   it("records the byte size of each upload separately", async () => {
     const first = await upload("short", "first recording");
     const second = await upload("a much longer contract", "second recording");
