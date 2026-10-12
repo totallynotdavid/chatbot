@@ -3,7 +3,7 @@ import process from "node:process";
 
 const rootLogger = createRootLogger({
   name: "backend",
-  logDir: "./data/logs",
+  logDir: process.env.LOG_DIR || "./data/logs",
   filename: "backend.log",
   isDevelopment: process.env.NODE_ENV === "development",
 });
