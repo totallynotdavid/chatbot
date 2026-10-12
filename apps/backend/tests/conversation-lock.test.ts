@@ -580,15 +580,13 @@ describe("a group whose answer fails outright", () => {
 
     const row = db
       .prepare(
-        "SELECT status, attempts, last_error FROM message_inbox WHERE channel_account_id = ?",
+        "SELECT status, last_error FROM message_inbox WHERE channel_account_id = ?",
       )
       .get(ref.channelAccountId) as {
       status: string;
-      attempts: number;
       last_error: string | null;
     };
     expect(row.status).toBe("failed");
-    expect(row.attempts).toBe(1);
     expect(row.last_error).toContain("phase");
   });
 

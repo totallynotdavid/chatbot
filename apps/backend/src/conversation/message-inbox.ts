@@ -25,25 +25,8 @@ import type { ConversationRef, IncomingMessage } from "@vendeya/types";
  *    A process that dies here leaves the row processing. Whether the customer
  *    already got a reply is not known, so the row is not answered again.
  *  - processed: kept for `isQueued` until `purgeProcessedInbox`.
- *  - failed: stays failed, with `last_error`. `retryFailed` puts it back to
- *    pending while `attempts` is below its limit.
+ *  - failed: stays failed, with `last_error`. Nothing moves it again.
  */
-
-type InboxMessage = {
-  id: number;
-  tenant_id: string;
-  channel_account_id: string;
-  phone_number: string;
-  message_text: string;
-  message_id: string;
-  whatsapp_timestamp: number;
-  status: "pending" | "processing" | "processed" | "failed";
-  aggregate_id: string | null;
-  attempts: number;
-  last_error: string | null;
-  created_at: number;
-  processed_at: number | null;
-};
 
 /**
  * Aggregation groups by the full conversation identity, so two tenants that
@@ -174,7 +157,7 @@ export function markAsFailed(ids: string, error: string): void {
 
   db.prepare(
     `UPDATE message_inbox
-     SET status = 'failed', attempts = attempts + 1, last_error = ?
+     SET status = 'failed', last_error = ?
      WHERE id IN (${placeholders})`,
   ).run(error, ...idList);
 }
@@ -199,32 +182,6 @@ export function countFailed(tenantId: string | null = null): number {
     tenantId ? [tenantId] : [],
   );
   return rows[0]?.count ?? 0;
-}
-
-export function getFailedMessages(
-  tenantId: string | null = null,
-  limit = 100,
-): InboxMessage[] {
-  return getAll<InboxMessage>(
-    `SELECT * FROM message_inbox
-     WHERE status = 'failed' AND ${tenantPredicate(tenantId)}
-     ORDER BY created_at DESC LIMIT ?`,
-    tenantId ? [tenantId, limit] : [limit],
-  );
-}
-
-export function retryFailed(
-  tenantId: string | null = null,
-  maxAttempts = 3,
-): number {
-  const result = db
-    .prepare(
-      `UPDATE message_inbox SET status = 'pending', last_error = NULL
-       WHERE status = 'failed' AND attempts < ? AND ${tenantPredicate(tenantId)}`,
-    )
-    .run(...(tenantId ? [maxAttempts, tenantId] : [maxAttempts]));
-
-  return result.changes;
 }
 
 /** Delete processed inbox rows processed before `before` (epoch ms). */

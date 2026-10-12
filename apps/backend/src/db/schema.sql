@@ -240,8 +240,6 @@ CREATE TABLE IF NOT EXISTS message_inbox (
     whatsapp_timestamp INTEGER NOT NULL,
     quoted_message_context TEXT,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'processed', 'failed')),
-    aggregate_id TEXT,
-    attempts INTEGER DEFAULT 0,
     last_error TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
     processed_at INTEGER,
