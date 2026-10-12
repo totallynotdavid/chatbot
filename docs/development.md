@@ -59,6 +59,29 @@ workspace is neither typechecked nor tested in CI until it is added to both.
 ([`dependabot.yml`](../.github/dependabot.yml)) updates the bun dependencies
 daily and the actions weekly. It does not update `mise.toml`.
 
+### Keeping the mise pins current
+
+[`mise-pins.yml`](../.github/workflows/mise-pins.yml) runs every Monday and on
+demand. It runs [`check-mise-pins.sh`](../.github/scripts/check-mise-pins.sh),
+which prints pins behind their latest release. The workflow keeps one open issue,
+"Update the pins in mise.toml", synchronized with that list:
+
+| The script prints | The workflow                       |
+| ----------------- | ---------------------------------- |
+| outdated pins     | opens the issue, or rewrites it    |
+| nothing           | closes the issue if one is open    |
+| fails             | leaves the issue as it is, run red |
+
+`mise outdated` omits a tool whose lookup failed and exits 0, the same as for a
+current tool. The script therefore accepts a pin only when `mise outdated` lists
+it or `mise latest` returns the pinned version. A pin that meets neither
+condition fails the run and names the tool. Pins in `mise.toml` must be exact
+versions because a range never equals the latest version.
+
+To bump a pin, edit `mise.toml` and run `mise lock` to rewrite its entry in
+`mise.lock`. To run the check locally, run `.github/scripts/check-mise-pins.sh`
+from the repository root.
+
 ## How the tests are laid out
 
 All tests use `bun:test`.
