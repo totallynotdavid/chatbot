@@ -104,6 +104,7 @@ export function dropTenantFixture(fixture: TenantFixture | undefined): void {
     "llm_calls",
     "notification_traces",
     "orders",
+    "unread_alerts",
     "conversations",
     "catalog_bundles",
     "catalog_periods",
