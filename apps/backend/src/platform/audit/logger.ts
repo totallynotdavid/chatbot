@@ -134,7 +134,7 @@ export function getAuditTrail(
 
   return getAll<AuditLog>(
     `SELECT * FROM audit_log
-     ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+     WHERE ${conditions.join(" AND ")}
      ORDER BY created_at DESC
      LIMIT ?`,
     params,

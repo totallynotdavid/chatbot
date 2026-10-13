@@ -230,9 +230,6 @@ export const ReportService = {
       values.push(assignedAgent);
     }
 
-    const whereClause =
-      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
     const rows = getAll<Record<string, unknown>>(
       `
         SELECT 
@@ -249,8 +246,8 @@ export const ReportService = {
           calidda_notes as "Notas Calidda",
           created_at as "Fecha Creación",
           updated_at as "Última Actualización"
-        FROM orders 
-        ${whereClause}
+        FROM orders
+        WHERE ${conditions.join(" AND ")}
         ORDER BY created_at DESC
       `,
       values,

@@ -104,7 +104,7 @@ export function getRecentEvents(
 
   return getAll<AnalyticsEvent>(
     `SELECT * FROM analytics_events
-     ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+     WHERE ${conditions.join(" AND ")}
      ORDER BY created_at DESC
      LIMIT ?`,
     params,
