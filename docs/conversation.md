@@ -95,7 +95,8 @@ runs one turn for one grouped message:
 
 1. Load the conversation. If it has been idle 3 hours, reset it (see
    [the idle reset](#the-idle-reset)).
-2. Mark the message read and show the typing indicator.
+2. Mark the message read. Show the typing indicator unless the conversation is
+   `escalated`, because the bot sends no reply while a person holds it.
 3. Run the enrichment loop, which calls core until it has a final result.
 4. Wait out the rest of the pacing delay: `BOT_RESPONSE_DELAY_MS`, default 2300
    ms, counted from the customer's message. A message older than 10 minutes gets
@@ -105,7 +106,8 @@ runs one turn for one grouped message:
    `escalated`, assign an agent ([Escalation](#escalation)) and emit
    `escalation_triggered`. Core and the enrichment loop never put
    `escalation_triggered` in the events, and a turn on an already escalated
-   conversation emits nothing, so an escalation alerts once.
+   conversation never emits it, so an escalation alerts once. Such a turn may
+   emit `customer_message_received` ([Escalation](#escalation)).
 
 The simulator and the maintenance sweep call the same `handleMessage`.
 
@@ -257,7 +259,7 @@ handed off. Inside the lock it:
 1. cancels the conversation's pending replies,
 2. escalates the conversation with reason `reply_undeliverable` if it is still
    `active`, and assigns it an agent,
-3. emits `escalation_triggered`,
+3. records the unread alert and emits `escalation_triggered`,
 4. stamps `handed_off_at` on the failed rows.
 
 A crash between steps 3 and 4 alerts twice. The customer is not told anything.
@@ -346,8 +348,18 @@ sales target. The undeliverable-reply handoff escalates and assigns the same
 way.
 
 A conversation escalates once. While it stays `escalated`, a later customer
-message neither alerts nor assigns again, because the alert would repeat what
-the agent already knows.
+message neither emits `escalation_triggered` nor assigns again. It can emit
+`customer_message_received`, which goes to the assigned agent only, never to the
+sales target, with its own text ("escribió en la conversación que atiendes") and
+the conversation link. The agent has to be able to hear it: the conversation is
+`human_takeover` and the agent has a phone number.
+
+Whoever holds the conversation gets at most one alert until they answer. The
+`unread_alerts` row and its transitions are in
+[Unread alert](./architecture.md#unread-alert). A customer who keeps writing
+after the escalation alert therefore costs no further alert. A customer who
+writes after the agent answered, or after the conversation went to another
+agent, costs one.
 
 An assignment waits for the agent to take the conversation over, which clears
 `assignment_notified_at`. If 5 minutes pass first, a timer (checked every 60 s)

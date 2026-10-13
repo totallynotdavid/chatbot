@@ -219,6 +219,7 @@ Alerts are WhatsApp messages sent by the backend on events
 | Event                                                  | Goes to                                   |
 | ------------------------------------------------------ | ----------------------------------------- |
 | escalation, attention required, order created          | the assigned agent, else the sales target |
+| customer message to a held conversation                | the assigned agent only                   |
 | agent assigned                                         | the agent's phone                         |
 | system error, outage, provider degraded, loop exceeded | the dev target                            |
 

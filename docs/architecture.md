@@ -69,14 +69,14 @@ The backend stores durable state in one SQLite database. `DB_PATH` defaults to
 `apps/backend/data/database.sqlite` when the backend is run from its directory.
 The schema is [`db/schema.sql`](../apps/backend/src/db/schema.sql).
 
-| Area                  | Tables or files                                                                         |
-| --------------------- | --------------------------------------------------------------------------------------- |
-| Tenancy and auth      | `tenants`, `users`, `tenant_memberships`, `session`                                     |
-| Channel credentials   | `channel_accounts`, encrypted `channel_secrets`                                         |
-| Catalog and simulator | `catalog_periods`, `products`, `catalog_bundles`, `test_personas`                       |
-| Conversations         | `conversations`, `messages`, `message_inbox`, `held_messages`, `outbox`                 |
-| Sales and records     | `orders`, `assets`, `analytics_events`, `llm_calls`, `notification_traces`, `audit_log` |
-| Settings              | `system_settings`, `tenant_settings`                                                    |
+| Area                  | Tables or files                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Tenancy and auth      | `tenants`, `users`, `tenant_memberships`, `session`                                      |
+| Channel credentials   | `channel_accounts`, encrypted `channel_secrets`                                          |
+| Catalog and simulator | `catalog_periods`, `products`, `catalog_bundles`, `test_personas`                        |
+| Conversations         | `conversations`, `messages`, `message_inbox`, `held_messages`, `outbox`, `unread_alerts` |
+| Sales and records     | `orders`, `assets`, `analytics_events`, `llm_calls`, `notification_traces`, `audit_log`  |
+| Settings              | `system_settings`, `tenant_settings`                                                     |
 
 A conversation's phase and metadata are one JSON column,
 `conversations.context_data`, shaped `{ phase, metadata }`.
@@ -112,6 +112,27 @@ A takeover reads the holder and writes the taker under the conversation lock, so
 of two simultaneous takers one wins and the other gets 409. The holder repeating
 a takeover succeeds. A user who loses their membership, their role or their
 account does not get a conversation back when they return.
+
+### Unread alert
+
+`unread_alerts` holds one row per conversation whose holder was alerted and has
+not answered since. A conversation is either `none` (no row) or `unread` (a
+row). Only `none` lets a customer message to a held conversation alert the
+assigned agent.
+
+| Transition     | When                                                                                                              | Owner                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| none to unread | a bot turn escalates the conversation, after it is assigned                                                       | `handleMessage` in [`orchestrator.ts`](../apps/backend/src/conversation/handler/orchestrator.ts), `raiseUnreadAlert` |
+| none to unread | a failed reply hands the conversation to a person                                                                 | `handOff` in [`outbox-handoff.ts`](../apps/backend/src/conversation/outbox-handoff.ts), `raiseUnreadAlert`           |
+| none to unread | a customer message reaches a `human_takeover` conversation whose agent has a phone                                | `claimMessageAlert` in [`unread-alerts.ts`](../apps/backend/src/conversation/unread-alerts.ts), one atomic insert    |
+| unread to none | the holder sends a message                                                                                        | `sendManualMessage`, `clearUnreadAlert`, after the send succeeded                                                    |
+| unread to none | `assigned_agent` is written: assignment, reassignment, decline, takeover, release, idle reset, an agent's removal | the trigger `conversations_assignment_clears_unread_alert` in [`schema.sql`](../apps/backend/src/db/schema.sql)      |
+| unread to none | none of the alert's notifications went out                                                                        | `notify` in [`notify.ts`](../apps/backend/src/domains/notifications/notify.ts)                                       |
+
+The row is written before the alert is sent and the turn waits for the send, all
+under the conversation lock, so the next message sees the row as the delivery
+left it. An escalation assigns before it raises the row, because writing
+`assigned_agent` removes it.
 
 The backend also has process-local state:
 
