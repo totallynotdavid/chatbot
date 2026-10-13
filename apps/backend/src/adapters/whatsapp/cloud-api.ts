@@ -212,7 +212,11 @@ export const CloudApiAdapter: WhatsAppAdapter = {
     );
   },
 
-  async markAsRead(account: ChannelAccount, messageId: string): Promise<void> {
+  async markAsRead(
+    account: ChannelAccount,
+    messageId: string,
+    { typing }: { typing: boolean },
+  ): Promise<void> {
     const creds = credentials(account);
     if ("refusal" in creds) return;
 
@@ -229,7 +233,7 @@ export const CloudApiAdapter: WhatsAppAdapter = {
           messaging_product: "whatsapp",
           status: "read",
           message_id: messageId,
-          typing_indicator: { type: "text" },
+          ...(typing && { typing_indicator: { type: "text" } }),
         }),
         signal,
       });

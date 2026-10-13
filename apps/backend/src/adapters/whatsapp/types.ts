@@ -56,7 +56,11 @@ export interface WhatsAppAdapter {
     imagePath: string,
     caption?: string,
   ): Promise<SendOutcome>;
-  markAsRead(account: ChannelAccount, messageId: string): Promise<void>;
+  markAsRead(
+    account: ChannelAccount,
+    messageId: string,
+    options: { typing: boolean },
+  ): Promise<void>;
 }
 
 export type MessageDirection = "inbound" | "outbound";

@@ -304,15 +304,17 @@ export const WhatsAppService = {
   /**
    * Unlike the send methods, this does not throw for an account that is not
    * active. It runs before the reply is worked out, including for simulated
-   * conversations, which use whichever number the tenant has.
+   * conversations, which use whichever number the tenant has. `typing` requests
+   * the customer-facing typing indicator.
    */
-  async markAsReadAndShowTyping(
+  async markAsRead(
     ref: ConversationRef,
     messageId: string,
+    options: { typing: boolean },
   ): Promise<void> {
     const target = resolveAccount(ref);
     if (!("account" in target)) return;
-    await adapter.markAsRead(target.account, messageId);
+    await adapter.markAsRead(target.account, messageId, options);
   },
 
   logMessage(

@@ -104,6 +104,7 @@ export const DevAdapter: WhatsAppAdapter = {
   async markAsRead(
     _account: ChannelAccount,
     _messageId: string,
+    _options: { typing: boolean },
   ): Promise<void> {
     // whatsapp-web.js handles read receipts automatically
   },
