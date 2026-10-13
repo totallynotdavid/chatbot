@@ -11,9 +11,11 @@ only the rules those documents do not.
   `tenantPredicate` from `apps/backend/src/db/query.ts`, never with a hand-built
   `if (tenantId)` branch. A worker that sweeps every tenant uses
   `openTenantsOnly` and `activeChannelAccountsOnly`. Every SELECT of a
-  tenant-owned table names a tenant predicate in its own function.
-  `tenant-scope-guard.test.ts` checks SELECTs only, so check UPDATE and DELETE
-  yourself.
+  tenant-owned table, and each `UNION` arm of it, names a tenant predicate in
+  its own text. A predicate in another statement, or in a value a query
+  returned, does not count. `tenant-scope-guard.test.ts` checks SELECTs only, so
+  check UPDATE and DELETE yourself. See [Tenancy](./docs/tenancy.md#how-a-read-is-scoped)
+  for the checks it performs.
 - **File paths** come from `apps/backend/src/lib/storage-paths.ts`.
 - **Core stays free of I/O.** If a turn needs the database, a provider or the
   LLM, add an enrichment request and a backend handler

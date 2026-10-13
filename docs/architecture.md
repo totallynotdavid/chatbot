@@ -199,7 +199,7 @@ These tests live in [`apps/backend/tests/`](../apps/backend/tests/):
 
 | Test                          | Holds                                                                                              |
 | ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `tenant-scope-guard.test.ts`  | Tenant predicates on SELECTs and rejects hand-built conditional tenant filters.                    |
+| `tenant-scope-guard.test.ts`  | A tenant predicate in each SELECT statement, and rejects hand-built conditional tenant filters.    |
 | `created-at-contract.test.ts` | INTEGER `*_at` fields reach clients as milliseconds.                                               |
 | `lima-date-contract.test.ts`  | The server and dashboard name the same Lima calendar day.                                          |
 | `foreign-keys.test.ts`        | The application connection enables `PRAGMA foreign_keys`.                                          |

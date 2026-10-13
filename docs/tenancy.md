@@ -132,9 +132,52 @@ is skipped.
 
 [`tests/tenant-scope-guard.test.ts`](../apps/backend/tests/tenant-scope-guard.test.ts)
 fails when backend code builds a conditional tenant filter by hand, or when a
-SELECT of a tenant-owned table names no tenant predicate in its function. Five
-cross-tenant reads are exempt by name, such as the dedupe by Meta message id. It
-does not check UPDATE or DELETE.
+SELECT statement reads a tenant-owned table without a tenant predicate of its
+own. It resolves names with the TypeScript checker
+([`sql-scope.ts`](../apps/backend/tests/helpers/sql-scope.ts)). For each SELECT
+it checks:
+
+- **The unit is one statement.** A statement is a SQL string, or strings
+  composed in a form the guard follows, with what a later `sql += ...`,
+  `conditions.push(...)` or `unshift(...)` adds in the same block. Each `UNION`,
+  `INTERSECT` and `EXCEPT` arm is judged on its own, and so is each branch of a
+  conditional. A predicate in another statement of the same function counts for
+  nothing.
+- **The forms it follows** are a string or template literal with its `${...}`
+  substitutions, `+`, `?:` (both branches, never the condition), `||`, `??`,
+  `&&` (the text is the right side, or nothing), parentheses, `as`, `!` and
+  `satisfies`, a name that resolves to a declaration holding one of these, and a
+  call to a predicate helper. Inside a `${...}` or behind a name, it also reads
+  an array literal of fragments as joined by one space, and `.join()`,
+  `.trim()`, `.toString()`, `.filter()`, `.slice()` or `.flat()` on one. A
+  conditional that gets past 64 branches is reported. Anything else it cannot
+  follow fails the guard: a fragment that names a tenant-owned table after
+  `FROM` or `JOIN` and reaches no statement it judged, such as
+  `["SELECT *", "FROM conversations"].join(" ")` passed straight to a query or
+  `"SELECT *".concat(" FROM conversations")`, is reported.
+- **A predicate is** `tenant_id = ?`, `tenant_id IN (...)`, or a call to
+  `tenantPredicate`, `openTenantsOnly` or `tenantOrPlatformPredicate` imported
+  from `db/query.ts`. Text inside a quoted span, `'...'` or `"..."`, or a SQL
+  comment does not count, and neither does a quoted `"tenant_id"`.
+- **An interpolated name** is resolved to its own declaration. Its value is the
+  initializer, any other assignment, and the unconditional appends. A predicate
+  counts only if every branch of that value holds it. Any other call result, a
+  property read, a parameter and an import contribute no text, so a `${since}`
+  taken from another query's row brings no predicate with it. A `.join()` or
+  `.map()` reads its receiver and writes nothing. An array handed to a call or
+  edited by anything but `push` is unreadable.
+- **A sub-select** inherits the predicate of the arm that holds it, or is tied
+  to its outer row with `a.tenant_id = b.tenant_id`. A predicate inside a
+  sub-select does not scope the arm around it.
+- **A table it cannot read**, such as `FROM ${table}`, is reported.
+
+A report is fixed in the source or listed in `RULE_2_EXEMPT` with a reason: a
+read keyed by something globally unique, such as the dedupe by Meta message id,
+or a statement the guard cannot read.
+
+The guard reads text. It does not check that a predicate is joined with `AND`,
+that the right value is bound, or an UPDATE or DELETE without a SELECT. Check
+those yourself.
 
 ## Channel accounts
 
