@@ -1,9 +1,7 @@
 import { eventBus } from "../shared/events/index.ts";
 import { AsyncEventEmitter } from "../shared/events/async-emitter.ts";
 import type { DomainEvent } from "@vendeya/types";
-import { evaluateNotifications } from "../domains/notifications/evaluator.ts";
-import { notificationRules } from "../domains/notifications/config.ts";
-import { dispatchNotifications } from "../domains/notifications/dispatcher.ts";
+import { notify } from "../domains/notifications/notify.ts";
 
 import { createOrder } from "../domains/orders/write.ts";
 import { createLogger } from "../lib/logger.ts";
@@ -25,6 +23,7 @@ export function setupEventSubscribers(): void {
     "enrichment_limit_exceeded",
     "order_created",
     "escalation_triggered",
+    "customer_message_received",
     "system_error_occurred",
     "attention_required",
     "system_outage_detected",
@@ -67,9 +66,6 @@ export function setupEventSubscribers(): void {
   );
 
   notificationEvents.forEach((eventType) => {
-    subscribe(eventType, async (event: DomainEvent) => {
-      const decisions = evaluateNotifications(event, notificationRules);
-      await dispatchNotifications(decisions, event);
-    });
+    subscribe(eventType, notify);
   });
 }

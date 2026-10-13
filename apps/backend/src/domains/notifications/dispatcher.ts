@@ -48,11 +48,13 @@ export function accountForEvent(event: DomainEvent): ChannelAccount | null {
   return ChannelAccountService.getPlatformOps();
 }
 
+/** Reports whether at least one notification was delivered. */
 export async function dispatchNotifications(
   decisions: NotificationDecision[],
   event: DomainEvent,
-): Promise<void> {
+): Promise<boolean> {
   const now = Date.now();
+  let delivered = false;
 
   for (const decision of decisions) {
     const traceId = event.traceId;
@@ -140,7 +142,10 @@ export async function dispatchNotifications(
           );
 
           markFailed(traceId, ruleId, "send_failed");
+          continue;
         }
+
+        delivered = true;
       } catch (error: any) {
         logger.error(
           { error, traceId, ruleId },
@@ -151,6 +156,8 @@ export async function dispatchNotifications(
       }
     }
   }
+
+  return delivered;
 }
 
 function markFailed(traceId: string, ruleId: string, reason: string): void {

@@ -54,6 +54,10 @@ export const NotificationResolver = {
       return assigned || staticTarget("sales", event.tenantId);
     }
 
+    if (target === "assigned_agent") {
+      return resolveAssignedAgent(event);
+    }
+
     logger.warn(
       { target, eventType: event.type },
       "Unknown notification target",

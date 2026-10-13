@@ -10,6 +10,7 @@ import {
   undeliveredRows,
 } from "./outbox.ts";
 import { escalateConversation, findConversation } from "./store.ts";
+import { raiseUnreadAlert } from "./unread-alerts.ts";
 
 /*
  * A reply that ended `failed` left the customer without an answer, so the
@@ -23,7 +24,7 @@ import { escalateConversation, findConversation } from "./store.ts";
  *  1. Read the failed rows that are not handed off. None means return.
  *  2. Cancel the conversation's pending rows.
  *  3. Escalate the conversation if it is `active`. Assign it an agent.
- *  4. Emit `escalation_triggered`.
+ *  4. Record the unread alert and emit `escalation_triggered`.
  *  5. Stamp `handed_off_at` on the rows read in step 1.
  *
  * The alert is emitted before the stamp, on purpose. A crash between the two
@@ -69,6 +70,7 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
         assignNextAgentHeld(ref);
       }
 
+      raiseUnreadAlert(ref);
       await eventBus.emit(
         createEvent(
           "escalation_triggered",

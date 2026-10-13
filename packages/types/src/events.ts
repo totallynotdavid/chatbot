@@ -96,6 +96,13 @@ export type DomainEvent =
       };
     })
   | (BaseEvent & {
+      type: "customer_message_received";
+      payload: {
+        phoneNumber: string;
+        clientName?: string;
+      };
+    })
+  | (BaseEvent & {
       type: "enrichment_limit_exceeded";
       payload: {
         phoneNumber: string;

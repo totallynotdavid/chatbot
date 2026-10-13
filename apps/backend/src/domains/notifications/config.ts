@@ -117,6 +117,21 @@ export const notificationRules: NotificationRule[] = [
     },
   },
   {
+    id: "customer_message_alert",
+    triggerEvent: "customer_message_received",
+    channel: "whatsapp",
+    target: "assigned_agent",
+    condition: (event) => event.type === "customer_message_received",
+    template: (event) => {
+      if (event.type !== "customer_message_received") return "";
+      return templates.customerMessage({
+        phoneNumber: event.payload.phoneNumber,
+        channelAccountId: event.channelAccountId,
+        clientName: event.payload.clientName,
+      });
+    },
+  },
+  {
     id: "system_error_alert",
     triggerEvent: "system_error_occurred",
     channel: "whatsapp",

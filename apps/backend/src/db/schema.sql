@@ -209,6 +209,33 @@ CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(tenant_id, 
 CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(tenant_id, assigned_agent);
 CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(phone_number);
 
+-- A row means the person holding the conversation has been alerted and has not
+-- answered since. An escalation or a customer message adds it. A manual reply,
+-- a change of the assigned agent, a reset or an undelivered alert removes it.
+CREATE TABLE IF NOT EXISTS unread_alerts (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    channel_account_id TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
+    alerted_at INTEGER NOT NULL,
+    PRIMARY KEY (tenant_id, channel_account_id, phone_number),
+    FOREIGN KEY (channel_account_id, tenant_id)
+        REFERENCES channel_accounts(id, tenant_id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, channel_account_id, phone_number)
+        REFERENCES conversations(tenant_id, channel_account_id, phone_number) ON DELETE CASCADE
+);
+
+-- Any statement that sets `assigned_agent` hands the conversation to someone
+-- who has not been alerted about it: assignment, reassignment, decline, takeover,
+-- release, an agent's removal. This one trigger covers every writer.
+CREATE TRIGGER IF NOT EXISTS conversations_assignment_clears_unread_alert
+AFTER UPDATE OF assigned_agent ON conversations
+BEGIN
+    DELETE FROM unread_alerts
+    WHERE tenant_id = NEW.tenant_id
+      AND channel_account_id = NEW.channel_account_id
+      AND phone_number = NEW.phone_number;
+END;
+
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

@@ -85,6 +85,15 @@ export const templates = {
     ].join("\n");
   },
 
+  customerMessage(ctx: NotificationContext): string {
+    const ident = b(ctx.clientName || ctx.phoneNumber);
+
+    return [
+      `${ident} escribió en la conversación que atiendes.`,
+      ctx.urlSuffix ? formatLink(ctx.urlSuffix) : conversationLink(ctx),
+    ].join("\n");
+  },
+
   attention(ctx: NotificationContext): string {
     const ident = b(ctx.clientName || ctx.phoneNumber);
     const dniContext = ctx.dni ? ` (${ctx.dni})` : "";

@@ -10,6 +10,7 @@ import { logAction } from "../../platform/audit/logger.ts";
 import { assignNextAgentHeld } from "./assignment.ts";
 import { withLock } from "../../conversation/locks.ts";
 import { cancelPending } from "../../conversation/outbox.ts";
+import { clearUnreadAlert } from "../../conversation/unread-alerts.ts";
 import {
   findConversation,
   getOrCreateConversation,
@@ -160,6 +161,7 @@ export async function sendManualMessage(
 
   // Keeps the idle reset away from a conversation an agent is answering.
   refreshLastActivity(ref);
+  clearUnreadAlert(ref);
 
   logAction(
     { userId, tenantId: ref.tenantId },

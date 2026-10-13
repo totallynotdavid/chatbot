@@ -9,6 +9,7 @@ import { assignNextAgentHeld } from "../../domains/conversations/assignment.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { createEvent, eventBus } from "../../shared/events/index.ts";
 import { withLock } from "../locks.ts";
+import { claimMessageAlert, raiseUnreadAlert } from "../unread-alerts.ts";
 import {
   getOrCreateConversation,
   isSessionTimedOut,
@@ -60,7 +61,10 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
     const traceId = crypto.randomUUID();
     const eventContext = { traceId, tenantId, channelAccountId };
 
-    await WhatsAppService.markAsReadAndShowTyping(ref, messageId);
+    // A person-held conversation gets a read receipt but no typing indicator
+    // because the bot sends no reply.
+    const held = conversation.phase.phase === "escalated";
+    await WhatsAppService.markAsRead(ref, messageId, { typing: !held });
 
     try {
       const provider = getProvider();
@@ -110,26 +114,37 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
       // conversation stays escalated on every later message, and only the turn
       // that escalates it alerts and picks an agent. The agent is assigned
       // first, so the alert reaches them and not the sales group.
-      if (
-        result.type === "update" &&
-        result.nextPhase.phase === "escalated" &&
-        conversation.phase.phase !== "escalated"
-      ) {
-        assignNextAgentHeld(ref);
-        eventBus.emit(
-          createEvent(
-            "escalation_triggered",
-            {
-              phoneNumber,
-              reason: result.nextPhase.reason,
-              context: {
-                phase: conversation.phase.phase,
-                message: content,
+      // A later held message alerts the assigned agent only when no unread
+      // alert already represents the conversation. Both alerts are awaited
+      // inside the lock: the next message must see the marker as the delivery
+      // left it, kept or released.
+      if (result.type === "update" && result.nextPhase.phase === "escalated") {
+        if (!held) {
+          assignNextAgentHeld(ref);
+          raiseUnreadAlert(ref);
+          await eventBus.emit(
+            createEvent(
+              "escalation_triggered",
+              {
+                phoneNumber,
+                reason: result.nextPhase.reason,
+                context: {
+                  phase: conversation.phase.phase,
+                  message: content,
+                },
               },
-            },
-            eventContext,
-          ),
-        );
+              eventContext,
+            ),
+          );
+        } else if (claimMessageAlert(ref)) {
+          await eventBus.emit(
+            createEvent(
+              "customer_message_received",
+              { phoneNumber, clientName: conversation.metadata.name },
+              eventContext,
+            ),
+          );
+        }
       }
     } catch (error) {
       if (error instanceof ChannelUnavailableError) {
