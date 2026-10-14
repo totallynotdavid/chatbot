@@ -264,6 +264,8 @@ the held-message and eligibility sweeps. Each row has the actor (`user:<id>` or
 
 Admins read it at `/dashboard/admin/audit`, backed by `GET /api/admin/audit`. A
 pinned admin sees their tenant. An unpinned operator also sees platform actions.
+A `send_message` row whose delivery WhatsApp did not confirm carries a "Entrega
+sin confirmar" mark; see [the send](./conversation.md#the-send).
 
 ## Maintenance mode
 

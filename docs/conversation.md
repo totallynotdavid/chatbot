@@ -223,7 +223,11 @@ which starts [the handoff](#the-handoff). The rest are written `queued` and
 retried. A refusal in step 2 is written `failed` and goes nowhere else.
 
 An agent's manual reply takes none of this. It is sent once, and the agent sees
-the failure in the dashboard.
+the failure in the dashboard. A reply that went out writes a `send_message`
+audit row. An `ambiguous` one writes the same row with
+`deliveryUnconfirmed: true` in its details, because it may have reached the
+customer, and still answers a failure. It moves neither last activity nor the
+unread alert. A `transient` or `permanent` one writes no row.
 
 ## The outbox
 
