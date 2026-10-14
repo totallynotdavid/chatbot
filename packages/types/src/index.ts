@@ -166,6 +166,7 @@ export type ConversationMessage = {
   type: StoredMessageType;
   content: string;
   status: string;
+  product_id: string | null;
   created_at: number;
 };
 

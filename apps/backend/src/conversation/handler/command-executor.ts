@@ -265,12 +265,21 @@ async function executeSingleBundle(
 
   const caption = `${bundle.name}\nPrecio: S/ ${bundle.price.toFixed(2)}${installmentText ? `\n${installmentText}` : ""}`;
 
+  const imagePath = `images/${bundle.image_id}.jpg`;
+
   if (isSimulation) {
-    WhatsAppService.logMessage(ref, "outbound", "image", caption, "sent");
+    WhatsAppService.logMessage(
+      ref,
+      "outbound",
+      "image",
+      imagePath,
+      "sent",
+      bundle.id,
+    );
   } else {
     const outcome = await WhatsAppService.sendImage(
       ref,
-      `images/${bundle.image_id}.jpg`,
+      imagePath,
       caption,
       bundle.id,
       { retry: true },

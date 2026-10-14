@@ -323,8 +323,17 @@ export const WhatsAppService = {
     type: StoredMessageType,
     content: string,
     status: string = "sent",
+    productId?: string,
   ): void {
-    MessageStore.log(ref, direction, type, content, status);
+    MessageStore.log(
+      ref,
+      direction,
+      type,
+      content,
+      status,
+      undefined,
+      productId,
+    );
   },
 
   getMessageHistory(
