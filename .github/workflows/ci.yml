@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
 
       # Tool versions come from mise.toml, the one place that pins them.
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           install_args: biome
 
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           install_args: bun
 
@@ -80,7 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           install_args: bun
 
@@ -103,7 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           install_args: bun
 
