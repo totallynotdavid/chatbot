@@ -11,7 +11,7 @@ import {
 } from "../conversation/index.ts";
 import { findConversation } from "../conversation/store.ts";
 import { db } from "../db/index.ts";
-import { getAll } from "../db/query.ts";
+import { getAll, getOne } from "../db/query.ts";
 import {
   activeTenantId,
   requireActiveTenant,
@@ -74,6 +74,31 @@ const NO_ACCOUNT = {
 
 /** Every replay is loaded onto this contact, on the tenant's default number. */
 const SIMULATOR_PHONE = "51999999999";
+
+const SIMULATED_FIRST_PHONE = 51900000001;
+
+/**
+ * Returns one past the highest simulated number on this account. Skips a number
+ * a real conversation holds and the reserved replay contact.
+ */
+function nextSimulatedPhone(ref: ConversationRef): string {
+  const highest = getOne<{ phone: number | null }>(
+    `SELECT MAX(CAST(phone_number AS INTEGER)) AS phone FROM conversations
+     WHERE tenant_id = ? AND channel_account_id = ? AND is_simulation = 1
+       AND phone_number GLOB '519[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+       AND phone_number != ?`,
+    [ref.tenantId, ref.channelAccountId, SIMULATOR_PHONE],
+  )?.phone;
+
+  let candidate = highest ? highest + 1 : SIMULATED_FIRST_PHONE;
+  while (
+    String(candidate) === SIMULATOR_PHONE ||
+    findConversation({ ...ref, phoneNumber: String(candidate) })
+  ) {
+    candidate++;
+  }
+  return String(candidate);
+}
 
 // Get available test personas
 simulator.get("/personas", (c) => {
@@ -168,14 +193,11 @@ simulator.get("/conversations", (c) => {
 // Create new test conversation
 simulator.post("/conversations", async (c) => {
   const tenantId = activeTenantId(c);
-  const { phoneNumber, personaId } = await c.req.json();
+  const { personaId } = await c.req.json();
 
-  if (!phoneNumber) {
-    return c.json({ error: "phoneNumber required" }, 400);
-  }
-
-  const ref = simulatorRef(c, phoneNumber);
-  if (!ref) return c.json(NO_ACCOUNT, 400);
+  const account = simulatorRef(c, SIMULATOR_PHONE);
+  if (!account) return c.json(NO_ACCOUNT, 400);
+  const ref = { ...account, phoneNumber: nextSimulatedPhone(account) };
 
   // Validate persona if provided
   if (personaId) {
@@ -183,11 +205,6 @@ simulator.post("/conversations", async (c) => {
     if (!persona) {
       return c.json({ error: "Invalid persona_id" }, 400);
     }
-  }
-
-  // Check if already exists
-  if (findConversation(ref)) {
-    return c.json({ error: "Conversation already exists" }, 400);
   }
 
   // Create new test conversation with persona
@@ -350,6 +367,7 @@ simulator.post("/load", async (c) => {
       msg.type,
       msg.content,
       msg.status,
+      msg.product_id ?? undefined,
     );
   }
 

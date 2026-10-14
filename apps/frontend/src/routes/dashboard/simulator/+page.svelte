@@ -64,19 +64,17 @@ function closePersonaDialog() {
 async function createNewConversation() {
   loading = true;
   try {
-    const phoneNumber = `519${String(testConversations.length + 1).padStart(8, "0")}`;
-
-    await fetchApi("/api/simulator/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phoneNumber,
-        personaId: selectedPersonaId,
-      }),
-    });
+    const created = await fetchApi<Conversation>(
+      "/api/simulator/conversations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaId: selectedPersonaId }),
+      },
+    );
 
     await loadTestConversations();
-    selectedPhone = phoneNumber;
+    selectedPhone = created.phone_number;
     closePersonaDialog();
   } catch (error) {
     console.error("Failed to create conversation:", error);
