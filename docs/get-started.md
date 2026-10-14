@@ -135,16 +135,24 @@ The same conversation through the API, with the frontend running:
 curl -c cookies.txt -H 'content-type: application/json' \
   -d '{"username":"admin","password":"<password>"}' \
   http://localhost:5173/api/auth/login
-curl -b cookies.txt -H 'content-type: application/json' \
-  -d '{"phoneNumber":"51900000001","personaId":"fnb_high_credit"}' \
-  http://localhost:5173/api/simulator/conversations
+phone=$(curl -s -b cookies.txt -H 'content-type: application/json' \
+  -d '{"personaId":"fnb_high_credit"}' \
+  http://localhost:5173/api/simulator/conversations |
+  sed -E 's/.*"phone_number":"([0-9]+)".*/\1/')
 for m in hola si 12345678; do
   curl -b cookies.txt -H 'content-type: application/json' \
-    -d "{\"phoneNumber\":\"51900000001\",\"message\":\"$m\"}" \
+    -d "{\"phoneNumber\":\"$phone\",\"message\":\"$m\"}" \
     http://localhost:5173/api/simulator/message
 done
-curl -b cookies.txt http://localhost:5173/api/simulator/conversation/51900000001
+curl -b cookies.txt http://localhost:5173/api/simulator/conversation/$phone
 ```
+
+The server chooses the new conversation's phone number and returns it in
+`phone_number`. It takes one past the highest simulated number (`519` and eight
+digits) on the tenant's default channel account, starting at `51900000001`. It
+skips `51999999999`, which the replay of a real conversation uses, and any
+number a real conversation holds. A deleted conversation never frees a number
+another simulation holds.
 
 Without `OPENAI_API_KEY`, a message the bot's patterns do not recognize gets no
 reply, and the backend logs "Message processing failed". Set the key in `.env`
