@@ -155,7 +155,19 @@ export async function sendManualMessage(
     throw error;
   }
 
+  // The message may have reached the customer, so the attempt is audited. The
+  // agent still gets the failure, and nothing that depends on a confirmed
+  // delivery moves.
   if (!outcome.ok) {
+    if (outcome.kind === "ambiguous") {
+      logAction(
+        { userId, tenantId: ref.tenantId },
+        "send_message",
+        "conversation",
+        ref.phoneNumber,
+        { message: content, deliveryUnconfirmed: true },
+      );
+    }
     return { success: false, error: SEND_FAILURE_MESSAGES[outcome.kind] };
   }
 
