@@ -26,7 +26,17 @@ const actionLabels: Record<string, string> = {
   update_product: "Actualizó producto",
   delete_product: "Eliminó producto",
   bulk_update_products: "Actualización masiva",
+  send_message: "Envió mensaje",
 };
+
+function isUnconfirmed(item: AuditLogWithName): boolean {
+  if (item.action !== "send_message") return false;
+  try {
+    return JSON.parse(item.metadata).deliveryUnconfirmed === true;
+  } catch {
+    return false;
+  }
+}
 
 async function loadLogs() {
   loading = true;
@@ -98,6 +108,9 @@ const columns = [
     {#if !item.metadata || item.metadata === "{}"}
         <span class="text-ink-300">-</span>
     {:else}
+        {#if isUnconfirmed(item)}
+            <span class="inline-flex items-center px-2 py-0.5 mb-1 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200" title="WhatsApp no confirmó el mensaje; puede que el cliente no lo recibiera">Entrega sin confirmar</span>
+        {/if}
         <code class="text-[10px] bg-cream-50 p-1 rounded border border-cream-100 block max-w-xs truncate" title={item.metadata}>{item.metadata}</code>
     {/if}
 {/snippet}
