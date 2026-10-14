@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import process from "node:process";
+import { Hono } from "hono";
 
 import { db } from "../src/db/index.ts";
 import {
@@ -25,7 +26,14 @@ import { executeCommands } from "../src/conversation/handler/command-executor.ts
 import { sendBundleImages } from "../src/conversation/images.ts";
 import { BundleService } from "../src/domains/catalog/bundles.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
-import { sendManualMessage } from "../src/domains/conversations/write.ts";
+import { raiseUnreadAlert } from "../src/conversation/unread-alerts.ts";
+import { requireAuth } from "../src/middleware/auth.ts";
+import { errorHandler } from "../src/middleware/error.ts";
+import {
+  createSession,
+  generateSessionToken,
+} from "../src/platform/auth/session.ts";
+import conversationRoutes from "../src/routes/conversations.ts";
 
 const CUSTOMER = "51900888001";
 const IMAGE_CHEAP = "img-cheap";
@@ -86,14 +94,6 @@ describe("a send WhatsApp did not accept", () => {
       context_data: string;
     };
     return JSON.parse(row.context_data).phase;
-  }
-
-  function auditActions(): string[] {
-    return (
-      db
-        .prepare("SELECT action FROM audit_log WHERE tenant_id = ?")
-        .all(tenant.tenantId) as Array<{ action: string }>
-    ).map((row) => row.action);
   }
 
   function createBundle(name: string, price: number, imageId: string): string {
@@ -309,37 +309,158 @@ describe("a send WhatsApp did not accept", () => {
   });
 
   describe("when an agent sends a manual reply", () => {
-    it("answers success and writes the audit row when the reply went out", async () => {
-      const result = await sendManualMessage(ref, "Hola, soy Ana", agent);
+    const STALE = 1_000_000;
+    let app: Hono;
+    let cookie: string;
 
-      expect(result).toEqual({ success: true });
-      expect(textRequests()).toHaveLength(1);
-      expect(auditActions()).toEqual(["send_message"]);
+    beforeEach(() => {
+      app = new Hono();
+      app.onError(errorHandler);
+      app.use("/api/*", requireAuth);
+      app.route("/api/conversations", conversationRoutes);
+
+      const token = generateSessionToken();
+      createSession(token, agent, tenant.tenantId);
+      cookie = `session=${token}`;
+
+      db.prepare(
+        `UPDATE conversations SET last_activity_at = ?
+         WHERE tenant_id = ? AND phone_number = ?`,
+      ).run(STALE, ref.tenantId, ref.phoneNumber);
+      raiseUnreadAlert(ref);
     });
 
-    it("answers a failure the dashboard can show, and writes no audit row, when the reply was refused", async () => {
-      answer = refusesEverything;
-
-      const result = await sendManualMessage(ref, "Hola, soy Ana", agent);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBeTruthy();
-      expect(result.error).not.toContain("Hola, soy Ana");
-      expect(auditActions()).toEqual([]);
-      expect(MessageStore.getHistory(ref)[0]).toMatchObject({
-        status: "failed",
+    function reply(content = "Hola, soy Ana") {
+      return app.request(`/api/conversations/${CUSTOMER}/message`, {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
       });
+    }
+
+    function audit() {
+      return (
+        db
+          .prepare(
+            `SELECT user_id, action, resource_type, resource_id, metadata
+             FROM audit_log WHERE tenant_id = ? ORDER BY rowid`,
+          )
+          .all(tenant.tenantId) as Array<{
+          user_id: string;
+          action: string;
+          resource_type: string;
+          resource_id: string;
+          metadata: string;
+        }>
+      ).map((row) => ({ ...row, metadata: JSON.parse(row.metadata) }));
+    }
+
+    function lastActivityAt(): number {
+      return (
+        db
+          .prepare(
+            `SELECT last_activity_at FROM conversations
+             WHERE tenant_id = ? AND phone_number = ?`,
+          )
+          .get(ref.tenantId, ref.phoneNumber) as { last_activity_at: number }
+      ).last_activity_at;
+    }
+
+    function unreadAlerts(): number {
+      return (
+        db
+          .prepare(
+            "SELECT COUNT(*) AS n FROM unread_alerts WHERE tenant_id = ?",
+          )
+          .get(ref.tenantId) as { n: number }
+      ).n;
+    }
+
+    const failures = {
+      permanent: {
+        answer: refusesEverything,
+        error:
+          "The message could not be sent, so the customer did not receive it",
+      },
+      transient: {
+        answer: () => new Response("{}", { status: 503 }),
+        error:
+          "WhatsApp is not accepting messages right now, so the customer did not receive it. Try again in a moment",
+      },
+    };
+
+    it("answers success and audits the reply when it went out", async () => {
+      const response = await reply();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ success: true });
+      expect(textRequests()).toHaveLength(1);
+      expect(audit()).toEqual([
+        {
+          user_id: agent,
+          action: "send_message",
+          resource_type: "conversation",
+          resource_id: CUSTOMER,
+          metadata: { message: "Hola, soy Ana" },
+        },
+      ]);
+      expect(lastActivityAt()).toBeGreaterThan(STALE);
+      expect(unreadAlerts()).toBe(0);
     });
 
-    it("answers a failure when WhatsApp cannot be reached", async () => {
-      globalThis.fetch = (async () => {
-        throw Object.assign(new Error("reset"), { code: "ECONNRESET" });
-      }) as unknown as typeof globalThis.fetch;
+    for (const [kind, failure] of Object.entries(failures)) {
+      it(`answers a failure and writes no audit row when WhatsApp refuses the reply (${kind})`, async () => {
+        answer = failure.answer;
 
-      const result = await sendManualMessage(ref, "Hola, soy Ana", agent);
+        const response = await reply();
 
-      expect(result.success).toBe(false);
-      expect(auditActions()).toEqual([]);
-    });
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ error: failure.error });
+        expect(audit()).toEqual([]);
+        expect(lastActivityAt()).toBe(STALE);
+        expect(unreadAlerts()).toBe(1);
+        expect(MessageStore.getHistory(ref)[0]).toMatchObject({
+          status: "failed",
+        });
+      });
+    }
+
+    const unconfirmedError =
+      "WhatsApp did not confirm the message, so it may not have reached the customer";
+
+    for (const [cause, fail] of [
+      [
+        "an answer without a message id",
+        () => (answer = () => new Response("{}")),
+      ],
+      [
+        "a connection that drops mid-send",
+        () => {
+          globalThis.fetch = (async () => {
+            throw Object.assign(new Error("reset"), { code: "ECONNRESET" });
+          }) as unknown as typeof globalThis.fetch;
+        },
+      ],
+    ] as const) {
+      it(`answers a failure, audits the reply as unconfirmed and moves nothing else on ${cause}`, async () => {
+        fail();
+
+        const response = await reply();
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ error: unconfirmedError });
+        expect(audit()).toEqual([
+          {
+            user_id: agent,
+            action: "send_message",
+            resource_type: "conversation",
+            resource_id: CUSTOMER,
+            metadata: { message: "Hola, soy Ana", deliveryUnconfirmed: true },
+          },
+        ]);
+        expect(lastActivityAt()).toBe(STALE);
+        expect(unreadAlerts()).toBe(1);
+      });
+    }
   });
 });
