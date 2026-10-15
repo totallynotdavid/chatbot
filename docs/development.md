@@ -48,12 +48,19 @@ workspace is neither typechecked nor tested in CI until it is added to both.
 
 ## Where the pins live
 
-| Pin                                  | File                                                      |
-| ------------------------------------ | --------------------------------------------------------- |
-| bun, biome, cloudflared              | [`mise.toml`](../mise.toml), resolved in `mise.lock`      |
-| npm dependencies                     | `bun.lock`, installed with `--frozen-lockfile`            |
-| transitive versions forced for fixes | `overrides` in the root [`package.json`](../package.json) |
-| GitHub Actions                       | the `uses:` lines in `.github/workflows/`                 |
+| Pin                                  | File                                                               |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| bun, biome, cloudflared              | [`mise.toml`](../mise.toml), resolved in `mise.lock`               |
+| npm dependencies                     | `bun.lock`, installed with `--frozen-lockfile`                     |
+| transitive versions forced for fixes | `overrides` in the root [`package.json`](../package.json)          |
+| GitHub Actions                       | the `uses:` lines in `.github/workflows/`                          |
+| `typescript`                         | an alias to `typescript-native-bridge`, in the root `package.json` |
+
+`typescript-native-bridge` keeps the classic `typescript` API that SvelteKit and
+`svelte-check` call and runs the TypeScript 7 (tsgo) checker behind it. The root
+`overrides` entry makes every package that depends on `typescript` resolve to
+it, so `bunx tsc` and `svelte-check` both type-check with tsgo. The first check
+in a process prints `TNB ACTIVE` to stderr.
 
 `mise install` installs the pinned tools. Dependabot
 ([`dependabot.yml`](../.github/dependabot.yml)) updates the bun dependencies
@@ -63,8 +70,8 @@ daily and the actions weekly. It does not update `mise.toml`.
 
 [`mise-pins.yml`](../.github/workflows/mise-pins.yml) runs every Monday and on
 demand. It runs [`check-mise-pins.sh`](../.github/scripts/check-mise-pins.sh),
-which prints pins behind their latest release. The workflow keeps one open issue,
-"Update the pins in mise.toml", synchronized with that list:
+which prints pins behind their latest release. The workflow keeps one open
+issue, "Update the pins in mise.toml", synchronized with that list:
 
 | The script prints | The workflow                       |
 | ----------------- | ---------------------------------- |
