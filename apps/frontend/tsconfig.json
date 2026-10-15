@@ -2,7 +2,8 @@
     "extends": ["@vendeya/tsconfig/sveltekit.json", "$app/tsconfig"],
     "compilerOptions": {
         "rewriteRelativeImportExtensions": true
-    }
+    },
+    "exclude": ["dist", "node_modules"]
     // Path aliases are handled by package imports in package.json.
     //
     // To make changes to top-level options such as include and exclude, we recommend extending
