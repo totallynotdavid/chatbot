@@ -1,4 +1,4 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 import { fetchApi } from "#lib/utils/api.js";
 import { showTenantSelector } from "#lib/state/tenant-switching.js";
 
