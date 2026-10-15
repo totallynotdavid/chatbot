@@ -26,10 +26,9 @@
     "devDependencies": {
         "@types/bun": "^1.4.3",
         "@types/node": "^26.6.5",
-        "@typescript/native": "npm:typescript@7",
         "@vendeya/tsconfig": "workspace:*",
         "shx": "^0.4.0",
-        "typescript": "~6"
+        "typescript": "npm:typescript-native-bridge@6.0.3-bridge.18.tsgo.7.0.2"
     },
     "overrides": {
         "basic-ftp": ">=5.3.1 <6.0.0",
@@ -38,6 +37,7 @@
         "js-yaml": ">=4.3.1 <5.0.0",
         "lodash": ">=4.17.24 <5.0.0",
         "puppeteer": "25.11.0",
+        "typescript": "$typescript",
         "ws": ">=8.21.0 <9.0.0"
     }
 }
