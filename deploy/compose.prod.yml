@@ -1,0 +1,174 @@
+# Run with the env file kept outside the repository (docs/deploy.md):
+#   docker compose --env-file /etc/vendeya/env -f deploy/compose.prod.yml up -d --wait
+name: vendeya
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-restic: &restic
+  RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:?set RESTIC_REPOSITORY in the env file}
+  RESTIC_PASSWORD: ${RESTIC_PASSWORD:?set RESTIC_PASSWORD in the env file}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID in the env file}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY in the env file}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+
+x-storage: &storage
+  DB_PATH: /data/database.sqlite
+  UPLOAD_DIR: /data/uploads
+  PRIVATE_DIR: /data/private
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: vendeya
+      POSTGRES_DB: vendeya
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+    volumes:
+      - postgres:/var/lib/postgresql
+    networks: [db]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "vendeya", "-d", "vendeya"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/totallynotdavid/chatbot}/backend:${BACKEND_TAG:?set BACKEND_TAG in the env file}
+    command: ["bun", "src/db/migrate.ts"]
+    restart: "no"
+    logging: *logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *storage
+    volumes:
+      - data:/data
+    networks: [db]
+
+  backend:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/totallynotdavid/chatbot}/backend:${BACKEND_TAG:?set BACKEND_TAG in the env file}
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *storage
+      PORT: "3000"
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in the env file}
+      SECRETS_KEY: ${SECRETS_KEY:?set SECRETS_KEY in the env file}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:?set WHATSAPP_APP_SECRET in the env file}
+      WHATSAPP_TOKEN:
+      WHATSAPP_PHONE_ID:
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN:
+      WHATSAPP_GROUP_AGENT:
+      WHATSAPP_GROUP_DEV:
+      PLATFORM_OPS_PHONE_NUMBER_ID:
+      GRAPH_API_VERSION:
+      GRAPH_API_BASE_URL:
+      CALIDDA_BASE_URL:
+      CALIDDA_USERNAME:
+      CALIDDA_PASSWORD:
+      POWERBI_RESOURCE_KEY:
+      POWERBI_REPORT_ID:
+      POWERBI_DATASET_ID:
+      POWERBI_MODEL_ID:
+      OPENAI_API_KEY:
+      LOG_LEVEL:
+      BOT_RESPONSE_DELAY_MS:
+    volumes:
+      - data:/data
+    networks: [db, edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  web:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/totallynotdavid/chatbot}/web:${WEB_TAG:?set WEB_TAG in the env file}
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      BACKEND_URL: http://backend:3000
+      # SvelteKit refuses a form or multipart POST whose Origin differs from
+      # the origin it computes from the request. The Worker sets these two
+      # headers to the public host and scheme, so an upload from the dashboard
+      # passes. Without them the origin is web:3000 and an upload gets a 403.
+      HOST_HEADER: x-forwarded-host
+      PROTOCOL_HEADER: x-forwarded-proto
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in the env file}
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
+  backup:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/totallynotdavid/chatbot}/backup:${BACKUP_TAG:?set BACKUP_TAG in the env file}
+    restart: unless-stopped
+    logging: *logging
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: [*restic, *storage]
+      PGHOST: postgres
+      PGUSER: vendeya
+      PGDATABASE: vendeya
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-21600}
+    volumes:
+      - data:/data
+    networks: [db, edge]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 1
+      start_period: 10m
+
+networks:
+  # No route out: the database reaches only the services that use it.
+  db:
+    internal: true
+  edge: {}
+
+volumes:
+  data:
+  postgres:
