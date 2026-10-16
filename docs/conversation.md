@@ -194,8 +194,9 @@ Every reply goes through `WhatsAppService` in
 [`adapters/whatsapp/index.ts`](../apps/backend/src/adapters/whatsapp/index.ts).
 The adapter is chosen at import: `NODE_ENV=development` sends through the
 notifier, anything else through the Cloud API
-([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts), Graph
-`v17.0`, 10 s for text, 15 s for an image). An image is sent as a link to
+([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts), 10 s for
+text, and 15 s for an image. The Graph version is set in
+[WhatsApp](./whatsapp.md#connecting-whatsapp)). An image is sent as a link to
 `<public url>/media/images/<id>.jpg`, which Meta fetches.
 
 A bot reply:

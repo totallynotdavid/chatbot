@@ -32,17 +32,19 @@ copy into it.
 
 [`apps/backend/src/index.ts`](../apps/backend/src/index.ts), in order:
 
-1. Open the database (`DB_PATH`, default `./data/database.sqlite` relative to
+1. Check the Graph settings, described in
+   [WhatsApp](./whatsapp.md#connecting-whatsapp).
+2. Open the database (`DB_PATH`, default `./data/database.sqlite` relative to
    `apps/backend`) and apply the schema and migrations.
-2. Run the seed: tenant `totem`, its channel account, the sample catalog and,
+3. Run the seed: tenant `totem`, its channel account, the sample catalog and,
    outside production, test conversations. It runs on every boot.
-3. Warn if no platform operator can log in, and if `WHATSAPP_APP_SECRET` is
+4. Warn if no platform operator can log in, and if `WHATSAPP_APP_SECRET` is
    unset.
-4. Start the aggregator and the outbox worker, a 60 s agent-reassignment timer,
+5. Start the aggregator and the outbox worker, a 60 s agent-reassignment timer,
    and an hourly purge of processed inbox rows and final outbox rows. A timer
    task that throws is logged as "Scheduled task failed" and runs again on the
    next tick.
-5. Listen.
+6. Listen.
 
 Boot checks nothing else. A missing `SECRETS_KEY`, provider credential, LLM key
 or `PUBLIC_URL` shows up when it is first used.
@@ -58,6 +60,8 @@ or `PUBLIC_URL` shows up when it is first used.
 | `PUBLIC_URL`                                                           | backend           | image links, alert links and the CORS origin name `http://localhost:5173`                                    |
 | `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                               |
 | `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                                       |
+| `GRAPH_API_VERSION`                                                    | backend           | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                            |
+| `GRAPH_API_BASE_URL`                                                   | backend           | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                            |
 | `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                                      |
 | `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)                            |
 | `CALIDDA_*`, `POWERBI_*`                                               | backend           | that eligibility provider fails at every check                                                               |

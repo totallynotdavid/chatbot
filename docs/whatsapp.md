@@ -35,9 +35,13 @@ Meta changes them without notice. Meta's guide is at
 7. Configure the webhook, as described below, once the channel account exists.
 
 The backend calls one Graph endpoint with the token,
-`POST https://graph.facebook.com/v17.0/<phone number id>/messages`, to send
+`POST https://graph.facebook.com/<version>/<phone number id>/messages`, to send
 replies and mark messages read
-([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts)).
+([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts)). The
+version is `GRAPH_API_VERSION`, `v26.0` when unset. It must match `v26.0`,
+or boot stops. `GRAPH_API_BASE_URL` replaces `https://graph.facebook.com`, for a
+proxy or a fake server. Every Graph URL is built by `graphUrl` in
+[`config/graph.ts`](../apps/backend/src/config/graph.ts).
 
 ## Registering the number
 
