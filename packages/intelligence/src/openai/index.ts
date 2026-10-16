@@ -2,7 +2,6 @@ import type { IntelligenceProvider } from "../provider";
 import * as Classification from "./classification";
 import * as Answer from "./models/answer";
 import * as Recover from "./models/recover";
-import * as Vision from "./models/vision";
 
 let cachedProvider: IntelligenceProvider | null = null;
 
@@ -18,9 +17,6 @@ export function getProvider(): IntelligenceProvider {
 
       recoverUnclearResponse: (message, context) =>
         Recover.recoverUnclearResponse(message, context),
-
-      extractProductData: (mainBuffer, specsBuffer) =>
-        Vision.extractProductData(mainBuffer, specsBuffer),
     };
   }
   return cachedProvider;

@@ -1,4 +1,4 @@
-import type { AnswerContext, RecoveryContext, ProductData } from "./types";
+import type { AnswerContext, RecoveryContext } from "./types";
 
 export interface IntelligenceProvider {
   // Classification operations
@@ -11,10 +11,4 @@ export interface IntelligenceProvider {
     message: string,
     context: RecoveryContext,
   ): Promise<string>;
-
-  // Vision operations (uses different model/client)
-  extractProductData(
-    mainImageBuffer: Buffer,
-    specsImageBuffer?: Buffer,
-  ): Promise<ProductData>;
 }

@@ -11,8 +11,4 @@ export const MODEL_CONFIG = {
     answerQuestion: {} as OpConfig,
     recoverUnclear: {} as OpConfig,
   },
-  vision: {
-    model: "gemini-2.5-flash-lite",
-    extractProductData: { temperature: 0.1 } as OpConfig,
-  },
 } as const;

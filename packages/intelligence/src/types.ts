@@ -11,11 +11,3 @@ export type RecoveryContext = {
   lastQuestion?: string;
   expectedOptions?: string[];
 };
-
-export type ProductData = {
-  name: string | null;
-  price: number | null;
-  installments: number | null;
-  category: string | null;
-  description: string | null;
-};

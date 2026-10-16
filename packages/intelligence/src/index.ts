@@ -1,8 +1,4 @@
-export type {
-  AnswerContext,
-  RecoveryContext,
-  ProductData,
-} from "./types";
+export type { AnswerContext, RecoveryContext } from "./types";
 export type { IntelligenceProvider } from "./provider";
 export { getProvider, resetProvider } from "./openai/index";
 export { resetClients } from "./openai/client";

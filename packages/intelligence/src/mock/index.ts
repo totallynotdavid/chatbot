@@ -19,15 +19,6 @@ export function createMockProvider(): IntelligenceProvider & {
       (responses.get("recoverUnclearResponse") as string) ??
       "Disculpa, no te entendí. ¿Puedes repetirlo?",
 
-    extractProductData: async () =>
-      (responses.get("extractProductData") as any) ?? {
-        name: null,
-        price: null,
-        installments: null,
-        category: null,
-        description: null,
-      },
-
     setResponse(operation: string, response: unknown) {
       responses.set(operation, response);
     },
