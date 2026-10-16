@@ -31,6 +31,11 @@ import type {
  *    `MAX_AGE_MS`. `last_reason` says which. The customer got no answer, so
  *    the handoff in outbox-handoff.ts alerts a person and stamps
  *    `handed_off_at`. A failed row with no stamp is a handoff still owed.
+ *    A `tenant_not_active` refusal is inserted already failed. The handoff
+ *    skips suspended tenants, so its alert waits for the tenant to reopen. A
+ *    ref with no account, or built from two tenants, names no conversation,
+ *    so no row can exist for it. An account switched off throws instead, and
+ *    the caller keeps the customer's message for when the number returns.
  *  - cancelled: a person took the conversation over before it went out.
  *
  * sent, failed and cancelled are final. The worker claims only a conversation's

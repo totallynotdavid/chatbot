@@ -56,10 +56,12 @@ export class ChannelUnavailableError extends Error {
  * but the account is not active. The caller turns that into a throw. It is null
  * for a permanent refusal (suspended tenant, missing account, ref built from two
  * tenants), which is logged and returned as a `permanent` outcome with `reason`.
+ * `recordable` is false when the ref names no conversation. `messages` and
+ * `outbox` reference the conversation, so neither can hold that reply.
  */
 type SendTarget =
   | { account: ChannelAccount }
-  | { unsendable: ChannelAccount | null; reason: string };
+  | { unsendable: ChannelAccount | null; reason: string; recordable: boolean };
 
 function resolveAccount(ref: ConversationRef): SendTarget {
   const account = ChannelAccountService.getById(ref.channelAccountId);
@@ -69,17 +71,7 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       { channelAccountId: ref.channelAccountId, tenantId: ref.tenantId },
       "Channel account not found for conversation",
     );
-    return { unsendable: null, reason: "account_not_found" };
-  }
-
-  if (!TenantService.isOpen(account.tenant_id)) {
-    // A suspended tenant sends nothing to customers. `sendDirect` skips this
-    // check so platform alerts about a closed business still go out.
-    logger.warn(
-      { channelAccountId: account.id, tenantId: account.tenant_id },
-      "Refusing to send for a tenant that is not active",
-    );
-    return { unsendable: null, reason: "tenant_not_active" };
+    return { unsendable: null, reason: "account_not_found", recordable: false };
   }
 
   if (account.tenant_id !== ref.tenantId) {
@@ -93,7 +85,17 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       },
       "Channel account does not belong to the conversation's tenant",
     );
-    return { unsendable: null, reason: "tenant_mismatch" };
+    return { unsendable: null, reason: "tenant_mismatch", recordable: false };
+  }
+
+  if (!TenantService.isOpen(account.tenant_id)) {
+    // A suspended tenant sends nothing to customers. `sendDirect` skips this
+    // check so platform alerts about a closed business still go out.
+    logger.warn(
+      { channelAccountId: account.id, tenantId: account.tenant_id },
+      "Refusing to send for a tenant that is not active",
+    );
+    return { unsendable: null, reason: "tenant_not_active", recordable: true };
   }
 
   // This check runs after the tenant check. A suspended business whose number
@@ -107,7 +109,11 @@ function resolveAccount(ref: ConversationRef): SendTarget {
       },
       "Refusing to send on a channel account that is not active",
     );
-    return { unsendable: account, reason: "account_not_active" };
+    return {
+      unsendable: account,
+      reason: "account_not_active",
+      recordable: true,
+    };
   }
 
   return { account };
@@ -207,28 +213,35 @@ async function deliver(
   }
 
   const target = resolveAccount(ref);
-  if (!("account" in target)) {
-    store("failed");
+
+  let outcome: SendOutcome;
+  if ("account" in target) {
+    outcome = await callAdapter(target.account, ref.phoneNumber, message);
+
+    if (outcome.ok) {
+      store("sent", outcome.messageId);
+      return outcome;
+    }
+
+    logFailure(ref, outcome, message.type === "image" ? "image" : "message");
+  } else {
+    if (!target.recordable) {
+      return { ok: false, kind: "permanent", reason: target.reason };
+    }
     if (target.unsendable) {
+      store("failed");
       throw new ChannelUnavailableError(ref, target.unsendable.status);
     }
-    return { ok: false, kind: "permanent", reason: target.reason };
+    // `resolveAccount` logged the refusal.
+    outcome = { ok: false, kind: "permanent", reason: target.reason };
   }
-
-  const outcome = await callAdapter(target.account, ref.phoneNumber, message);
-
-  if (outcome.ok) {
-    store("sent", outcome.messageId);
-    return outcome;
-  }
-
-  logFailure(ref, outcome, message.type === "image" ? "image" : "message");
 
   if (!retry) {
     store("failed");
     return outcome;
   }
 
+  // The handoff finds a refusal in the `failed` row written here.
   const now = Date.now();
   const state = stepOutbox(
     { attempts: 0, ambiguousAttempts: 0, createdAt: now },
@@ -245,9 +258,11 @@ async function deliver(
 export const WhatsAppService = {
   /**
    * Returns what the send did. A refusal `resolveAccount` reports as
-   * `unsendable: null` comes back as a `permanent` outcome after its `failed`
-   * row is written. An inactive account of an open tenant still throws
-   * `ChannelUnavailableError`.
+   * `unsendable: null` comes back as a `permanent` outcome. It leaves a `failed`
+   * `messages` row, and with `retry` a `failed` outbox row, unless the ref names
+   * no conversation to write them for. An inactive account of an open tenant
+   * throws `ChannelUnavailableError` and leaves no outbox row: the caller keeps
+   * the customer's message and answers it once the number is back.
    *
    * `retry` puts a reply the send could not deliver on the outbox, where the
    * worker sends it again. Only the bot's turn passes it. An agent's manual
