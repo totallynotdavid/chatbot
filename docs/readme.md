@@ -17,7 +17,7 @@ repeating it.
 6. [Connecting WhatsApp](./whatsapp.md): register a number and configure Meta's
    callback.
 7. [Operations](./operations.md): deploy, inspect health and logs, manage
-   maintenance, and investigate missing replies.
+   accounts, and investigate missing replies.
 8. [Development](./development.md): run checks, find CI jobs, and follow code
    conventions.
 

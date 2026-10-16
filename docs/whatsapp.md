@@ -156,36 +156,3 @@ Meta documents webhook payloads of up to 3 MB. Two limits apply:
   [Uploads](./operations.md#uploads)).
 
 A refused delivery is not stored.
-
-## Testing locally through a tunnel
-
-```sh
-bun run dev:tunnel
-```
-
-starts a cloudflared quick tunnel to `http://localhost:5173`
-([`scripts/tunnel.ts`](../scripts/tunnel.ts)), prints its
-`https://<name>.trycloudflare.com` address and writes it to `.cloudflare-url` at
-the repository root and removes the file when the tunnel exits. Use
-`<address>/api/webhook` as the callback URL. Set `TUNNEL_TARGET_URL` to point
-the tunnel elsewhere.
-
-Outside production, while `.cloudflare-url` exists, image links in replies use
-the tunnel address instead of `PUBLIC_URL`, and so do alert links and the
-backend's CORS origin. The backend reads the file for CORS once, at boot. With
-`NODE_ENV=production` the file is ignored and only `PUBLIC_URL` counts.
-
-```sh
-bun run dev:tunnel:reset
-```
-
-stops every `cloudflared` process on the machine, not only this tunnel, and
-deletes the file. Ctrl-C stops the tunnel and deletes the file itself. Only a
-tunnel killed outright (SIGKILL, a crash) leaves the file behind, and the links
-keep naming a dead address until `dev:tunnel:reset` deletes it.
-
-With `NODE_ENV=development`, replies go out through the notifier's linked
-WhatsApp account, not the Cloud API. The notifier only sends: it passes no
-inbound message to the backend. A tunnel test therefore receives through Meta
-and replies from a different number. Run the backend with another `NODE_ENV` to
-send through the Cloud API.

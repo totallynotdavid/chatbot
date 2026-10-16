@@ -5,13 +5,9 @@ It needs no WhatsApp number, no Cálidda credentials and no LLM key.
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev), which installs the pinned bun, biome and
-  cloudflared from [`mise.toml`](../mise.toml). A bun of the pinned version on
-  your `PATH` works too.
-- Chrome or Chromium, only if you run the notifier and want to send real
-  messages in development. Set `CHROME_PATH` to its executable, or install
-  Puppeteer's browser after dependencies with
-  `bunx puppeteer browsers install chrome`.
+- [mise](https://mise.jdx.dev), which installs the pinned bun and biome from
+  [`mise.toml`](../mise.toml). A bun of the pinned version on your `PATH` works
+  too.
 
 ## Install
 
@@ -21,10 +17,6 @@ cd chatbot
 mise install
 bun install
 ```
-
-`bun install` deliberately does not download Puppeteer's browser. The notifier
-uses the Chrome or Chromium at `CHROME_PATH`, or the browser installed with the
-command above.
 
 ## The env file
 
@@ -47,9 +39,8 @@ prints a line such as `SECRETS_KEY="IiGTB0N-..."`. Put it in `.env`.
 
 Without `SECRETS_KEY`, no access token can be stored. The seed leaves the
 default number `pending`, the channels API refuses a token with 503, and nothing
-can be sent to WhatsApp, through the Cloud API or the notifier. The simulator
-still works, because it sends nothing. A different key later cannot read the
-tokens stored under this one.
+can be sent to WhatsApp. The simulator still works, because it sends nothing. A
+different key later cannot read the tokens stored under this one.
 
 ## The seed
 
@@ -85,19 +76,14 @@ bun run account create ops --platform-operator
 bun run dev
 ```
 
-starts three processes. The backend and the frontend restart on change:
+starts two processes, which restart on change:
 
-| Process  | Address                 | Role                                                |
-| -------- | ----------------------- | --------------------------------------------------- |
-| backend  | `http://localhost:3000` | the API, the workers and the bot                    |
-| frontend | `http://localhost:5173` | the dashboard                                       |
-| notifier | `http://127.0.0.1:3001` | development sends through a linked WhatsApp account |
+| Process  | Address                 | Role                             |
+| -------- | ----------------------- | -------------------------------- |
+| backend  | `http://localhost:3000` | the API, the workers and the bot |
+| frontend | `http://localhost:5173` | the dashboard                    |
 
-The notifier prints a QR code. Scan it from WhatsApp to link an account if you
-want development sends to reach a real phone. It exits with the `CHROME_PATH`
-and `bunx puppeteer browsers install chrome` instructions if it cannot find a
-browser. The simulator does not need it. `bun run dev:backend`, `dev:frontend`
-and `dev:notifier` start one at a time.
+`bun run dev:backend` and `dev:frontend` start one at a time.
 
 On a fresh setup the backend warns that `WHATSAPP_APP_SECRET` is unset, and,
 unless you created one, that no platform operator exists. Neither affects the

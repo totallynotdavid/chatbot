@@ -8,14 +8,14 @@ are laid out, and the conventions a change follows. Where a change belongs is in
 
 Run from the repository root unless a directory is named.
 
-| Command                               | What it catches                                                                                                      |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `bun test`                            | every test file in the repository: backend, core, frontend                                                           |
-| `bunx tsc --noEmit` in each workspace | type errors. Run it in `apps/backend`, `apps/notifier` and each of `packages/{core,intelligence,logger,types,utils}` |
-| `bun run check` in `apps/frontend`    | svelte-check: types and Svelte errors in the dashboard                                                               |
-| `bunx biome format`                   | formatting of code and JSON. `bun run format` writes the fixes                                                       |
-| `bun run format:md`                   | formatting of Markdown and YAML, with prettier. It writes the fixes                                                  |
-| `bun run build`                       | the production frontend build                                                                                        |
+| Command                               | What it catches                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `bun test`                            | every test file in the repository: backend, core, frontend                                          |
+| `bunx tsc --noEmit` in each workspace | type errors. Run it in `apps/backend` and each of `packages/{core,intelligence,logger,types,utils}` |
+| `bun run check` in `apps/frontend`    | svelte-check: types and Svelte errors in the dashboard                                              |
+| `bunx biome format`                   | formatting of code and JSON. `bun run format` writes the fixes                                      |
+| `bun run format:md`                   | formatting of Markdown and YAML, with prettier. It writes the fixes                                 |
+| `bun run build`                       | the production frontend build                                                                       |
 
 `bun run format` runs `biome format --write`. It does not lint.
 `bunx biome lint` is clean on the current tree. CI does not run it.
@@ -50,7 +50,7 @@ workspace is neither typechecked nor tested in CI until it is added to both.
 
 | Pin                                  | File                                                               |
 | ------------------------------------ | ------------------------------------------------------------------ |
-| bun, biome, cloudflared              | [`mise.toml`](../mise.toml), resolved in `mise.lock`               |
+| bun, biome                           | [`mise.toml`](../mise.toml), resolved in `mise.lock`               |
 | npm dependencies                     | `bun.lock`, installed with `--frozen-lockfile`                     |
 | transitive versions forced for fixes | `overrides` in the root [`package.json`](../package.json)          |
 | GitHub Actions                       | the `uses:` lines in `.github/workflows/`                          |
@@ -147,7 +147,8 @@ first.
 - **Sends** go through `WhatsAppService` and act on the `SendResult` it returns.
   Most failures come back as an outcome, not a throw. An inactive number throws
   `ChannelUnavailableError`.
-- **Schema.** A new table goes in `schema.sql`. A change to an existing table
-  also needs a step in `migrations.ts`.
+- **Schema.** `schema.sql` is the whole schema and never alters a table that
+  exists. After changing a table, delete the database file and run
+  `bun run seed`.
 - **Commits.** A lower-case imperative subject with no prefix, then a body that
   explains why, usually starting with `Why:`. Commits to `master` are signed.

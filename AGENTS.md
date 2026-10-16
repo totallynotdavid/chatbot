@@ -26,9 +26,9 @@ only the rules those documents do not.
 - **One backend process.** Locks, the circuit breaker and the workers live in
   memory. Do not add state that assumes a second process shares it, and do not
   design for one.
-- **Schema.** A change to an existing table needs a step in
-  `apps/backend/src/db/migrations.ts`. `schema.sql` alone never alters a table
-  that exists.
+- **Schema.** `schema.sql` is the whole schema and never alters a table that
+  exists. After changing a table, delete the database file and run
+  `bun run seed`.
 - **A new workspace** needs an entry in the CI typecheck matrix and a step in
   the CI `test` job. Nothing checks either.
 - **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
@@ -36,8 +36,7 @@ only the rules those documents do not.
   business, and its slug `totem` is a lookup key for an existing row, so it is
   never renamed. Do not rename in passing.
 - **Business rules.** Implement what the code and the owner say. Credit tiers,
-  NSE limits and bundle rules found in old notes or dead code (`gaso-logic.ts`)
-  are not live rules.
+  NSE limits and bundle rules found in old notes are not live rules.
 
 ## Before you finish
 
@@ -58,7 +57,6 @@ commit. A page that is wrong is worse than none.
 - `bun test` points the database and uploads at a temporary directory through
   `apps/backend/tests/setup.ts`. A script run outside the test runner uses
   `apps/backend/data/database.sqlite`.
-- `bun run dev:tunnel:reset` kills every `cloudflared` process on the machine.
 
 ## Commits
 

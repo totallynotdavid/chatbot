@@ -21,18 +21,17 @@ secured is in [Connecting WhatsApp](./whatsapp.md).
 [`routes/webhook.ts`](../apps/backend/src/routes/webhook.ts) handles each
 message in the batch on its own and reports a status for it in the 200 body:
 
-| Status                                 | Meaning                                                                        |
-| -------------------------------------- | ------------------------------------------------------------------------------ |
-| `received`                             | Stored in `message_inbox` for the aggregator.                                  |
-| `maintenance_held`                     | Stored in `held_messages`. See [Operations](./operations.md#maintenance-mode). |
-| `duplicate`                            | Its Meta message id is already queued or held. Nothing is done.                |
-| `non_text_ignored`                     | Image, audio, video, document or unknown type. No reply, nothing stored.       |
-| `ignored_system_message`               | No sender.                                                                     |
-| `unroutable_no_phone_number_id`        | The change carries no `metadata.phone_number_id`. Dropped.                     |
-| `unknown_channel_account`              | No channel account has that id. Dropped.                                       |
-| `channel_account_pending`, `_disabled` | The number is not active. Dropped.                                             |
-| `tenant_not_active`                    | The business is suspended. Dropped.                                            |
-| `no_message`                           | The change carried no message, such as a delivery status. Ignored.             |
+| Status                                 | Meaning                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `received`                             | Stored in `message_inbox` for the aggregator.                            |
+| `duplicate`                            | Its Meta message id is already queued. Nothing is done.                  |
+| `non_text_ignored`                     | Image, audio, video, document or unknown type. No reply, nothing stored. |
+| `ignored_system_message`               | No sender.                                                               |
+| `unroutable_no_phone_number_id`        | The change carries no `metadata.phone_number_id`. Dropped.               |
+| `unknown_channel_account`              | No channel account has that id. Dropped.                                 |
+| `channel_account_pending`, `_disabled` | The number is not active. Dropped.                                       |
+| `tenant_not_active`                    | The business is suspended. Dropped.                                      |
+| `no_message`                           | The change carried no message, such as a delivery status. Ignored.       |
 
 A dropped message is gone: Meta got a 200 and does not redeliver it. A message
 that throws while being stored makes the whole batch answer 500, so Meta
@@ -87,13 +86,6 @@ The commit comes after the sends, so a reply that went out before the backend
 died is sent again on the rerun, as with a send that throws partway through a
 batch.
 
-The held-message sweep ([maintenance mode](./operations.md#maintenance-mode))
-runs the same turn and counts failures the same way, per group and in memory. A
-group that fails once is held for the next sweep. After the second failure every
-unanswered held message of the conversation, including one held while the
-attempt ran, moves to the inbox as a `failed` row and the handoff takes them
-from there.
-
 Processed rows are kept 7 days, because the Meta message id on them is what
 recognizes a redelivery
 ([`processed-retention.ts`](../apps/backend/src/conversation/processed-retention.ts)).
@@ -135,7 +127,7 @@ runs one turn for one grouped message:
    conversation never emits it, so an escalation alerts once. Such a turn may
    emit `customer_message_received` ([Escalation](#escalation)).
 
-The simulator and the maintenance sweep call the same `handleMessage`.
+The simulator calls the same `handleMessage`.
 
 ## Core's transition
 
@@ -219,8 +211,7 @@ from the old phase, and a message sent before the throw goes out again.
 
 Every reply goes through `WhatsAppService` in
 [`adapters/whatsapp/index.ts`](../apps/backend/src/adapters/whatsapp/index.ts).
-The adapter is chosen at import: `NODE_ENV=development` sends through the
-notifier, anything else through the Cloud API
+It sends through the Cloud API
 ([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts), 10 s for
 text, and 15 s for an image. The Graph version is set in
 [WhatsApp](./whatsapp.md#connecting-whatsapp)). An image is sent as a link to

@@ -35,8 +35,7 @@ instructions are in [Get started](./docs/get-started.md).
 - A dashboard for conversations, catalog and order work, reports, and a provider
   lookup for platform operators.
 - A simulator with built-in personas for testing the conversation flow.
-- WhatsApp Cloud API sends in production and a linked WhatsApp Web notifier in
-  development.
+- WhatsApp Cloud API sends.
 - An outbox that retries recoverable send failures and hands undeliverable
   replies to a person.
 

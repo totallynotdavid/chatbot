@@ -30,7 +30,7 @@ joins a user to a tenant with one role:
 
 | Role          | Adds                                                                      |
 | ------------- | ------------------------------------------------------------------------- |
-| `admin`       | `/api/admin/*`: users, channel accounts, settings, audit, held messages   |
+| `admin`       | `/api/admin/*`: users, channel accounts, settings, audit                  |
 | `developer`   | catalog and period writes, reports, analytics, system logs, the simulator |
 | `supervisor`  | catalog and period writes, reports, analytics, system logs                |
 | `sales_agent` | nothing beyond the base                                                   |
@@ -250,23 +250,3 @@ db.run("UPDATE tenants SET status = ? WHERE slug = ?", ["suspended", "acme"]);'
 ```
 
 Setting the status back to `active` reopens it.
-
-## The single-business migration
-
-A database from before tenancy has a `conversations` table without `tenant_id`.
-The first process to open it rebuilds it in one transaction
-([`db/migrations.ts`](../apps/backend/src/db/migrations.ts)):
-
-1. Rebuild each table in the new shape.
-2. Create tenant `totem` and its channel account from `WHATSAPP_PHONE_ID`,
-   `WHATSAPP_TOKEN` and `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, through the same seed a
-   fresh database runs.
-3. Stamp every row with that tenant and account.
-4. Make each legacy user a member of `totem` with their old role.
-5. Copy legacy contract and call recordings into private storage.
-
-Boot, `bun run seed` and `bun run account` all run it. It promotes nobody to
-platform operator. If `WHATSAPP_PHONE_ID` is unset at that moment, the data
-lands on a `pending` placeholder account named `unconfigured:<tenant id>`, and
-setting the variable later creates a second account instead of moving the data.
-Set it before the first boot on the new code.
