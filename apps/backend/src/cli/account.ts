@@ -1,8 +1,8 @@
 import process from "node:process";
 import { parseArgs } from "node:util";
-import { db } from "../db/connection.ts";
-import { initializeDatabase } from "../db/init.ts";
-import { accountsOn, type AccountError } from "../domains/accounts/index.ts";
+import { createDb } from "../db/client.ts";
+import type { AccountError } from "../domains/accounts/errors.ts";
+import { accountsIn } from "../domains/accounts/kysely.ts";
 import { currentOperator } from "./os-user.ts";
 import { readPassword } from "./read-password.ts";
 
@@ -58,16 +58,29 @@ async function run(argv: string[]): Promise<number> {
   }
   if (!username || extra.length > 0) return usage("Expected one username.");
 
-  initializeDatabase(db);
-  const accounts = accountsOn(db);
+  if (command === "promote" && Object.keys(options).length > 0) {
+    return usage("promote takes a username and nothing else.");
+  }
+
+  const db = createDb();
+
+  try {
+    return await execute(accountsIn(db), command, username, options);
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function execute(
+  accounts: ReturnType<typeof accountsIn>,
+  command: "create" | "promote",
+  username: string,
+  options: { "platform-operator"?: boolean; tenant?: string; name?: string },
+): Promise<number> {
   const operator = currentOperator();
 
   if (command === "promote") {
-    if (Object.keys(options).length > 0) {
-      return usage("promote takes a username and nothing else.");
-    }
-
-    const promoted = accounts.promote(username, operator);
+    const promoted = await accounts.promote(username, operator);
     if (!promoted.ok) return refuse(promoted.error);
 
     console.log(
@@ -86,10 +99,10 @@ async function run(argv: string[]): Promise<number> {
   };
 
   // Refused before the prompt, so nobody types a password twice for nothing.
-  const checked = accounts.checkNew(request);
+  const checked = await accounts.checkNew(request);
   if (!checked.ok) return refuse(checked.error);
 
-  const created = accounts.create(
+  const created = await accounts.create(
     { ...request, password: await readPassword() },
     operator,
   );
@@ -109,6 +122,4 @@ try {
 } catch (error) {
   console.error(`error: ${error instanceof Error ? error.message : error}`);
   process.exitCode = 1;
-} finally {
-  db.close();
 }
