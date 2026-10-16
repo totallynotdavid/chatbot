@@ -6,6 +6,7 @@
     "scripts": {
         "start": "bun run --env-file=../../.env src/index.ts",
         "dev": "bun run --watch --env-file=../../.env src/index.ts",
+        "migrate": "bun run --env-file=../../.env src/db/migrate.ts",
         "seed": "bun run --env-file=../../.env src/db/seed.ts",
         "account": "bun run --env-file=../../.env src/cli/account.ts",
         "clean": "bun x shx rm -f 'data/*.sqlite' 'data/*.sqlite-shm' 'data/*.sqlite-wal'",
