@@ -1,0 +1,96 @@
+name: Deploy images
+
+on:
+  push:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Lists the images whose inputs this push changed. A push compares against
+  # the commit before it, so a push of several commits is judged as a whole.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      images: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - apps/backend/**
+              - packages/core/**
+              - packages/intelligence/**
+              - packages/logger/**
+              - packages/types/**
+              - packages/utils/**
+              - packages/tsconfig/**
+              - package.json
+              - bun.lock
+              - mise.toml
+              - .dockerignore
+              - deploy/backend.Dockerfile
+            web:
+              - apps/frontend/**
+              - packages/types/**
+              - packages/utils/**
+              - packages/tsconfig/**
+              - package.json
+              - bun.lock
+              - mise.toml
+              - .dockerignore
+              - deploy/web.Dockerfile
+            backup:
+              - deploy/backup/**
+
+  images:
+    name: image (${{ matrix.image }})
+    needs: changes
+    if: needs.changes.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # mise.toml is the one place that pins the Bun version.
+      - id: pins
+        run: |
+          {
+            echo "bun=$(sed -n 's/^bun = "\(.*\)"/\1/p' mise.toml)"
+            echo "repository=ghcr.io/${GITHUB_REPOSITORY,,}"
+            echo "tag=sha-${GITHUB_SHA::7}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: ${{ matrix.image == 'backup' && 'deploy/backup' || '.' }}
+          file: ${{ matrix.image == 'backup' && 'deploy/backup/Dockerfile' || format('deploy/{0}.Dockerfile', matrix.image) }}
+          build-args: BUN_VERSION=${{ steps.pins.outputs.bun }}
+          tags: ${{ steps.pins.outputs.repository }}/${{ matrix.image }}:${{ steps.pins.outputs.tag }}
+          push: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

@@ -24,3 +24,19 @@ updates:
       all:
         patterns:
           - "*"
+
+  - package-ecosystem: docker
+    directories:
+      - /deploy/backup
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: docker-compose
+    directories:
+      - /deploy
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
