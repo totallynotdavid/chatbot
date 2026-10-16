@@ -1,11 +1,15 @@
 import { createRootLogger, type Logger } from "@vendeya/logger";
 import process from "node:process";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
+// Production logs go to stdout unless LOG_DIR names a directory.
+// Container runtimes and process managers collect stdout.
 const rootLogger = createRootLogger({
   name: "backend",
-  logDir: process.env.LOG_DIR || "./data/logs",
+  logDir: process.env.LOG_DIR || (isDevelopment ? "./data/logs" : undefined),
   filename: "backend.log",
-  isDevelopment: process.env.NODE_ENV === "development",
+  isDevelopment,
 });
 
 function getModuleLogLevel(module: string): string | undefined {

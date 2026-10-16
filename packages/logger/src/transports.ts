@@ -2,7 +2,7 @@ import type { TransportTargetOptions } from "pino";
 
 export function createDevTransports(
   level: string,
-  logDir: string,
+  logDir?: string,
   filename?: string,
 ): TransportTargetOptions[] {
   const targets: TransportTargetOptions[] = [
@@ -17,7 +17,7 @@ export function createDevTransports(
     },
   ];
 
-  if (filename) {
+  if (logDir && filename) {
     targets.push({
       target: "pino/file",
       level,

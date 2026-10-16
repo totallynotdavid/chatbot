@@ -6,7 +6,8 @@ import { createDevTransports, createProdDestination } from "./transports";
 
 export interface LoggerConfig {
   name: string;
-  logDir: string;
+  /** Without it, or without `filename`, a production logger writes to stdout. */
+  logDir?: string | undefined;
   filename?: string;
   isDevelopment?: boolean;
   baseLevel?: string;
@@ -15,9 +16,6 @@ export interface LoggerConfig {
 function validateConfig(config: LoggerConfig): void {
   if (!config.name) {
     throw new Error("Logger name is required");
-  }
-  if (!config.logDir) {
-    throw new Error("Logger directory is required");
   }
 }
 
@@ -49,7 +47,7 @@ export function createRootLogger(config: LoggerConfig): Logger {
     return pino({ ...baseConfig, transport: { targets } });
   }
 
-  if (config.filename) {
+  if (config.logDir && config.filename) {
     const destination = createProdDestination(config.logDir, config.filename);
     return pino(baseConfig, pino.destination(destination));
   }
