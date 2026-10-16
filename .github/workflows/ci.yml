@@ -12,10 +12,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # whatsapp-web.js pulls puppeteer, which would download Chromium on install.
-  PUPPETEER_SKIP_DOWNLOAD: "true"
-
 jobs:
   format:
     runs-on: ubuntu-latest
@@ -49,9 +45,6 @@ jobs:
             command: bunx tsc --noEmit
           - name: types
             directory: packages/types
-            command: bunx tsc --noEmit
-          - name: notifier
-            directory: apps/notifier
             command: bunx tsc --noEmit
           - name: utils
             directory: packages/utils

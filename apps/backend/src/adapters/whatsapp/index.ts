@@ -1,4 +1,3 @@
-import process from "node:process";
 import type { ChannelAccount, ConversationRef } from "@vendeya/types";
 import type {
   ConversationMessage,
@@ -8,7 +7,6 @@ import type {
   StoredMessageType,
 } from "./types.ts";
 import { CloudApiAdapter } from "./cloud-api.ts";
-import { DevAdapter } from "./dev-adapter.ts";
 import { MessageStore } from "./message-store.ts";
 import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 import { TenantService } from "../../domains/tenants/index.ts";
@@ -22,22 +20,12 @@ import { createLogger } from "../../lib/logger.ts";
 
 const logger = createLogger("whatsapp");
 
-const IS_DEV = process.env.NODE_ENV === "development";
-
-function getAdapter() {
-  if (IS_DEV) {
-    return DevAdapter;
-  }
-  return CloudApiAdapter;
-}
-
-const adapter = getAdapter();
+const adapter = CloudApiAdapter;
 
 /**
  * Thrown when a send targets a `pending` or `disabled` channel account of an
- * open tenant. The aggregator leaves the inbox row pending and the maintenance
- * sweep leaves the held row held, so switching a number off pauses its
- * conversations.
+ * open tenant. The aggregator leaves the inbox row pending, so switching a
+ * number off pauses its conversations.
  */
 export class ChannelUnavailableError extends Error {
   constructor(

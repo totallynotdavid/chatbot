@@ -1,19 +1,16 @@
 node_modules
 .env
 .env.*
-.cloudflare-url
 
 # build and dev generated files
 *.tsbuildinfo
 dist
 logs
 
-# Signed contracts and call recordings. `data/private` is the current store and
-# `data/contracts` is the legacy location that the migration reads. Both are
-# generated at runtime, never source. `data/uploads` is deliberately not here
-# because the seeded catalog images under it are tracked.
+# Signed contracts and call recordings are generated at runtime, never source.
+# `data/uploads` is deliberately not here because the seeded catalog images
+# under it are tracked.
 **/data/private/
-**/data/contracts/
 
 # database
 *.sqlite

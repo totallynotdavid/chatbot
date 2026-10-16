@@ -11,9 +11,6 @@ export const TIMEOUTS = {
   // WhatsApp API
   WHATSAPP_SEND: 10_000,
   WHATSAPP_IMAGE: 15_000,
-
-  // Notifier service
-  NOTIFIER: 5_000,
 } as const;
 
 /**
