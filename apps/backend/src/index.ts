@@ -42,7 +42,6 @@ import assets from "./routes/assets.ts";
 import providerRoutes from "./routes/providers.ts";
 
 import { getAllStatus } from "./adapters/providers/health.ts";
-import { checkNotifierHealth } from "./adapters/notifier/client.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
 import { initializeApplication } from "./bootstrap/index.ts";
 import { IMAGES_DIR } from "./lib/storage-paths.ts";
@@ -126,19 +125,13 @@ app.use(
 );
 
 // Unprotected routes
-app.get("/health", async (c) => {
+app.get("/health", (c) => {
   const providers = getAllStatus();
-  const notifier = await checkNotifierHealth();
-
-  const allHealthy =
-    providers.fnb.available && providers.gaso.available && notifier;
+  const allHealthy = providers.fnb.available && providers.gaso.available;
 
   return c.json({
     status: allHealthy ? "healthy" : "degraded",
     providers,
-    notifier: {
-      status: notifier ? "healthy" : "unavailable",
-    },
     timestamp: new Date().toISOString(),
   });
 });
@@ -147,11 +140,21 @@ app.route("/api/webhook", webhook);
 
 app.route("/api/auth", auth);
 
+// The simulator plays customers against live tenant data, so production does not
+// serve it. This sits before requireAuth so the answer is 404 for everyone, not
+// 401 for a caller who is not signed in.
+const simulatorEnabled = process.env.NODE_ENV !== "production";
+if (!simulatorEnabled) {
+  app.all("/api/simulator/*", (c) => c.notFound());
+}
+
 // Protected routes
 app.use("/api/*", requireAuth);
 app.route("/api/tenants", tenants);
 app.route("/api/assets", assets);
-app.route("/api/simulator", simulator);
+if (simulatorEnabled) {
+  app.route("/api/simulator", simulator);
+}
 app.route("/api/conversations", conversations);
 app.route("/api/catalog", catalog);
 app.route("/api/periods", periods);
