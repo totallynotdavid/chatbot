@@ -16,9 +16,11 @@ repeating it.
    selection, recovery, and simulator personas.
 6. [Connecting WhatsApp](./whatsapp.md): register a number and configure Meta's
    callback.
-7. [Operations](./operations.md): deploy, inspect health and logs, manage
+7. [Deploy](./deploy.md): run the container stack, set its env file, and back up
+   and restore it.
+8. [Operations](./operations.md): deploy, inspect health and logs, manage
    accounts, and investigate missing replies.
-8. [Development](./development.md): run checks, find CI jobs, and follow code
+9. [Development](./development.md): run checks, find CI jobs, and follow code
    conventions.
 
 Contributors should also read the [architecture map](./architecture.md) before
