@@ -46,8 +46,11 @@ import { checkNotifierHealth } from "./adapters/notifier/client.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
 import { initializeApplication } from "./bootstrap/index.ts";
 import { IMAGES_DIR } from "./lib/storage-paths.ts";
+import { assertGraphConfig } from "./config/graph.ts";
 
 const app = new Hono();
+
+assertGraphConfig();
 
 // Awaited so a seed that throws stops the boot before Bun binds the port.
 initializeDatabase(db);

@@ -2,14 +2,13 @@ import type { ChannelAccount, SendOutcome, WhatsAppAdapter } from "./types.ts";
 import { createLogger } from "../../lib/logger.ts";
 import { getPublicUrl } from "@vendeya/utils";
 import { createAbortTimeout, TIMEOUTS } from "../../config/timeouts.ts";
+import { graphUrl } from "../../config/graph.ts";
 import { ChannelAccountService } from "../../domains/channels/accounts.ts";
 
 const logger = createLogger("whatsapp");
 
-const GRAPH_VERSION = "v17.0";
-
 function messagesUrl(account: ChannelAccount): string {
-  return `https://graph.facebook.com/${GRAPH_VERSION}/${account.phone_number_id}/messages`;
+  return graphUrl(`${account.phone_number_id}/messages`);
 }
 
 /**
