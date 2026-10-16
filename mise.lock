@@ -71,3 +71,29 @@ url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-windows-x
 [tools.bun."platforms.windows-x64-baseline"]
 checksum = "sha256:d7a7d3eb216614544aab0cde2d8d9f2e4e87839bf5a30a1cd11d077f02d84e0c"
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-windows-x64-baseline.zip"
+
+[[tools.postgres]]
+version = "18.6"
+backend = "vfox:mise-plugins/vfox-postgres"
+specifiers = [
+    "18",
+    "18.6",
+]
+
+[tools.postgres."platforms.linux-x64"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
+
+[tools.postgres."platforms.linux-x64-baseline"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
+
+[tools.postgres."platforms.linux-x64-musl"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
+
+[tools.postgres."platforms.linux-x64-musl-baseline"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
+
+[tools.postgres."platforms.windows-x64"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
+
+[tools.postgres."platforms.windows-x64-baseline"]
+url = "https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz"
