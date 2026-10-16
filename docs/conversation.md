@@ -206,7 +206,8 @@ A bot reply:
    continues.
 2. Re-reads the channel account. A missing account, a suspended tenant, or an
    account of another tenant is a `permanent` failure. A `pending` or `disabled`
-   account throws `ChannelUnavailableError`.
+   account throws `ChannelUnavailableError`, and the caller keeps the customer's
+   message and answers it once the number is active again.
 3. Sends, and gets back a typed outcome
    ([`types.ts`](../apps/backend/src/adapters/whatsapp/types.ts)):
 
@@ -220,7 +221,11 @@ A bot reply:
 On `ok` the `messages` row is `sent` with Meta's id. Any other outcome of an
 attempt goes on the outbox. A `permanent` one lands there already `failed`,
 which starts [the handoff](#the-handoff). The rest are written `queued` and
-retried. A refusal in step 2 is written `failed` and goes nowhere else.
+retried. A suspended tenant's refusal in step 2 is written the same way, as a
+`failed` row, but the handoff skips a suspended tenant: the customer hears
+nothing, and the alert comes when the tenant reopens. A missing account or an
+account of another tenant is returned as `permanent` with no row, because the
+ref names no conversation to write one for.
 
 An agent's manual reply takes none of this. It is sent once, and the agent sees
 the failure in the dashboard. A reply that went out writes a `send_message`
@@ -257,8 +262,9 @@ Final rows are deleted after 7 days.
 
 A `failed` row means the customer did not get a reply.
 [`outbox-handoff.ts`](../apps/backend/src/conversation/outbox-handoff.ts) runs
-after every outbox pass and finds conversations with a `failed` row not yet
-handed off. Inside the lock it:
+after every outbox pass and finds conversations of open tenants with a `failed`
+row not yet handed off. A suspended tenant's rows wait for it to reopen. Inside
+the lock it:
 
 1. cancels the conversation's pending replies,
 2. escalates the conversation with reason `reply_undeliverable` if it is still
