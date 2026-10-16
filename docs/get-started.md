@@ -5,9 +5,9 @@ It needs no WhatsApp number, no Cálidda credentials and no LLM key.
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev), which installs the pinned bun and biome from
-  [`mise.toml`](../mise.toml). A bun of the pinned version on your `PATH` works
-  too.
+- [mise](https://mise.jdx.dev), which installs the pinned bun, biome and
+  Postgres from [`mise.toml`](../mise.toml). A bun of the pinned version on your
+  `PATH` works too.
 
 ## Install
 
@@ -42,16 +42,36 @@ default number `pending`, the channels API refuses a token with 503, and nothing
 can be sent to WhatsApp. The simulator still works, because it sends nothing. A
 different key later cannot read the tokens stored under this one.
 
+## The database
+
+The seed and the account command write to Postgres, at the `DATABASE_URL` in
+`.env`. `mise install` provides the server. To run one outside the repository,
+as the user that owns it:
+
+```sh
+initdb --pgdata ~/.vendeya/postgres --username postgres --auth trust --no-instructions
+pg_ctl --pgdata ~/.vendeya/postgres --log ~/.vendeya/postgres.log start
+createdb --username postgres vendeya
+```
+
+Then create the tables:
+
+```sh
+bun run db:migrate
+```
+
+It applies the migrations that have not run, and does nothing when there are
+none. Run it again after pulling a change that adds a migration.
+
 ## The seed
 
 ```sh
 bun run seed
 ```
 
-creates `apps/backend/data/database.sqlite` with the default tenant `totem`, a
-sample catalog with images, and a few test conversations. With no
-`WHATSAPP_PHONE_ID` in `.env`, the tenant's number is a `pending` placeholder.
-The seed is safe to run again, and the backend also runs it on every boot.
+writes the default tenant `totem`, a sample catalog with images, and a few test
+conversations to Postgres. With no `WHATSAPP_PHONE_ID` in `.env`, the tenant's
+number is a `pending` placeholder. The seed is safe to run again.
 
 ## The first account
 

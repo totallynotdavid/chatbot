@@ -23,9 +23,12 @@ The `db` network has no route out. `postgres` and `migrate` sit only on it.
 
 The `data` volume holds the backend's SQLite file, its uploads and its private
 files. The `postgres` volume holds the Postgres data directory. The backend
-reads and writes SQLite; it does not read `postgres` yet. `migrate` creates the
-SQLite tables that are missing
-([`db/migrate.ts`](../apps/backend/src/db/migrate.ts)).
+reads and writes SQLite; it does not read `postgres` yet. `migrate` runs
+[`db/migrate-cli.ts`](../apps/backend/src/db/migrate-cli.ts), which applies the
+Postgres migrations that have not run. `backend` and `migrate` get
+`DATABASE_URL` from `POSTGRES_PASSWORD`, so the password must not contain `/`,
+`@`, `:`, `?` or `#`. The `account` command run in the backend container writes
+to Postgres.
 
 ## Images
 
@@ -219,7 +222,8 @@ The required values are the three image tags, `TUNNEL_TOKEN`, `PUBLIC_URL`,
 without each optional one.
 
 The compose file sets `DB_PATH`, `UPLOAD_DIR` and `PRIVATE_DIR` to paths on the
-`data` volume. The env file does not set them.
+`data` volume, and `DATABASE_URL` to the `postgres` service. The env file does
+not set them.
 
 ## Start
 

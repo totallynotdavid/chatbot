@@ -67,6 +67,16 @@ The backend stores durable state in one SQLite database. `DB_PATH` defaults to
 `apps/backend/data/database.sqlite` when the backend is run from its directory.
 The schema is [`db/schema.sql`](../apps/backend/src/db/schema.sql).
 
+The same schema also exists for Postgres, which the backend does not read yet.
+Its tables come from forward-only migrations in
+[`db/migrations/`](../apps/backend/src/db/migrations), run by
+[`db/migrate.ts`](../apps/backend/src/db/migrate.ts), and
+[`db/types.ts`](../apps/backend/src/db/types.ts) types them for Kysely, so a
+query that names a column outside the schema fails `tsc`. `types.ts` is written
+by hand: change it together with the migration.
+[`bun run seed`](./get-started.md#the-seed) and `bun run account` write to
+Postgres. Nothing else does.
+
 | Area                  | Tables or files                                                                         |
 | --------------------- | --------------------------------------------------------------------------------------- |
 | Tenancy and auth      | `tenants`, `users`, `tenant_memberships`, `session`                                     |
@@ -147,8 +157,7 @@ because no other process could be sending it.
 
 This makes the backend one process per database. A second backend on the same
 file would not share the locks, could answer the same inbox rows twice, and
-would mark the first one's live sends as interrupted at its boot. `bun run seed`
-and `bun run account` also open the database, and start no worker.
+would mark the first one's live sends as interrupted at its boot.
 
 The frontend keeps no state of its own. See [Operations](./operations.md) for
 deployment details.

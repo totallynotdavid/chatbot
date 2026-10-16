@@ -27,8 +27,10 @@ only the rules those documents do not.
   memory. Do not add state that assumes a second process shares it, and do not
   design for one.
 - **Schema.** `schema.sql` is the whole schema and never alters a table that
-  exists. After changing a table, delete the database file and run
-  `bun run seed`.
+  exists. After changing a table, delete the database file and restart the
+  backend. The Postgres schema is different: a change is a new file in
+  `db/migrations/` and an edit to `db/types.ts`, never an edit to a migration
+  that has run.
 - **A new workspace** needs an entry in the CI typecheck matrix and a step in
   the CI `test` job. Nothing checks either.
 - **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
@@ -56,7 +58,8 @@ commit. A page that is wrong is worse than none.
   local probes with those variables unset.
 - `bun test` points the database and uploads at a temporary directory through
   `apps/backend/tests/setup.ts`. A script run outside the test runner uses
-  `apps/backend/data/database.sqlite`.
+  `apps/backend/data/database.sqlite`. `bun run db:migrate`, `seed` and
+  `account` use the Postgres database at `DATABASE_URL`.
 
 ## Commits
 

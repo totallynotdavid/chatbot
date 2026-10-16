@@ -17,10 +17,14 @@ The local setup needs [mise](https://mise.jdx.dev) and Bun. From a fresh clone:
 mise install
 bun install
 cp .env.example .env
+bun run db:migrate
 bun run seed
 bun run account create admin
 bun run dev
 ```
+
+`db:migrate` needs a running Postgres at `DATABASE_URL`;
+[Get started](./docs/get-started.md#the-database) shows how to start one.
 
 Open <http://localhost:5173>, log in as `admin`, and open the Simulador. Start a
 simulation with the persona `FNB - Crédito Alto (S/ 8000)`, then send `hola`,

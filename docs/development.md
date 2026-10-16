@@ -36,6 +36,8 @@ and push to `master`:
 | `test`                    | `bun run test` in `apps/backend`, `bun test` in `packages/core` and `apps/frontend` |
 | `build`                   | `bun run build`                                                                     |
 
+The `test` job runs a `postgres:18` service and sets `TEST_DATABASE_URL` to it.
+
 [`codeql.yml`](../.github/workflows/codeql.yml) adds `analyze (actions)` and
 `analyze (javascript-typescript)`. Branch protection is configured on GitHub
 rather than in this repository and is not described here.
@@ -50,7 +52,7 @@ workspace is neither typechecked nor tested in CI until it is added to both.
 
 | Pin                                  | File                                                               |
 | ------------------------------------ | ------------------------------------------------------------------ |
-| bun, biome                           | [`mise.toml`](../mise.toml), resolved in `mise.lock`               |
+| bun, biome, postgres                 | [`mise.toml`](../mise.toml), resolved in `mise.lock`               |
 | npm dependencies                     | `bun.lock`, installed with `--frozen-lockfile`                     |
 | transitive versions forced for fixes | `overrides` in the root [`package.json`](../package.json)          |
 | GitHub Actions                       | the `uses:` lines in `.github/workflows/`                          |
@@ -108,6 +110,16 @@ packages/core/tests/           transitions, eligibility, validation
 sends go to the mocked Cloud API, and sets a test `WHATSAPP_APP_SECRET`. A test
 never touches the development database.
 
+A test that needs Postgres calls `createTestDb` from
+[`tests/helpers/postgres.ts`](../apps/backend/tests/helpers/postgres.ts), which
+returns a migrated database of its own, cloned from a template in about 20 ms,
+and `destroy()` drops it. The first call builds the template with the real
+migrations. The server is the one `TEST_DATABASE_URL` names, which must allow
+creating databases. Without it, the helper starts a throwaway server from the
+`initdb` and `pg_ctl` on `PATH` (`mise install` provides them) and stops it when
+the run ends. With neither, a suite written as
+`describe.skipIf(!postgresAvailable)` skips.
+
 Some backend tests boot the real server or open the database from several
 processes (`boot-safety`, `concurrent-startup`). Some read frontend files
 (`webhook-proxy`, `lima-date-contract`).
@@ -148,7 +160,9 @@ first.
   Most failures come back as an outcome, not a throw. An inactive number throws
   `ChannelUnavailableError`.
 - **Schema.** `schema.sql` is the whole schema and never alters a table that
-  exists. After changing a table, delete the database file and run
-  `bun run seed`.
+  exists. After changing a table, delete the database file and restart the
+  backend. The Postgres schema is different: a change is a new file in
+  `db/migrations/` and an edit to `db/types.ts`, never an edit to a migration
+  that has run.
 - **Commits.** A lower-case imperative subject with no prefix, then a body that
   explains why, usually starting with `Why:`. Commits to `master` are signed.

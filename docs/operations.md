@@ -48,29 +48,45 @@ copy into it.
 Boot checks nothing else. A missing `SECRETS_KEY`, provider credential, LLM key
 or `PUBLIC_URL` shows up when it is first used.
 
+## The Postgres schema
+
+`bun run db:migrate` applies the migrations in
+[`db/migrations/`](../apps/backend/src/db/migrations) that the database has not
+run, in the order of their names, and prints what it applied. Run it before
+`bun run seed` and `bun run account`, and on every deploy
+([Deploy](./deploy.md#services) runs it as the `migrate` service). Migrations
+only go forward. A database that has run one keeps it, so a change to the schema
+is a new migration, never an edit to an old one.
+
+Two processes that run it together apply each migration once: Postgres holds an
+advisory lock for the run, and the second process waits, finds nothing to do and
+exits 0. It exits 1 and prints `error: migration failed` when a migration fails
+or the database cannot be reached.
+
 ## Environment
 
-| Variable                                                               | Read by           | Without it                                                                                           |
-| ---------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                                             | all               | test data is seeded and the simulator routes answer; `production` skips both and sets secure cookies |
-| `DB_PATH`                                                              | backend           | `./data/database.sqlite`                                                                             |
-| `UPLOAD_DIR`, `PRIVATE_DIR`                                            | backend           | see [Uploads](#uploads)                                                                              |
-| `SECRETS_KEY`                                                          | backend           | no channel token can be stored or read                                                               |
-| `PUBLIC_URL`                                                           | backend           | image links, alert links and the CORS origin name `http://localhost:5173`                            |
-| `WHATSAPP_APP_SECRET`                                                  | backend           | every webhook POST answers 503                                                                       |
-| `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed              | the default tenant's number is a `pending` placeholder                                               |
-| `GRAPH_API_VERSION`                                                    | backend           | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                    |
-| `GRAPH_API_BASE_URL`                                                   | backend           | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                    |
-| `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend           | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                              |
-| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend           | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)                    |
-| `CALIDDA_*`, `POWERBI_*`                                               | backend           | that eligibility provider fails at every check                                                       |
-| `OPENAI_API_KEY`                                                       | backend           | any message the regexes miss gets no reply                                                           |
-| `BOT_RESPONSE_DELAY_MS`                                                | backend           | 2300                                                                                                 |
-| `COOKIE_SECURE`                                                        | backend           | secure cookies only in production                                                                    |
-| `PORT`                                                                 | backend, frontend | 3000                                                                                                 |
-| `BODY_SIZE_LIMIT`                                                      | built frontend    | 64M. See [Uploads](#uploads)                                                                         |
-| `LOG_DIR`                                                              | backend           | `./data/logs`, relative to `apps/backend`                                                            |
-| `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all               | `info`                                                                                               |
+| Variable                                                               | Read by                | Without it                                                                                           |
+| ---------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                             | all                    | test data is seeded and the simulator routes answer; `production` skips both and sets secure cookies |
+| `DATABASE_URL`                                                         | migrate, seed, account | those commands stop                                                                                  |
+| `DB_PATH`                                                              | backend                | `./data/database.sqlite`                                                                             |
+| `UPLOAD_DIR`, `PRIVATE_DIR`                                            | backend                | see [Uploads](#uploads)                                                                              |
+| `SECRETS_KEY`                                                          | backend                | no channel token can be stored or read                                                               |
+| `PUBLIC_URL`                                                           | backend                | image links, alert links and the CORS origin name `http://localhost:5173`                            |
+| `WHATSAPP_APP_SECRET`                                                  | backend                | every webhook POST answers 503                                                                       |
+| `WHATSAPP_PHONE_ID`, `WHATSAPP_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | seed                   | the default tenant's number is a `pending` placeholder                                               |
+| `GRAPH_API_VERSION`                                                    | backend                | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                    |
+| `GRAPH_API_BASE_URL`                                                   | backend                | see [WhatsApp](./whatsapp.md#connecting-whatsapp)                                                    |
+| `PLATFORM_OPS_PHONE_NUMBER_ID`                                         | backend                | platform alerts go out on `WHATSAPP_PHONE_ID`'s account                                              |
+| `WHATSAPP_GROUP_AGENT`, `WHATSAPP_GROUP_DEV`                           | backend                | sales and dev alerts with no tenant setting have no target. See [Alerts](#alerts)                    |
+| `CALIDDA_*`, `POWERBI_*`                                               | backend                | that eligibility provider fails at every check                                                       |
+| `OPENAI_API_KEY`                                                       | backend                | any message the regexes miss gets no reply                                                           |
+| `BOT_RESPONSE_DELAY_MS`                                                | backend                | 2300                                                                                                 |
+| `COOKIE_SECURE`                                                        | backend                | secure cookies only in production                                                                    |
+| `PORT`                                                                 | backend, frontend      | 3000                                                                                                 |
+| `BODY_SIZE_LIMIT`                                                      | built frontend         | 64M. See [Uploads](#uploads)                                                                         |
+| `LOG_DIR`                                                              | backend                | `./data/logs`, relative to `apps/backend`                                                            |
+| `LOG_LEVEL`, `LOG_LEVEL_<MODULE>`                                      | all                    | `info`                                                                                               |
 
 ## Accounts
 
@@ -98,8 +114,9 @@ printf '%s\n' "$PASSWORD" | bun run account create <username>
 
 It must be at least 12 characters. It is never taken from an argument or the
 environment. The command exits 0 on success, 1 when refused, 2 on a usage error.
-It applies the schema but not the seed, so `create` needs a tenant: run the seed
-or boot the backend first. Both actions are written to the audit log with the
+It writes to the Postgres database at `DATABASE_URL` and applies neither the
+migrations nor the seed, so `create` needs a tenant: run `bun run db:migrate`
+and `bun run seed` first. Both actions are written to the audit log with the
 actor `cli:<os user>`.
 
 **When no platform operator can log in**, boot logs a warning. Nobody can then
