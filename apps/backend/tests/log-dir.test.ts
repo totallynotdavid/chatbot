@@ -1,7 +1,8 @@
 /**
- * The backend writes `backend.log` under LOG_DIR, and under `./data/logs` in
- * the working directory when LOG_DIR is not set. The suite sets LOG_DIR so its
- * own output stays out of `apps/backend/data/logs`.
+ * The backend writes `backend.log` under LOG_DIR. In production without
+ * LOG_DIR it writes to stdout and creates no directory, which is where a
+ * container runtime reads it. The suite sets LOG_DIR so its own output stays out
+ * of `apps/backend/data/logs`.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
@@ -40,23 +41,34 @@ describe("log directory", () => {
         ...env,
       },
     });
+    const stdout = await new Response(child.stdout).text();
     const stderr = await new Response(child.stderr).text();
     expect([await child.exited, stderr]).toEqual([0, ""]);
+
+    return stdout;
   }
 
   it("writes backend.log under LOG_DIR", async () => {
     const logDir = join(dir, "elsewhere");
 
-    await logOnce({ LOG_DIR: logDir });
+    const stdout = await logOnce({ LOG_DIR: logDir });
 
     expect(readFileSync(join(logDir, "backend.log"), "utf-8")).toContain(
       "hello from the log dir test",
     );
+    expect(stdout).toBe("");
     expect(existsSync(join(dir, "data", "logs"))).toBe(false);
   });
 
-  it("writes backend.log under data/logs when LOG_DIR is not set", async () => {
-    await logOnce({});
+  it("writes to stdout and no file when LOG_DIR is not set", async () => {
+    const stdout = await logOnce({});
+
+    expect(stdout).toContain("hello from the log dir test");
+    expect(existsSync(join(dir, "data"))).toBe(false);
+  });
+
+  it("writes data/logs/backend.log in development", async () => {
+    await logOnce({ NODE_ENV: "development" });
 
     expect(
       readFileSync(join(dir, "data", "logs", "backend.log"), "utf-8"),

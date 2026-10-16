@@ -43,6 +43,29 @@ describe("the public origin", () => {
   });
 });
 
+describe("the backend URL", () => {
+  const saved = process.env.BACKEND_URL;
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env.BACKEND_URL;
+    else process.env.BACKEND_URL = saved;
+  });
+
+  it("is the local backend when BACKEND_URL is unset or empty", () => {
+    delete process.env.BACKEND_URL;
+    expect(utils.getBackendUrl()).toBe("http://localhost:3000");
+
+    process.env.BACKEND_URL = " ";
+    expect(utils.getBackendUrl()).toBe("http://localhost:3000");
+  });
+
+  it("is BACKEND_URL, with the trailing slash dropped", () => {
+    process.env.BACKEND_URL = "http://backend:3000/";
+
+    expect(utils.getBackendUrl()).toBe("http://backend:3000");
+  });
+});
+
 describe("in production", () => {
   it("names PUBLIC_URL in the frontend and media URLs", () => {
     setPublicUrl(PRODUCTION_URL);
