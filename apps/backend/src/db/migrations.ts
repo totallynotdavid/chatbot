@@ -327,6 +327,28 @@ export function migrateAuditLogActor(
 }
 
 /**
+ * Adds the columns used to count failed turns and mark their handoff. Existing
+ * failed rows are stamped so the migration does not alert for old messages.
+ */
+export function migrateInboxTurnRecovery(db: Database): void {
+  const migrate = db.transaction(() => {
+    if (!columnExists(db, "message_inbox", "attempts")) {
+      db.run(
+        "ALTER TABLE message_inbox ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0",
+      );
+    }
+    if (!columnExists(db, "message_inbox", "handed_off_at")) {
+      db.run("ALTER TABLE message_inbox ADD COLUMN handed_off_at INTEGER");
+      db.run(
+        `UPDATE message_inbox SET handed_off_at = created_at
+         WHERE status = 'failed'`,
+      );
+    }
+  });
+  migrate.immediate();
+}
+
+/**
  * Turns every text `last_activity_at` into epoch milliseconds. A value SQLite
  * can parse is converted. Any other takes the time of the conversation's newest
  * message, or 0 when it has none. SQLite orders text above every integer, so a

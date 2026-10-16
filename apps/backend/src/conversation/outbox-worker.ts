@@ -11,7 +11,7 @@ import {
   type OutboxStep,
 } from "./outbox.ts";
 import { ConversationBusyError, LockTimeoutError, withLock } from "./locks.ts";
-import { handOffUndeliverable } from "./outbox-handoff.ts";
+import { handOffUndeliverable } from "./handoff.ts";
 import {
   ChannelUnavailableError,
   sendResolved,

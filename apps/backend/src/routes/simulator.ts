@@ -243,12 +243,25 @@ simulator.post("/message", async (c) => {
   WhatsAppService.logMessage(ref, "inbound", "text", message, "received");
 
   // Process message through new handler (synchronous for simulator)
-  await handleMessage({
-    ref,
-    content: message,
-    timestamp: Date.now(),
-    messageId: `sim-${Date.now()}`,
-  });
+  try {
+    await handleMessage({
+      ref,
+      content: message,
+      timestamp: Date.now(),
+      messageId: `sim-${Date.now()}`,
+    });
+  } catch (error) {
+    // The simulator has no queue to retry the turn or hand it off, so the
+    // caller is told that no reply was recorded.
+    logger.error({ error, ref }, "Simulated turn failed");
+    return c.json(
+      {
+        status: "failed",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      500,
+    );
+  }
 
   return c.json({ status: "processed" });
 });

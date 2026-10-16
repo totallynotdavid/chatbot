@@ -29,10 +29,17 @@ export type IncomingMessage = {
   timestamp: number;
   messageId: string;
   quotedContext?: QuotedMessageContext;
+  /**
+   * The queue rows this message was grouped from, as `message_inbox` ids joined
+   * by commas. They become `processed` in the transaction that records the
+   * turn, and stay as they were if the turn throws.
+   */
+  inboxIds?: string;
 };
 
 export async function handleMessage(message: IncomingMessage): Promise<void> {
-  const { ref, content, timestamp, messageId, quotedContext } = message;
+  const { ref, content, timestamp, messageId, quotedContext, inboxIds } =
+    message;
   const { tenantId, channelAccountId, phoneNumber } = ref;
 
   await withLock(ref, async () => {
@@ -66,6 +73,12 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
     const held = conversation.phase.phase === "escalated";
     await WhatsAppService.markAsRead(ref, messageId, { typing: !held });
 
+    // Set once the turn is recorded. A failure before it is passed on: the
+    // caller owns the queue rows and decides whether to try again. A failure
+    // after it is absorbed, because trying again would repeat a reply that
+    // went out and was recorded.
+    let recorded = false;
+
     try {
       const provider = getProvider();
 
@@ -95,7 +108,9 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         conversation.metadata,
         conversation.isSimulation,
         traceId,
+        inboxIds,
       );
+      recorded = true;
 
       // The transition's events go out after its replies, for the reason
       // `executeCommands` persists the phase after them: a send that throws
@@ -174,6 +189,7 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
           messageId,
           phase: conversation.phase.phase,
           traceId,
+          recorded,
         },
         "Message processing failed",
       );
@@ -192,6 +208,8 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
           eventContext,
         ),
       );
+
+      if (!recorded) throw error;
     }
   });
 }

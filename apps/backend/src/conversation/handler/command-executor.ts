@@ -9,8 +9,9 @@ import { WhatsAppService } from "../../adapters/whatsapp/index.ts";
 import { trackEvent } from "../../domains/analytics/index.ts";
 import { BundleService } from "../../domains/catalog/index.ts";
 import { createLogger } from "../../lib/logger.ts";
-import { createEvent, eventBus } from "../../shared/events/index.ts";
+import { db } from "../../db/index.ts";
 import { sendBundleImages } from "../images.ts";
+import { markAsProcessed } from "../message-inbox.ts";
 import { getOrCreateConversation, updateConversation } from "../store.ts";
 import { sleep } from "./sleep.ts";
 
@@ -21,6 +22,9 @@ const logger = createLogger("commands");
  * A send can throw (`ChannelUnavailableError` when the number was switched off
  * mid-flight) and the queue replays the message once the number returns. The
  * replay is faithful only if nothing the transition records was written first.
+ *
+ * `inboxIds` are the queue rows this turn answers. The transaction records the
+ * phase and marks these rows `processed` together.
  */
 export async function executeCommands(
   result: TransitionResult,
@@ -28,30 +32,15 @@ export async function executeCommands(
   metadata: ConversationMetadata,
   isSimulation: boolean,
   traceId: string,
+  inboxIds?: string,
 ): Promise<void> {
-  const { tenantId, channelAccountId, phoneNumber } = ref;
+  const { tenantId, phoneNumber } = ref;
 
   if (result.type === "need_enrichment") {
-    // Should not reach here, enrichment loop should handle it
-    logger.error(
-      { tenantId, phoneNumber, resultType: result.type, traceId },
-      "Unexpected need_enrichment in executeCommands",
+    // The enrichment loop resolves every request before the executor runs.
+    throw new Error(
+      `Unexpected need_enrichment in executeCommands (trace ${traceId})`,
     );
-    eventBus.emit(
-      createEvent(
-        "system_error_occurred",
-        {
-          phoneNumber,
-          error: "Error en ejecución de comandos (enrichment loop bypass)",
-          context: {
-            clientName: metadata.name || "Unknown",
-            dni: metadata.dni || "Unknown",
-          },
-        },
-        { traceId, tenantId, channelAccountId },
-      ),
-    );
-    return;
   }
 
   // Analytics are collected, not written, and the phase is persisted once
@@ -103,26 +92,30 @@ export async function executeCommands(
   }
 
   // No command in the batch threw, so only now does the conversation move on.
-  const stored = getOrCreateConversation(ref).phase;
-  if (JSON.stringify(stored) !== JSON.stringify(phase)) {
-    logger.info(
-      {
-        tenantId,
-        phoneNumber,
-        fromPhase: stored.phase,
-        toPhase: phase.phase,
-      },
-      "Phase transition",
-    );
-    updateConversation(ref, phase, metadata);
-  }
+  db.transaction(() => {
+    const stored = getOrCreateConversation(ref).phase;
+    if (JSON.stringify(stored) !== JSON.stringify(phase)) {
+      logger.info(
+        {
+          tenantId,
+          phoneNumber,
+          fromPhase: stored.phase,
+          toPhase: phase.phase,
+        },
+        "Phase transition",
+      );
+      updateConversation(ref, phase, metadata);
+    }
 
-  for (const command of tracked) {
-    trackEvent(ref, command.event, {
-      segment: metadata.segment,
-      ...command.metadata,
-    });
-  }
+    for (const command of tracked) {
+      trackEvent(ref, command.event, {
+        segment: metadata.segment,
+        ...command.metadata,
+      });
+    }
+
+    if (inboxIds) markAsProcessed(inboxIds);
+  })();
 }
 
 type TrackEventCommand = Extract<Command, { type: "TRACK_EVENT" }>;

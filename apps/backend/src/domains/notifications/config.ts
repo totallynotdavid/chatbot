@@ -101,6 +101,7 @@ export const notificationRules: NotificationRule[] = [
         customer_question_requires_human:
           "Pregunta del cliente requiere atención humana",
         reply_undeliverable: "No se pudo entregar una respuesta al cliente",
+        turn_failed: "El bot no pudo responder al cliente",
       };
 
       if (map[reason]) {

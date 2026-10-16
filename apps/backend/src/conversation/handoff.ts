@@ -4,6 +4,11 @@ import { createLogger } from "../lib/logger.ts";
 import { createEvent, eventBus } from "../shared/events/index.ts";
 import { ConversationBusyError, LockTimeoutError, withLock } from "./locks.ts";
 import {
+  conversationsWithFailedTurns,
+  markTurnsHandedOff,
+  unhandedFailedTurns,
+} from "./message-inbox.ts";
+import {
   cancelPending,
   conversationsAwaitingHandoff,
   markHandedOff,
@@ -13,30 +18,15 @@ import { escalateConversation, findConversation } from "./store.ts";
 import { raiseUnreadAlert } from "./unread-alerts.ts";
 
 /*
- * A reply that ended `failed` left the customer without an answer, so the
- * conversation goes to a person. The handoff finds its work by state: a
- * conversation with a `failed` row whose `handed_off_at` is NULL. It is not
- * called from the code that fails a row. That covers every route to `failed`
- * (a recorded outcome, expiry, boot recovery) and a crash between the failure
- * and the handoff.
- *
- * Inside the conversation lock, in this order:
- *  1. Read the failed rows that are not handed off. None means return.
- *  2. Cancel the conversation's pending rows.
- *  3. Escalate the conversation if it is `active`. Assign it an agent.
- *  4. Record the unread alert and emit `escalation_triggered`.
- *  5. Stamp `handed_off_at` on the rows read in step 1.
- *
- * The alert is emitted before the stamp, on purpose. A crash between the two
- * leaves the rows unstamped, so the next pass hands off again and the advisor
- * gets a second alert. A duplicate alert costs one message. A missed one leaves
- * a customer waiting with nobody told. Steps 2 and 3 are idempotent, so a
- * repeated pass is safe.
+ * Failed outbox and inbox rows use the same handoff. The lock protects
+ * cancellation, escalation, assignment, alerting, and stamping. A crash
+ * before stamping can alert twice.
  */
 
-const logger = createLogger("outbox-handoff");
+const logger = createLogger("handoff");
 
 export const REPLY_UNDELIVERABLE = "reply_undeliverable";
+export const TURN_FAILED = "turn_failed";
 
 /**
  * Hands off each conversation of an open tenant that owns an unstamped failed
@@ -45,19 +35,37 @@ export const REPLY_UNDELIVERABLE = "reply_undeliverable";
  * throws does not stop the others.
  */
 export async function handOffUndeliverable(at: () => number): Promise<void> {
-  const refs = conversationsAwaitingHandoff();
-  await Promise.all(refs.map((ref) => handOff(ref, at)));
+  const refs = new Map<string, ConversationRef>();
+  for (const ref of [
+    ...conversationsAwaitingHandoff(),
+    ...conversationsWithFailedTurns(),
+  ]) {
+    refs.set(`${ref.tenantId}:${ref.channelAccountId}:${ref.phoneNumber}`, ref);
+  }
+
+  await Promise.all([...refs.values()].map((ref) => handOff(ref, at)));
 }
 
 async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
-  // Named in the error logs below, so an operator can find the rows.
+  // Keep the ids outside the lock so late failures can identify the rows.
   let outboxIds: number[] = [];
+  let inboxIds: number[] = [];
 
   try {
     await withLock(ref, async () => {
-      const rows = undeliveredRows(ref);
-      if (rows.length === 0) return;
-      outboxIds = rows.map((row) => row.id);
+      const replies = undeliveredRows(ref);
+      const turns = unhandedFailedTurns(ref);
+      if (replies.length === 0 && turns.length === 0) return;
+      outboxIds = replies.map((row) => row.id);
+      inboxIds = turns.map((row) => row.id);
+
+      // A failed turn takes precedence because the customer's message was
+      // never answered, regardless of any outbox failure.
+      const reason = turns.length > 0 ? TURN_FAILED : REPLY_UNDELIVERABLE;
+      const lastReason =
+        turns.length > 0
+          ? turns[turns.length - 1]!.last_error
+          : replies[replies.length - 1]!.last_reason;
 
       const cancelledReplies = cancelPending(ref);
 
@@ -66,7 +74,7 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
       // bot queued may be the reply that failed.
       const statusBefore = findConversation(ref)?.status;
       if (statusBefore === "active") {
-        escalateConversation(ref, REPLY_UNDELIVERABLE);
+        escalateConversation(ref, reason);
         assignNextAgentHeld(ref);
       }
 
@@ -76,10 +84,11 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
           "escalation_triggered",
           {
             phoneNumber: ref.phoneNumber,
-            reason: REPLY_UNDELIVERABLE,
+            reason,
             context: {
-              failedReplies: rows.length,
-              lastReason: rows[rows.length - 1]!.last_reason,
+              failedReplies: replies.length,
+              failedTurns: turns.length,
+              lastReason,
             },
           },
           { tenantId: ref.tenantId, channelAccountId: ref.channelAccountId },
@@ -87,18 +96,20 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
       );
 
       markHandedOff(outboxIds, at());
+      markTurnsHandedOff(inboxIds, at());
 
       logger.info(
         {
           tenantId: ref.tenantId,
           channelAccountId: ref.channelAccountId,
           outboxIds,
-          failedReplies: rows.length,
+          inboxIds,
+          reason,
           cancelledReplies,
           statusBefore,
           statusAfter: findConversation(ref)?.status,
         },
-        "Handed a conversation to a person because a reply could not be delivered",
+        "Handed a conversation to a person because the customer got no answer",
       );
     });
   } catch (error) {
@@ -125,6 +136,7 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
             tenantId: ref.tenantId,
             channelAccountId: ref.channelAccountId,
             outboxIds,
+            inboxIds,
           },
           "Handoff failed after its lock timed out",
         ),
@@ -138,6 +150,7 @@ async function handOff(ref: ConversationRef, at: () => number): Promise<void> {
         tenantId: ref.tenantId,
         channelAccountId: ref.channelAccountId,
         outboxIds,
+        inboxIds,
       },
       "Handoff failed for a conversation",
     );

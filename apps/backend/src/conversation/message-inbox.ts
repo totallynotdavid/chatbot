@@ -9,24 +9,16 @@ import {
 import type { ConversationRef, IncomingMessage } from "@vendeya/types";
 
 /*
- * The statuses of an inbox row, and who moves each one.
- *
- *  - pending: stored by the webhook (`storeIncomingMessage`). Only the
- *    aggregator worker takes it out, with `markAsProcessing`, straight after
- *    `getReadyForAggregation` hands it the group.
- *  - processing: a reply to the group is being worked out and sent. Only the
- *    worker that took the group moves it on, and only once `handleMessage` has
- *    settled. After a `LockTimeoutError` the worker is told it ran out of time,
- *    and `handleMessage` settles some time later. The row goes to:
- *      - processed, when the reply was handled.
- *      - pending, when no reply went out and one is still owed because the
- *        conversation was busy or the number was switched off.
- *      - failed, when answering threw anything else.
- *    A process that dies here leaves the row processing. Whether the customer
- *    already got a reply is not known, so the row is not answered again.
- *  - processed: kept for `isQueued` until `purgeProcessedInbox`.
- *  - failed: stays failed, with `last_error`. Nothing moves it again.
+ * A row is processed with the transaction that persists its turn, or failed
+ * after `MAX_TURN_ATTEMPTS`. Throws and dead processes count attempts. A busy
+ * lock does not. `handoff.ts` alerts for an unstamped failure.
  */
+
+/** Turns a group gets before it is handed to a person. */
+export const MAX_TURN_ATTEMPTS = 2;
+
+/** The `last_error` of a row whose turn died with the process. */
+export const INTERRUPTED_TURN = "interrupted: the process ended mid-turn";
 
 /**
  * Aggregation groups by the full conversation identity, so two tenants that
@@ -42,6 +34,8 @@ export type AggregatedGroup = {
   oldest_timestamp: number;
   latest_message_id: string;
   quoted_message_context: string | null;
+  /** The most failed turns any row of the group has had. */
+  attempts: number;
 };
 
 /** Whether this Meta message id is already on the queue, processed or not. */
@@ -107,7 +101,8 @@ export function getReadyForAggregation(
        GROUP_CONCAT(message_text, ' ') as aggregated_text,
        MIN(whatsapp_timestamp) as oldest_timestamp,
        MAX(message_id) as latest_message_id,
-       MAX(quoted_message_context) as quoted_message_context
+       MAX(quoted_message_context) as quoted_message_context,
+       MAX(attempts) as attempts
      FROM message_inbox
      WHERE status = 'pending'
        AND created_at < ?
@@ -140,6 +135,10 @@ export function markAsPending(ids: string): void {
   ).run(...idList);
 }
 
+/**
+ * Settles the rows of a turn that sent its reply, inside the transaction that
+ * persists the turn. It is the only way a row becomes `processed`.
+ */
 export function markAsProcessed(ids: string): void {
   const idList = ids.split(",").map((id) => id.trim());
   const placeholders = idList.map(() => "?").join(",");
@@ -151,15 +150,147 @@ export function markAsProcessed(ids: string): void {
   ).run(Date.now(), ...idList);
 }
 
-export function markAsFailed(ids: string, error: string): void {
+/**
+ * Counts a turn that ended without a reply. Attempts belong to the
+ * conversation, not the row: `groupAttempts` is the most any row of the group
+ * had when it was read. On the last attempt the statement also fails every
+ * `pending` row that arrived while the turn ran, so none is answered after the
+ * handoff.
+ */
+export function recordFailedTurn(
+  ref: ConversationRef,
+  ids: string,
+  groupAttempts: number,
+  error: string,
+): void {
   const idList = ids.split(",").map((id) => id.trim());
   const placeholders = idList.map(() => "?").join(",");
+  const attempts = groupAttempts + 1;
+  const last = attempts >= MAX_TURN_ATTEMPTS;
 
   db.prepare(
     `UPDATE message_inbox
-     SET status = 'failed', last_error = ?
-     WHERE id IN (${placeholders})`,
-  ).run(error, ...idList);
+     SET attempts = ?,
+         last_error = ?,
+         status = ?
+     WHERE (id IN (${placeholders}) AND status = 'processing')
+        OR (? AND status = 'pending'
+            AND tenant_id = ? AND channel_account_id = ? AND phone_number = ?)`,
+  ).run(
+    attempts,
+    error,
+    last ? "failed" : "pending",
+    ...idList,
+    last ? 1 : 0,
+    ref.tenantId,
+    ref.channelAccountId,
+    ref.phoneNumber,
+  );
+}
+
+/**
+ * Settles the rows a dead process left `processing`, in every tenant. It runs
+ * before the aggregator starts, so no turn is alive. The dead turn counts as
+ * one attempt for each conversation, on its rows' highest count. When that is
+ * the last attempt, the conversation's `pending` rows fail with it.
+ */
+export function recoverInterruptedTurns(): number {
+  return db
+    .prepare(
+      `UPDATE message_inbox
+       SET attempts = turn.attempts,
+           last_error = ?,
+           status = CASE WHEN turn.attempts >= ? THEN 'failed' ELSE 'pending' END
+       FROM (
+         SELECT tenant_id, channel_account_id, phone_number,
+                MAX(attempts) + 1 AS attempts
+         FROM message_inbox
+         WHERE status = 'processing'
+         GROUP BY tenant_id, channel_account_id, phone_number
+       ) AS turn
+       WHERE message_inbox.tenant_id = turn.tenant_id
+         AND message_inbox.channel_account_id = turn.channel_account_id
+         AND message_inbox.phone_number = turn.phone_number
+         AND (message_inbox.status = 'processing'
+              OR (message_inbox.status = 'pending' AND turn.attempts >= ?))`,
+    )
+    .run(INTERRUPTED_TURN, MAX_TURN_ATTEMPTS, MAX_TURN_ATTEMPTS).changes;
+}
+
+/**
+ * Records a message whose turn failed outside the queue, such as a held message
+ * answered after maintenance. It enters `failed` and unstamped, so the handoff
+ * reaches the customer like any other failed row.
+ */
+export function storeFailedTurn(
+  ref: ConversationRef,
+  message: { id: string; body: string; timestamp: number },
+  error: string,
+): void {
+  const now = Date.now();
+
+  db.prepare(
+    `INSERT INTO message_inbox (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp, created_at, status, attempts, last_error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'failed', ?, ?)
+     ON CONFLICT(message_id) DO NOTHING`,
+  ).run(
+    ref.tenantId,
+    ref.channelAccountId,
+    ref.phoneNumber,
+    message.body,
+    message.id,
+    message.timestamp,
+    now,
+    MAX_TURN_ATTEMPTS,
+    error,
+  );
+}
+
+export type FailedTurn = {
+  id: number;
+  last_error: string | null;
+};
+
+/** Returns unhanded `failed` rows for a conversation, oldest first. */
+export function unhandedFailedTurns(ref: ConversationRef): FailedTurn[] {
+  return getAll<FailedTurn>(
+    `SELECT id, last_error FROM message_inbox
+     WHERE status = 'failed' AND handed_off_at IS NULL
+       AND tenant_id = ? AND channel_account_id = ? AND phone_number = ?
+     ORDER BY id`,
+    [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
+  );
+}
+
+/**
+ * The conversations that own a `failed` row no handoff has covered. A suspended
+ * tenant's rows wait for it to reopen.
+ */
+export function conversationsWithFailedTurns(): ConversationRef[] {
+  return getAll<{
+    tenant_id: string;
+    channel_account_id: string;
+    phone_number: string;
+  }>(
+    `SELECT DISTINCT tenant_id, channel_account_id, phone_number
+     FROM message_inbox
+     WHERE status = 'failed' AND handed_off_at IS NULL AND ${openTenantsOnly()}`,
+  ).map((row) => ({
+    tenantId: row.tenant_id,
+    channelAccountId: row.channel_account_id,
+    phoneNumber: row.phone_number,
+  }));
+}
+
+/** Stamps the handoff on `failed` rows. A stamped row keeps its first time. */
+export function markTurnsHandedOff(ids: number[], now: number): void {
+  if (ids.length === 0) return;
+
+  db.prepare(
+    `UPDATE message_inbox SET handed_off_at = ?
+     WHERE id IN (${ids.map(() => "?").join(", ")})
+       AND status = 'failed' AND handed_off_at IS NULL`,
+  ).run(now, ...ids);
 }
 
 /**

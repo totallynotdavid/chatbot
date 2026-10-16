@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   backfillTextActivityTimestamps,
   migrateAuditLogActor,
+  migrateInboxTurnRecovery,
   migrateToMultiTenant,
   needsTenantMigration,
 } from "./migrations.ts";
@@ -27,6 +28,7 @@ export function initializeDatabase(db: Database) {
 
   applySchema(db);
   migrateAuditLogActor(db, applySchema);
+  migrateInboxTurnRecovery(db);
   backfillTextActivityTimestamps(db);
   warnIfChannelPairUnenforced(db);
 }

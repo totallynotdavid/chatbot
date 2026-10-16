@@ -268,6 +268,12 @@ CREATE TABLE IF NOT EXISTS message_inbox (
     quoted_message_context TEXT,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'processed', 'failed')),
     last_error TEXT,
+    -- Turns that ended without a reply: a throw, or a process that died. The
+    -- states are in conversation/message-inbox.ts.
+    attempts INTEGER NOT NULL DEFAULT 0,
+    -- NULL until the handoff of a `failed` row alerts a person. Only that
+    -- handoff writes it, and it is never cleared.
+    handed_off_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
     processed_at INTEGER,
     FOREIGN KEY (channel_account_id, tenant_id)

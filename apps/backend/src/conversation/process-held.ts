@@ -2,6 +2,7 @@ import {
   claimHeldMessages,
   getAggregatedHeldMessages,
   markHeldAsProcessed,
+  recordFailedHeldTurn,
   releaseHeldMessages,
 } from "./held-messages.ts";
 import { handleMessage } from "./handler/index.ts";
@@ -135,12 +136,11 @@ export async function processHeldMessages(
         continue;
       }
 
-      releaseHeldMessages(ids);
-
       if (error instanceof ChannelUnavailableError) {
         // The number was switched off between the read above and the send.
         // Treated like the maintenance skip: not counted, and the sweep can be
         // run again once the number is back with nothing lost.
+        releaseHeldMessages(ids);
         logger.warn(
           {
             tenantId: ref.tenantId,
@@ -154,8 +154,14 @@ export async function processHeldMessages(
       }
 
       statsFor(ref.tenantId).errors++;
+      const handedOff = recordFailedHeldTurn(ref, ids, errorMessage(error));
       logger.error(
-        { error, tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
+        {
+          error,
+          tenantId: ref.tenantId,
+          phoneNumber: ref.phoneNumber,
+          handedOff,
+        },
         "Failed to process held messages for user",
       );
       continue;
@@ -190,6 +196,10 @@ export async function processHeldMessages(
   return result;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * The answer is still running, so the group stays claimed until it settles.
  * Releasing it now would let the next sweep answer the group again while this
@@ -209,10 +219,14 @@ function recordLateOutcome(
     .then(
       () => markHeldAsProcessed(ids),
       (error: unknown) => {
-        releaseHeldMessages(ids);
+        if (error instanceof ChannelUnavailableError) {
+          releaseHeldMessages(ids);
+        } else {
+          recordFailedHeldTurn(ref, ids, errorMessage(error));
+        }
         logger.warn(
           { error, tenantId: ref.tenantId, phoneNumber: ref.phoneNumber },
-          "Timed-out answer to held messages failed; left them held",
+          "Timed-out answer to held messages failed; counted as a failed turn",
         );
       },
     )

@@ -29,7 +29,7 @@ import type {
  *  - sent: the adapter accepted it, and the `messages` row carries Meta's id.
  *  - failed: permanent, out of budget, a second ambiguous outcome, or past
  *    `MAX_AGE_MS`. `last_reason` says which. The customer got no answer, so
- *    the handoff in outbox-handoff.ts alerts a person and stamps
+ *    the handoff in handoff.ts alerts a person and stamps
  *    `handed_off_at`. A failed row with no stamp is a handoff still owed.
  *    A `tenant_not_active` refusal is inserted already failed. The handoff
  *    skips suspended tenants, so its alert waits for the tenant to reopen. A

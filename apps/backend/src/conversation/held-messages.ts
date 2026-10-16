@@ -6,6 +6,7 @@ import {
   tenantPredicate,
 } from "../db/query.ts";
 import { createLogger } from "../lib/logger.ts";
+import { MAX_TURN_ATTEMPTS, storeFailedTurn } from "./message-inbox.ts";
 import type { ConversationRef } from "@vendeya/types";
 
 const logger = createLogger("held-messages");
@@ -25,7 +26,8 @@ const logger = createLogger("held-messages");
  *    The row goes to:
  *      - answered (`markHeldAsProcessed`) when the reply was handled.
  *      - held (`releaseHeldMessages`) when answering threw, so a later sweep
- *        answers it.
+ *        answers it. A group that throws a second time is handed to a person
+ *        instead (`recordFailedHeldTurn`).
  *  - answered: `processed_at` is set. `isHeld` counts it until
  *    `purgeProcessedHeldMessages` removes it.
  */
@@ -35,6 +37,10 @@ const logger = createLogger("held-messages");
 // every such answer and its rows are held again. A reply that went out just
 // before the process died is sent again by the next sweep.
 const answering = new Set<number>();
+
+// Failed turns of a held row, by id. It lives in memory for the same reason: a
+// restart is a fresh start for a sweep an operator runs by hand.
+const failedTurns = new Map<number, number>();
 
 type AggregatedHeldGroup = {
   tenant_id: string;
@@ -148,6 +154,55 @@ export function releaseHeldMessages(ids: number[]): void {
   for (const id of ids) answering.delete(id);
 }
 
+/**
+ * Counts a claimed group whose turn threw, per group and in memory. Until the
+ * last attempt it is released for the next sweep. Then its messages move to the
+ * inbox as `failed` rows for the handoff, and the held rows count as answered.
+ * Returns whether it handed the group off.
+ */
+export function recordFailedHeldTurn(
+  ref: ConversationRef,
+  ids: number[],
+  error: string,
+): boolean {
+  const attempts = Math.max(...ids.map((id) => failedTurns.get(id) ?? 0)) + 1;
+
+  if (attempts < MAX_TURN_ATTEMPTS) {
+    for (const id of ids) failedTurns.set(id, attempts);
+    releaseHeldMessages(ids);
+    return false;
+  }
+
+  // The conversation's rows at this moment, not only the claimed ones: a
+  // message held while the turn ran must not be answered after the handoff.
+  db.transaction(() => {
+    const rows = getAll<{
+      id: number;
+      message_id: string;
+      message_text: string;
+      whatsapp_timestamp: number;
+    }>(
+      `SELECT id, message_id, message_text, whatsapp_timestamp FROM held_messages
+       WHERE tenant_id = ? AND channel_account_id = ? AND phone_number = ?
+         AND processed_at IS NULL`,
+      [ref.tenantId, ref.channelAccountId, ref.phoneNumber],
+    );
+    for (const row of rows) {
+      storeFailedTurn(
+        ref,
+        {
+          id: row.message_id,
+          body: row.message_text,
+          timestamp: row.whatsapp_timestamp,
+        },
+        error,
+      );
+    }
+    markHeldAsProcessed([...new Set([...ids, ...rows.map((row) => row.id)])]);
+  })();
+  return true;
+}
+
 /** Record a claimed group as answered, and end the claim. */
 export function markHeldAsProcessed(ids: number[]): void {
   if (ids.length === 0) return;
@@ -157,6 +212,7 @@ export function markHeldAsProcessed(ids: number[]): void {
     `UPDATE held_messages SET processed_at = ? WHERE id IN (${placeholders})`,
   ).run(Date.now(), ...ids);
   releaseHeldMessages(ids);
+  for (const id of ids) failedTurns.delete(id);
 
   logger.debug({ count: ids.length }, "Marked held messages processed");
 }

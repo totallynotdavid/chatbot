@@ -3,8 +3,8 @@ import {
   getReadyForAggregation,
   markAsPending,
   markAsProcessing,
-  markAsProcessed,
-  markAsFailed,
+  recordFailedTurn,
+  recoverInterruptedTurns,
   countPending,
   countFailed,
 } from "./message-inbox.ts";
@@ -28,6 +28,14 @@ export function startAggregatorWorker(): void {
   if (isRunning) {
     logger.debug("Worker already running");
     return;
+  }
+
+  const interrupted = recoverInterruptedTurns();
+  if (interrupted > 0) {
+    logger.warn(
+      { rows: interrupted },
+      "Settled inbox rows a previous process left processing",
+    );
   }
 
   isRunning = true;
@@ -101,6 +109,7 @@ export async function processGroup(group: AggregatedGroup): Promise<void> {
       timestamp: group.oldest_timestamp,
       messageId: group.latest_message_id,
       quotedContext: parseQuotedContext(group, ref),
+      inboxIds: group.ids,
     });
   } catch (error) {
     if (error instanceof LockTimeoutError) {
@@ -108,10 +117,7 @@ export async function processGroup(group: AggregatedGroup): Promise<void> {
       return;
     }
     recordUnanswered(group, ref, error);
-    return;
   }
-
-  markAsProcessed(group.ids);
 }
 
 function parseQuotedContext(
@@ -132,10 +138,10 @@ function parseQuotedContext(
 }
 
 /**
- * The answer is still running and may yet reply or be refused. Handing the
- * group back now would have the next poll answer it twice. Leaving it
- * `processing` for good would never answer it if the late attempt is refused.
- * So it stays `processing` until the answer settles.
+ * The answer is still running and may yet reply or fail. Handing the group
+ * back now would have the next poll answer it twice. So it stays `processing`
+ * until the answer settles. A turn that succeeds settles its own rows, so only
+ * a failure is recorded here.
  */
 function recordLateOutcome(
   group: AggregatedGroup,
@@ -148,10 +154,7 @@ function recordLateOutcome(
   );
 
   timeout.operation
-    .then(
-      () => markAsProcessed(group.ids),
-      (error: unknown) => recordUnanswered(group, ref, error),
-    )
+    .catch((error: unknown) => recordUnanswered(group, ref, error))
     .catch((error: unknown) => {
       logger.error(
         { error, tenantId: ref.tenantId, ids: group.ids },
@@ -198,14 +201,16 @@ function recordUnanswered(
     return;
   }
 
-  // `handleMessage` absorbs whatever fails once it is working out a reply, so
-  // what reaches here failed before one: loading the conversation, for one.
-  // Pending would retry it on every poll for as long as the cause lasts.
-  markAsFailed(
+  // The turn threw before it was recorded, so no reply went out for these
+  // rows. The second failure fails them, and the handoff pass gives their
+  // conversation to a person.
+  recordFailedTurn(
+    ref,
     group.ids,
+    group.attempts,
     error instanceof Error ? error.message : String(error),
   );
-  logger.error({ ...context, error }, "Group processing failed");
+  logger.error({ ...context, error }, "Turn failed; no reply was recorded");
 }
 
 export function getWorkerStatus(): {
