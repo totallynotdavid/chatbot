@@ -10,7 +10,7 @@ type TestMessage = {
   offsetMs: number;
 };
 
-type TestConversation = {
+export type TestConversation = {
   phoneNumber: string;
   clientName: string;
   dni: string;
@@ -23,7 +23,7 @@ type TestConversation = {
   assignmentNotifiedAt?: number;
 };
 
-const TEST_CONVERSATIONS: TestConversation[] = [
+export const TEST_CONVERSATIONS: TestConversation[] = [
   {
     phoneNumber: "+51999888777",
     clientName: "Juan Pérez",
@@ -100,6 +100,34 @@ const TEST_CONVERSATIONS: TestConversation[] = [
   },
 ];
 
+export function testContextData(
+  conversation: TestConversation,
+  now: number,
+  lastActivityAt: number,
+) {
+  const finished =
+    conversation.status === "human_takeover" ||
+    conversation.status === "closed";
+
+  return {
+    phase: {
+      phase: finished ? "closing" : "offering_products",
+      segment: conversation.segment,
+      credit: conversation.creditLine,
+      name: conversation.clientName,
+      ...(finished ? { purchaseConfirmed: true } : {}),
+    },
+    metadata: {
+      dni: conversation.dni,
+      name: conversation.clientName,
+      segment: conversation.segment,
+      credit: conversation.creditLine,
+      createdAt: now,
+      lastActivityAt,
+    },
+  };
+}
+
 export async function seedTestData(
   db: Database,
   tenantId: string,
@@ -146,30 +174,7 @@ export async function seedTestData(
       ? now + conversation.assignmentNotifiedAt
       : null;
 
-    const contextData = {
-      phase: {
-        phase:
-          conversation.status === "human_takeover" ||
-          conversation.status === "closed"
-            ? "closing"
-            : "offering_products",
-        segment: conversation.segment,
-        credit: conversation.creditLine,
-        name: conversation.clientName,
-        ...(conversation.status === "human_takeover" ||
-        conversation.status === "closed"
-          ? { purchaseConfirmed: true }
-          : {}),
-      },
-      metadata: {
-        dni: conversation.dni,
-        name: conversation.clientName,
-        segment: conversation.segment,
-        credit: conversation.creditLine,
-        createdAt: now,
-        lastActivityAt,
-      },
-    };
+    const contextData = testContextData(conversation, now, lastActivityAt);
 
     const assignedAgent =
       conversation.assignedAgent && agentExists(conversation.assignedAgent)

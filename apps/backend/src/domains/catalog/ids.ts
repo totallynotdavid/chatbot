@@ -9,3 +9,12 @@ export function tenantScopedId(tenantId: string, key: string): string {
   // costs nothing.
   return `${key}-${tenantId.replace(/-/g, "")}`;
 }
+
+/**
+ * Period ids embed the tenant so two businesses can both run a "2026-09"
+ * period. Uniqueness is enforced by the (tenant_id, year_month) constraint.
+ * The id is just a readable handle.
+ */
+export function periodId(tenantId: string, yearMonth: string): string {
+  return tenantScopedId(tenantId, `period-${yearMonth}`);
+}

@@ -19,7 +19,7 @@ const logger = createLogger("app");
 
 import { db } from "./db/index.ts";
 import { initializeDatabase } from "./db/init.ts";
-import { seedDatabase } from "./db/seed.ts";
+import { seedDatabase } from "./db/seed-sqlite.ts";
 import { accountsOn } from "./domains/accounts/index.ts";
 
 import { requireAuth, requireRole } from "./middleware/auth.ts";

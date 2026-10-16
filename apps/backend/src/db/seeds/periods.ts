@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { periodId } from "../../domains/catalog/periods.ts";
+import { periodId } from "../../domains/catalog/ids.ts";
 
 const MONTH_NAMES = [
   "Enero",
@@ -16,7 +16,7 @@ const MONTH_NAMES = [
   "Diciembre",
 ];
 
-function getCurrentPeriod(tenantId: string) {
+export function getCurrentPeriod(tenantId: string) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();

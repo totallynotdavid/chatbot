@@ -1,6 +1,6 @@
 import { db } from "../../db/index.ts";
 import { getOne, getAll, tenantPredicate } from "../../db/query.ts";
-import { tenantScopedId } from "./ids.ts";
+import { periodId } from "./ids.ts";
 import type { CatalogPeriod, PeriodStatus } from "@vendeya/types";
 
 type CreatePeriodData = {
@@ -9,15 +9,6 @@ type CreatePeriodData = {
   year_month: string;
   created_by: string | null;
 };
-
-/**
- * Period ids embed the tenant so two businesses can both run a "2026-09"
- * period. Uniqueness is enforced by the (tenant_id, year_month) constraint.
- * The id is just a readable handle.
- */
-export function periodId(tenantId: string, yearMonth: string): string {
-  return tenantScopedId(tenantId, `period-${yearMonth}`);
-}
 
 /**
  * `tenantId` null reads across open tenants. Only the read routes pass it, for
