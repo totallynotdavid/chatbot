@@ -8,11 +8,9 @@ type SettingRow = {
 /**
  * Keys that describe the deployment rather than any one business. A platform
  * operator with no tenant selected writes them. A tenant-scoped writer is
- * refused, except for `maintenance_mode`, which each business also keeps in its
- * own row.
+ * refused.
  */
 export const PLATFORM_SETTING_KEYS = [
-  "maintenance_mode",
   "force_fnb_down",
   "force_gaso_down",
   "platform_ops_channel_account_id",
@@ -29,8 +27,6 @@ export function isPlatformSettingKey(key: string): boolean {
  * tenant-scoped callers until it is named here too.
  */
 export const TENANT_VISIBLE_PLATFORM_KEYS = [
-  // A platform freeze holds this tenant's messages whatever its own setting says.
-  "maintenance_mode",
   // Shared Calidda integrations, shown as disabled toggles on the dashboard.
   "force_fnb_down",
   "force_gaso_down",
@@ -96,16 +92,6 @@ export const TenantSettings = {
     ).run(tenantId, key, value, Date.now());
   },
 };
-
-/**
- * Maintenance holds messages instead of processing them. It applies when either
- * the platform or the tenant is in maintenance.
- */
-export function isMaintenanceMode(tenantId?: string): boolean {
-  if (SystemSettings.get("maintenance_mode") === "true") return true;
-  if (!tenantId) return false;
-  return TenantSettings.get(tenantId, "maintenance_mode") === "true";
-}
 
 /**
  * Calidda's FNB and GASO endpoints are shared platform integrations, not

@@ -217,35 +217,6 @@ export function recoverInterruptedTurns(): number {
     .run(INTERRUPTED_TURN, MAX_TURN_ATTEMPTS, MAX_TURN_ATTEMPTS).changes;
 }
 
-/**
- * Records a message whose turn failed outside the queue, such as a held message
- * answered after maintenance. It enters `failed` and unstamped, so the handoff
- * reaches the customer like any other failed row.
- */
-export function storeFailedTurn(
-  ref: ConversationRef,
-  message: { id: string; body: string; timestamp: number },
-  error: string,
-): void {
-  const now = Date.now();
-
-  db.prepare(
-    `INSERT INTO message_inbox (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp, created_at, status, attempts, last_error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'failed', ?, ?)
-     ON CONFLICT(message_id) DO NOTHING`,
-  ).run(
-    ref.tenantId,
-    ref.channelAccountId,
-    ref.phoneNumber,
-    message.body,
-    message.id,
-    message.timestamp,
-    now,
-    MAX_TURN_ATTEMPTS,
-    error,
-  );
-}
-
 export type FailedTurn = {
   id: number;
   last_error: string | null;

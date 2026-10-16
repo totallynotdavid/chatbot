@@ -9,8 +9,6 @@ import type {
 } from "@vendeya/types";
 import { WhatsAppService } from "../adapters/whatsapp/index.ts";
 import { ChannelAccountService } from "../domains/channels/accounts.ts";
-import { isMaintenanceMode } from "../domains/settings/system.ts";
-import { holdMessage, isHeld } from "../conversation/held-messages.ts";
 import {
   isQueued,
   storeIncomingMessage,
@@ -198,8 +196,8 @@ async function handleInbound(
 
   // Meta redelivers an entire batch when the response is a 5xx, so a message
   // that already landed can arrive again next to one that did not. Its id is
-  // the key on both queues, and seeing it again means there is nothing to do.
-  if (isQueued(message.id) || isHeld(message.id)) {
+  // the key on the queue, and seeing it again means there is nothing to do.
+  if (isQueued(message.id)) {
     return "duplicate";
   }
 
@@ -269,12 +267,6 @@ async function handleInbound(
   getOrCreateConversation(ref);
 
   WhatsAppService.logMessage(ref, "inbound", "text", message.body, "received");
-
-  // During maintenance, hold messages for later processing
-  if (isMaintenanceMode(ref.tenantId)) {
-    holdMessage(ref, message.body, message.id, message.timestamp);
-    return "maintenance_held";
-  }
 
   storeIncomingMessage(ref, message);
 

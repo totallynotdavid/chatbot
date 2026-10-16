@@ -282,25 +282,6 @@ CREATE TABLE IF NOT EXISTS message_inbox (
 
 CREATE INDEX IF NOT EXISTS idx_message_inbox_pending ON message_inbox(status, tenant_id, channel_account_id, phone_number, created_at);
 
-CREATE TABLE IF NOT EXISTS held_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    channel_account_id TEXT NOT NULL,
-    phone_number TEXT NOT NULL,
-    message_text TEXT NOT NULL,
-    message_id TEXT UNIQUE NOT NULL,
-    whatsapp_timestamp INTEGER NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
-    -- Set once the message has been answered. The row is kept afterwards, as
-    -- message_inbox keeps its processed rows: its message_id is how a Meta
-    -- redelivery is recognised, until the retention purge removes it.
-    processed_at INTEGER,
-    FOREIGN KEY (channel_account_id, tenant_id)
-        REFERENCES channel_accounts(id, tenant_id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_held_messages_phone ON held_messages(tenant_id, channel_account_id, phone_number, created_at ASC);
-
 -- One outbound reply whose send failed and may still go out. `message_id` is the
 -- `messages` row this row updates, so a retry never writes a second row, and it
 -- is where the product an image showed is recorded. The states and who moves
@@ -502,15 +483,15 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, created_at DESC);
 
--- Genuinely global platform configuration: deployment-wide maintenance and the
--- shared Calidda provider kill switches. Only platform operators may write it.
+-- Genuinely global platform configuration: the shared Calidda provider kill
+-- switches and the operations channel. Only platform operators may write it.
 CREATE TABLE IF NOT EXISTS system_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
 );
 
--- Per-tenant configuration (agent round-robin cursor, per-business maintenance).
+-- Per-tenant configuration (agent round-robin cursor).
 CREATE TABLE IF NOT EXISTS tenant_settings (
     tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     key TEXT NOT NULL,

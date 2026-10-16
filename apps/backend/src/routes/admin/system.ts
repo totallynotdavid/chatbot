@@ -9,7 +9,6 @@ import {
   SystemSettings,
   TenantSettings,
   isInternalTenantSettingKey,
-  isMaintenanceMode,
   isPlatformSettingKey,
   TENANT_VISIBLE_PLATFORM_KEYS,
 } from "../../domains/settings/system.ts";
@@ -140,19 +139,7 @@ system.get("/settings", (c) => {
     ]),
   );
 
-  return c.json({
-    // `maintenance_mode` exists at both levels. The plain key comes only from
-    // the tenant's own row, and the platform value appears only as
-    // `_platform_maintenance_mode`. Returning the platform value under the
-    // plain key would make the next save of any setting write it into the
-    // tenant's row.
-    ...tenant,
-    ...visiblePlatform,
-    // A platform freeze applies to every tenant, even one whose own toggle is
-    // off. The dashboard renders this effective value.
-    _effective_maintenance_mode: String(isMaintenanceMode(scope.tenantId)),
-    _scope: "tenant",
-  });
+  return c.json({ ...tenant, ...visiblePlatform, _scope: "tenant" });
 });
 
 system.post("/settings", async (c) => {
@@ -184,10 +171,8 @@ system.post("/settings", async (c) => {
   const rejected: string[] = [];
   for (const [key, value] of Object.entries(settings)) {
     if (key.startsWith("_")) continue;
-    // Tenant-scoped writers cannot write platform keys. `maintenance_mode` is
-    // the exception because a business may freeze itself, and that value is
-    // stored per tenant.
-    if (isPlatformSettingKey(key) && key !== "maintenance_mode") {
+    // Tenant-scoped writers cannot write platform keys.
+    if (isPlatformSettingKey(key)) {
       rejected.push(key);
       continue;
     }
