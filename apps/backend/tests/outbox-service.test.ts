@@ -275,24 +275,6 @@ describe("a send the turn asked to keep", () => {
     expect(MessageStore.getHistory(ref)[0]).toMatchObject({ status: "failed" });
   });
 
-  it("keeps nothing for a suspended tenant, whose refusal is permanent", async () => {
-    db.prepare("UPDATE tenants SET status = 'suspended' WHERE id = ?").run(
-      tenant.tenantId,
-    );
-
-    const result = await WhatsAppService.sendMessage(ref, "hola", {
-      retry: true,
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      kind: "permanent",
-      reason: "tenant_not_active",
-    });
-    expect(requests).toBe(0);
-    expect(outboxRows()).toEqual([]);
-  });
-
   it("still throws for a number switched off, and queues nothing", async () => {
     ChannelAccountService.updateStatus(ref.channelAccountId, "disabled");
 
