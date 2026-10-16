@@ -158,6 +158,37 @@ describe("a production server with PUBLIC_URL set", () => {
   });
 });
 
+describe("the simulator routes", () => {
+  const probe = (server: Server, path: string) =>
+    fetch(`http://localhost:${server.port}${path}`);
+
+  it("answer 404 in production, signed in or not", async () => {
+    const server = await boot({ NODE_ENV: "production" });
+    try {
+      for (const path of [
+        "/api/simulator/personas",
+        "/api/simulator/conversations",
+        "/api/simulator/conversation/51999999999",
+      ]) {
+        expect((await probe(server, path)).status).toBe(404);
+      }
+      // A route that is mounted still asks for a session.
+      expect((await probe(server, "/api/conversations")).status).toBe(401);
+    } finally {
+      await server.stop();
+    }
+  }, 60_000);
+
+  it("are mounted outside production and ask for a session", async () => {
+    const server = await boot({ NODE_ENV: "development" });
+    try {
+      expect((await probe(server, "/api/simulator/personas")).status).toBe(401);
+    } finally {
+      await server.stop();
+    }
+  }, 60_000);
+});
+
 describe("a scheduled task that throws", () => {
   let server: Server;
 
