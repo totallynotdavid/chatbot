@@ -12,7 +12,6 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/backend/package.json apps/backend/
 COPY apps/frontend/package.json apps/frontend/
-COPY apps/notifier/package.json apps/notifier/
 COPY packages/core/package.json packages/core/
 COPY packages/intelligence/package.json packages/intelligence/
 COPY packages/logger/package.json packages/logger/
