@@ -1,35 +1,18 @@
 import type { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  backfillTextActivityTimestamps,
-  migrateAuditLogActor,
-  migrateInboxTurnRecovery,
-  migrateToMultiTenant,
-  needsTenantMigration,
-} from "./migrations.ts";
 import { createLogger } from "../lib/logger.ts";
 
 const logger = createLogger("db-init");
 
 const SCHEMA_PATH = path.join(import.meta.dir, "schema.sql");
 
-function applySchema(db: Database) {
-  db.run(fs.readFileSync(SCHEMA_PATH, "utf-8"));
-}
-
+/**
+ * Creates every table and index that is missing. `schema.sql` never alters a
+ * table that exists, so a schema change needs a new database file.
+ */
 export function initializeDatabase(db: Database) {
-  // A legacy database is rebuilt before the schema is applied over it. Every
-  // process then runs the same idempotent pass, including one that waited for
-  // another process to finish the migration.
-  if (needsTenantMigration(db)) {
-    migrateToMultiTenant(db, applySchema);
-  }
-
-  applySchema(db);
-  migrateAuditLogActor(db, applySchema);
-  migrateInboxTurnRecovery(db);
-  backfillTextActivityTimestamps(db);
+  db.run(fs.readFileSync(SCHEMA_PATH, "utf-8"));
   warnIfChannelPairUnenforced(db);
 }
 

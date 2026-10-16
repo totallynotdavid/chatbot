@@ -40,7 +40,7 @@ function parseKey(raw: string): Buffer {
 
 function readKey(): Buffer {
   // The key is read on each call, not at import. A deployment that never stores
-  // a credential (dev, tests using the notifier adapter) needs no SECRETS_KEY.
+  // a credential (dev, tests that send to a fake Graph) needs no SECRETS_KEY.
   const raw = process.env.SECRETS_KEY;
   if (!raw) {
     throw new Error(
