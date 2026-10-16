@@ -23,8 +23,8 @@ The `db` network has no route out. `postgres` and `migrate` sit only on it.
 
 The `data` volume holds the backend's SQLite file, its uploads and its private
 files. The `postgres` volume holds the Postgres data directory. The backend
-reads and writes SQLite; it does not read `postgres` yet. `migrate` applies the
-SQLite schema and migrations
+reads and writes SQLite; it does not read `postgres` yet. `migrate` creates the
+SQLite tables that are missing
 ([`db/migrate.ts`](../apps/backend/src/db/migrate.ts)).
 
 ## Images
@@ -263,18 +263,16 @@ dc exec backend wget -q -O - http://127.0.0.1:3000/health
     "gaso": { "status": "healthy", "available": true, "...": "..." },
     "powerbi": { "status": "healthy", "available": true, "...": "..." }
   },
-  "notifier": { "status": "not_used" },
   "timestamp": "2026-10-16T20:59:18.779Z"
 }
 ```
 
 The code is 503 and `status` is `unavailable` when `SELECT 1` on the backend's
 database throws. Otherwise the code is 200, and `status` is `healthy` unless
-`fnb` or `gaso` is unavailable or the notifier is down, which makes it
-`degraded`. `powerbi` is reported and does not change `status`. `providers`
-reflects the in-memory circuit breaker and the last error it recorded, not a
-live check. `notifier` is `not_used` outside development, where the notifier
-does not run ([`routes/health.ts`](../apps/backend/src/routes/health.ts)).
+`fnb` or `gaso` is unavailable, which makes it `degraded`. `powerbi` is reported
+and does not change `status`. `providers` reflects the in-memory circuit breaker
+and the last error it recorded, not a live check
+([`routes/health.ts`](../apps/backend/src/routes/health.ts)).
 
 The database that `/health` probes is the one the backend reads and writes,
 which is the SQLite file on the `data` volume. The backend does not use
