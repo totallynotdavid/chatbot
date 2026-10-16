@@ -1610,161 +1610,9 @@ describe("HTTP authorization", () => {
     });
   });
 
-  /**
-   * `_effective_maintenance_mode` reports the effective freeze, and the write
-   * path skips it. The writable `maintenance_mode` holds only the tenant's own
-   * value, so a save cannot persist a platform freeze as the tenant's own. A
-   * tenant's row must not hide a platform freeze either.
-   */
-  describe("a platform freeze and a tenant's own setting stay separate", () => {
+  describe("a tenant admin and the platform's switches", () => {
     afterEach(() => {
-      db.prepare(
-        "DELETE FROM system_settings WHERE key = 'maintenance_mode'",
-      ).run();
-    });
-
-    it("reports the freeze even when the tenant says otherwise", async () => {
-      SystemSettings.set("maintenance_mode", "true");
-      TenantSettings.set(alpha.tenantId, "maintenance_mode", "false");
-
-      const settings = await getJson<Record<string, string>>(
-        "/api/admin/settings",
-        alphaAdmin,
-      );
-
-      // The endpoint reports the platform freeze that holds the bot.
-      expect(settings._effective_maintenance_mode).toBe("true");
-      expect(settings._platform_maintenance_mode).toBe("true");
-      // The writable field does not claim the tenant asked for it.
-      expect(settings.maintenance_mode).toBe("false");
-    });
-
-    it("reports a tenant-only freeze too", async () => {
-      TenantSettings.set(alpha.tenantId, "maintenance_mode", "true");
-
-      const settings = await getJson<Record<string, string>>(
-        "/api/admin/settings",
-        alphaAdmin,
-      );
-
-      expect(settings._effective_maintenance_mode).toBe("true");
-      expect(settings._platform_maintenance_mode).toBe("false");
-      expect(settings.maintenance_mode).toBe("true");
-    });
-
-    it("reports live only when neither level holds", async () => {
-      const settings = await getJson<Record<string, string>>(
-        "/api/admin/settings",
-        alphaAdmin,
-      );
-
-      expect(settings._effective_maintenance_mode).toBe("false");
-      // Absent, not "false": this tenant has never stored one, and a key it
-      // never set is a key its next save cannot write back.
-      expect(settings.maintenance_mode).toBeUndefined();
-    });
-
-    it("never reports the platform's freeze in the writable field", async () => {
-      SystemSettings.set("maintenance_mode", "true");
-      // No tenant row at all, which is the ordinary case: the tenant has never
-      // touched its own toggle.
-      expect(TenantSettings.get(alpha.tenantId, "maintenance_mode")).toBeNull();
-
-      const settings = await getJson<Record<string, string>>(
-        "/api/admin/settings",
-        alphaAdmin,
-      );
-
-      expect(settings.maintenance_mode).toBeUndefined();
-    });
-
-    /**
-     * A platform freeze persisted as the tenant's own outlives the platform one
-     * and leaves the business frozen for no visible reason. The tests drive the
-     * dashboard's flow: load the page, change an unrelated setting, save the
-     * whole object back.
-     */
-    describe("saving an unrelated setting during a platform freeze", () => {
-      async function loadChangeAndSave(change: Record<string, string>) {
-        const loaded = await getJson<Record<string, string>>(
-          "/api/admin/settings",
-          alphaAdmin,
-        );
-
-        return app.request("/api/admin/settings", {
-          method: "POST",
-          headers: {
-            Cookie: alphaAdmin.cookie,
-            "Content-Type": "application/json",
-          },
-          // The page posts everything it was handed except keys that start with
-          // "_", with the one field the admin touched changed. This helper keeps
-          // those keys too, and the server skips them anyway.
-          body: JSON.stringify({ ...loaded, ...change }),
-        });
-      }
-
-      beforeEach(() => {
-        SystemSettings.set("maintenance_mode", "true");
-      });
-
-      it("leaves the tenant with no maintenance setting of its own", async () => {
-        expect(
-          TenantSettings.get(alpha.tenantId, "maintenance_mode"),
-        ).toBeNull();
-
-        const response = await loadChangeAndSave({ business_name: "Gas Perú" });
-        expect(response.status).toBe(200);
-
-        // The tenant keeps no maintenance row of its own, so lifting the
-        // platform freeze leaves it unfrozen.
-        expect(
-          TenantSettings.get(alpha.tenantId, "maintenance_mode"),
-        ).toBeNull();
-      });
-
-      it("does not flip a tenant that had deliberately set it false", async () => {
-        TenantSettings.set(alpha.tenantId, "maintenance_mode", "false");
-
-        await loadChangeAndSave({ business_name: "Gas Perú" });
-
-        expect(TenantSettings.get(alpha.tenantId, "maintenance_mode")).toBe(
-          "false",
-        );
-      });
-
-      it("still saves the setting the admin actually changed", async () => {
-        await loadChangeAndSave({ business_name: "Gas Perú" });
-
-        expect(TenantSettings.get(alpha.tenantId, "business_name")).toBe(
-          "Gas Perú",
-        );
-      });
-
-      it("leaves the business unfrozen once the platform freeze lifts", async () => {
-        await loadChangeAndSave({ business_name: "Gas Perú" });
-
-        db.prepare(
-          "DELETE FROM system_settings WHERE key = 'maintenance_mode'",
-        ).run();
-
-        const settings = await getJson<Record<string, string>>(
-          "/api/admin/settings",
-          alphaAdmin,
-        );
-
-        expect(settings._effective_maintenance_mode).toBe("false");
-      });
-
-      it("still lets the tenant freeze itself on purpose", async () => {
-        // The toggle has to keep working during a platform freeze. It must not
-        // change on its own.
-        await loadChangeAndSave({ maintenance_mode: "true" });
-
-        expect(TenantSettings.get(alpha.tenantId, "maintenance_mode")).toBe(
-          "true",
-        );
-      });
+      db.prepare("DELETE FROM system_settings").run();
     });
 
     it("does not let a tenant admin write platform-only switches", async () => {
@@ -1821,11 +1669,9 @@ describe("HTTP authorization", () => {
 
       expect(settings._platform_force_fnb_down).toBe("true");
       expect(settings._platform_force_gaso_down).toBe("false");
-      expect(settings._platform_maintenance_mode).toBe("false");
       // None under its own name: those are the fields a save posts back.
       expect(settings.force_fnb_down).toBeUndefined();
       expect(settings.force_gaso_down).toBeUndefined();
-      expect(settings.maintenance_mode).toBeUndefined();
     });
 
     /**

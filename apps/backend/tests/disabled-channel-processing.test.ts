@@ -1,8 +1,8 @@
 /**
- * Messages already queued or held for a number that is switched off must stay
- * where they are: a queued row stays `pending` and a held row stays held. A
- * refused send that only recorded a failure would let the worker mark the row
- * processed, leaving nothing to recover once the number is on.
+ * Messages already queued for a number that is switched off must stay where
+ * they are: a queued row stays `pending`. A refused send that only recorded a
+ * failure would let the worker mark the row processed, leaving nothing to
+ * recover once the number is on.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -26,9 +26,7 @@ import {
   processGroup,
   processReadyMessages,
 } from "../src/conversation/aggregator-worker.ts";
-import { getAggregatedHeldMessages } from "../src/conversation/held-messages.ts";
 import { checkAndReassignTimeouts } from "../src/domains/conversations/assignment.ts";
-import { processHeldMessages } from "../src/conversation/process-held.ts";
 import { handleMessage } from "../src/conversation/handler/index.ts";
 import {
   ChannelUnavailableError,
@@ -73,20 +71,6 @@ describe("a channel account that is not active", () => {
     );
   }
 
-  function hold(ref: ConversationRef, text: string): void {
-    db.prepare(
-      `INSERT INTO held_messages
-         (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp)
-       VALUES (?, ?, ?, ?, ?, 1)`,
-    ).run(
-      ref.tenantId,
-      ref.channelAccountId,
-      ref.phoneNumber,
-      text,
-      `wamid-${crypto.randomUUID()}`,
-    );
-  }
-
   /** Every inbox row for one number, by status. */
   function queueStatuses(channelAccountId: string): string[] {
     return (
@@ -98,23 +82,13 @@ describe("a channel account that is not active", () => {
     ).map((row) => row.status);
   }
 
-  function heldCount(channelAccountId: string): number {
-    return (
-      db
-        .prepare(
-          "SELECT COUNT(*) as c FROM held_messages WHERE channel_account_id = ? AND processed_at IS NULL",
-        )
-        .get(channelAccountId) as { c: number }
-    ).c;
-  }
-
   beforeEach(() => {
     applySchema();
     tenant = createTenantFixture("channel-off");
     untouched = addChannelAccount(tenant);
 
-    // Tests here must not reach Meta or the notifier. The fake fetch counts
-    // sends so that a send that got out fails the test.
+    // Tests here must not reach Meta. The fake fetch counts sends so that a
+    // send that got out fails the test.
     sends = 0;
     originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
@@ -194,21 +168,6 @@ describe("a channel account that is not active", () => {
         expect(notifiedAt(untouched.channelAccountId)).toBeGreaterThan(stale);
       });
     });
-
-    describe(`(${status}) is left out of the held-message sweep`, () => {
-      it("while the business's other number is still swept", () => {
-        hold(tenant.ref(CUSTOMER), "retenido");
-        hold(untouched.ref(CUSTOMER), "retenido");
-
-        setStatus(tenant.channelAccountId, status);
-
-        const groups = getAggregatedHeldMessages(tenant.tenantId).map(
-          (g) => g.channel_account_id,
-        );
-        expect(groups).not.toContain(tenant.channelAccountId);
-        expect(groups).toContain(untouched.channelAccountId);
-      });
-    });
   }
 
   describe("running the aggregator over a message queued for it", () => {
@@ -236,34 +195,6 @@ describe("a channel account that is not active", () => {
       await processReadyMessages();
 
       expect(queueStatuses(tenant.channelAccountId)).toEqual(["processed"]);
-    });
-  });
-
-  describe("running the held-message sweep over a message held for it", () => {
-    beforeEach(() => {
-      insertConversation(tenant.ref(CUSTOMER));
-      hold(tenant.ref(CUSTOMER), "¿sigue disponible?");
-      setStatus(tenant.channelAccountId, "disabled");
-    });
-
-    it("leaves the message held instead of clearing it", async () => {
-      const run = await processHeldMessages(tenant.tenantId);
-
-      expect(run.messagesProcessed).toBe(0);
-      expect(heldCount(tenant.channelAccountId)).toBe(1);
-      expect(sends).toBe(0);
-    });
-
-    it("answers it once the number is switched back on", async () => {
-      await processHeldMessages(tenant.tenantId);
-      expect(heldCount(tenant.channelAccountId)).toBe(1);
-
-      setStatus(tenant.channelAccountId, "active");
-
-      const run = await processHeldMessages(tenant.tenantId);
-
-      expect(run.messagesProcessed).toBe(1);
-      expect(heldCount(tenant.channelAccountId)).toBe(0);
     });
   });
 
@@ -348,151 +279,5 @@ describe("a channel account that is not active", () => {
         "processing",
       );
     });
-  });
-});
-
-/**
- * The sweep reads every held group up front and answers them one at a time, so
- * a number switched off mid-sweep has groups that were read while it was on.
- */
-describe("switched off while a held-message sweep is already running", () => {
-  let savedKey: string | undefined;
-  let tenant: TenantFixture;
-  let sendable: ChannelAccount;
-  let switchedOff: ReturnType<typeof addChannelAccount>;
-  let sends: number;
-  /** The numbers the business switches off from inside the first send. */
-  let switchOffOnSend: string[];
-  let originalFetch: typeof globalThis.fetch;
-
-  const FIRST = "51900444001";
-  const SECOND = "51900444002";
-
-  function hold(ref: ConversationRef, createdAt: number): void {
-    db.prepare(
-      `INSERT INTO held_messages
-         (tenant_id, channel_account_id, phone_number, message_text, message_id,
-          whatsapp_timestamp, created_at)
-       VALUES (?, ?, ?, 'hola', ?, 1, ?)`,
-    ).run(
-      ref.tenantId,
-      ref.channelAccountId,
-      ref.phoneNumber,
-      `wamid-${crypto.randomUUID()}`,
-      createdAt,
-    );
-  }
-
-  function heldFor(channelAccountId: string): number {
-    return (
-      db
-        .prepare(
-          "SELECT COUNT(*) as c FROM held_messages WHERE channel_account_id = ? AND processed_at IS NULL",
-        )
-        .get(channelAccountId) as { c: number }
-    ).c;
-  }
-
-  beforeEach(() => {
-    savedKey = process.env.SECRETS_KEY;
-    process.env.SECRETS_KEY = "d4".repeat(32);
-
-    applySchema();
-    tenant = createTenantFixture("channel-off-midsweep");
-
-    // A number that can genuinely send: active, and with a token behind it.
-    sendable = ChannelAccountService.create({
-      tenantId: tenant.tenantId,
-      phoneNumberId: `pnid-${crypto.randomUUID().slice(0, 8)}`,
-      accessToken: "EAAG-a-real-looking-token",
-    });
-    switchedOff = addChannelAccount(tenant);
-
-    const first: ConversationRef = {
-      tenantId: tenant.tenantId,
-      channelAccountId: sendable.id,
-      phoneNumber: FIRST,
-    };
-    insertConversation(first);
-    insertConversation(switchedOff.ref(SECOND));
-
-    // Oldest first, so the sweep reaches the sending number before the other.
-    hold(first, 1);
-    hold(switchedOff.ref(SECOND), 2);
-
-    sends = 0;
-    switchOffOnSend = [switchedOff.channelAccountId];
-    originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () => {
-      sends++;
-      // The business switches its second number off, with the sweep already
-      // holding a group that was read while it was on.
-      for (const channelAccountId of switchOffOnSend) {
-        ChannelAccountService.updateStatus(channelAccountId, "disabled");
-      }
-      return new Response(
-        JSON.stringify({ messages: [{ id: "wamid-sent" }] }),
-        {
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }) as unknown as typeof globalThis.fetch;
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    if (savedKey === undefined) delete process.env.SECRETS_KEY;
-    else process.env.SECRETS_KEY = savedKey;
-    dropTenantFixture(tenant);
-  });
-
-  it("leaves that number's messages held instead of clearing them", async () => {
-    const run = await processHeldMessages(tenant.tenantId);
-
-    // The first number was answered and its messages cleared, as always.
-    expect(sends).toBeGreaterThan(0);
-    expect(run.usersProcessed).toBe(1);
-    expect(heldFor(sendable.id)).toBe(0);
-
-    // The second was not, and its messages are still there to answer later.
-    expect(heldFor(switchedOff.channelAccountId)).toBe(1);
-
-    // The skip is deliberate, as for a tenant that froze itself, so it is not
-    // counted as an error.
-    expect(run.errors).toBe(0);
-  });
-
-  it("answers those messages on the first sweep after the number is back", async () => {
-    await processHeldMessages(tenant.tenantId);
-    expect(heldFor(switchedOff.channelAccountId)).toBe(1);
-
-    switchOffOnSend = [];
-    ChannelAccountService.updateStatus(switchedOff.channelAccountId, "active");
-    await processHeldMessages(tenant.tenantId);
-
-    expect(heldFor(switchedOff.channelAccountId)).toBe(0);
-  });
-
-  /**
-   * The operations route writes one audit row per `byTenant` entry. A business
-   * whose only held group was skipped must have no entry, or the audit row
-   * would claim a platform-wide sweep acted in a tenant it never touched.
-   */
-  it("records no sweep in a business whose only held messages were skipped", async () => {
-    const other = createTenantFixture("channel-off-other-business");
-
-    try {
-      insertConversation(other.ref(SECOND));
-      hold(other.ref(SECOND), 3);
-      switchOffOnSend.push(other.channelAccountId);
-
-      const run = await processHeldMessages(null);
-
-      expect(Object.keys(run.byTenant)).toContain(tenant.tenantId);
-      expect(Object.keys(run.byTenant)).not.toContain(other.tenantId);
-      expect(heldFor(other.channelAccountId)).toBe(1);
-    } finally {
-      dropTenantFixture(other);
-    }
   });
 });

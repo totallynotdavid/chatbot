@@ -25,12 +25,6 @@ const HELPER_MODULE = join("db", "query.ts");
  */
 const RULE_2_EXEMPT: Array<{ file: string; sql: string; reason: string }> = [
   {
-    file: join("conversation", "held-messages.ts"),
-    sql: "FROM held_messages WHERE message_id = ?",
-    reason:
-      "isHeld() dedupes by WhatsApp message id, before any tenant is resolved",
-  },
-  {
     file: join("conversation", "message-inbox.ts"),
     sql: "FROM message_inbox WHERE message_id = ?",
     reason:
@@ -88,26 +82,6 @@ const RULE_2_EXEMPT: Array<{ file: string; sql: string; reason: string }> = [
     reason:
       "countForUser() counts a user's memberships in every tenant on purpose, " +
       "suspended ones too",
-  },
-  {
-    file: join("db", "migrations.ts"),
-    sql: "FROM tenant_memberships m WHERE m.user_id = session.user_id",
-    reason:
-      "backfillSessionTenants() reads memberships by user id to give a " +
-      "pre-tenancy session the tenant login would have given it; it runs " +
-      "inside the migration, before there is a caller to scope to",
-  },
-  {
-    file: join("db", "migrations.ts"),
-    sql: "FROM ${...}_legacy l",
-    reason:
-      "copyTable() moves every row of one legacy table into the rebuilt " +
-      "table inside the migration, stamping the single tenant on each row",
-  },
-  {
-    file: join("db", "migrations.ts"),
-    sql: "COUNT(*) as count FROM ${...}",
-    reason: "copyTable() counts the rows it just copied, for its log line",
   },
   {
     file: join("db", "query.ts"),

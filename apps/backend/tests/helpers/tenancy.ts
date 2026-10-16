@@ -99,7 +99,6 @@ export function dropTenantFixture(fixture: TenantFixture | undefined): void {
     "outbox",
     "messages",
     "message_inbox",
-    "held_messages",
     "analytics_events",
     "llm_calls",
     "notification_traces",

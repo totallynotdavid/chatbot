@@ -26,7 +26,7 @@ import { ReportService } from "../src/domains/reports/index.ts";
 import { createOrder } from "../src/domains/orders/write.ts";
 import { WhatsAppService } from "../src/adapters/whatsapp/index.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
-import { DevAdapter } from "../src/adapters/whatsapp/dev-adapter.ts";
+import { CloudApiAdapter } from "../src/adapters/whatsapp/cloud-api.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import type { ChannelAccount } from "@vendeya/types";
 
@@ -302,12 +302,10 @@ describe("a suspended tenant", () => {
 });
 
 /**
- * Production refuses any account that is not `active`
- * (adapters/whatsapp/cloud-api.ts). The dev adapter applies the same check
- * because a half-configured number is most likely to exist in development.
- * Sending for it there would make dev behave as though the number worked.
+ * The Cloud API adapter refuses any account that is not `active` before it
+ * builds a request, so a half-configured number never reaches Meta.
  */
-describe("the dev adapter", () => {
+describe("the Cloud API adapter", () => {
   let tenant: TenantFixture;
   let account: ChannelAccount;
   let calls: number;
@@ -315,14 +313,14 @@ describe("the dev adapter", () => {
 
   beforeEach(() => {
     applySchema();
-    tenant = createTenantFixture("dev-adapter");
+    tenant = createTenantFixture("cloud-adapter");
     account = ChannelAccountService.getById(tenant.channelAccountId)!;
 
     calls = 0;
     originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
       calls++;
-      return new Response(JSON.stringify({ status: "ok", messageId: "m-1" }), {
+      return new Response(JSON.stringify({ messages: [{ id: "m-1" }] }), {
         headers: { "Content-Type": "application/json" },
       });
     }) as unknown as typeof globalThis.fetch;
@@ -331,14 +329,6 @@ describe("the dev adapter", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     dropTenantFixture(tenant);
-  });
-
-  it("sends for an active account", async () => {
-    expect(await DevAdapter.sendMessage(account, CUSTOMER, "hola")).toEqual({
-      ok: true,
-      messageId: "m-1",
-    });
-    expect(calls).toBe(1);
   });
 
   for (const status of ["pending", "disabled"] as const) {
@@ -350,11 +340,11 @@ describe("the dev adapter", () => {
         kind: "permanent" as const,
         reason: "account_not_active",
       };
-      expect(await DevAdapter.sendMessage(inactive, CUSTOMER, "hola")).toEqual(
-        refused,
-      );
       expect(
-        await DevAdapter.sendImage(inactive, CUSTOMER, "images/x.jpg"),
+        await CloudApiAdapter.sendMessage(inactive, CUSTOMER, "hola"),
+      ).toEqual(refused);
+      expect(
+        await CloudApiAdapter.sendImage(inactive, CUSTOMER, "images/x.jpg"),
       ).toEqual(refused);
 
       // The refusal happens before any request. The send did not fail on the

@@ -20,9 +20,7 @@ import {
 } from "../src/conversation/aggregator-worker.ts";
 import { enrichmentRegistry } from "../src/conversation/enrichment/registry.ts";
 import { processDueOutbox } from "../src/conversation/outbox-worker.ts";
-import { processHeldMessages } from "../src/conversation/process-held.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
-import { TenantSettings } from "../src/domains/settings/system.ts";
 import { eventBus } from "../src/shared/events/index.ts";
 import {
   applySchema,
@@ -315,99 +313,6 @@ describe("a customer whose turn fails", () => {
       { status: "failed", attempts: 2 },
       { status: "failed", attempts: 2 },
     ]);
-  });
-
-  describe("while the tenant was in maintenance", () => {
-    function heldRows() {
-      return db
-        .prepare(
-          `SELECT COUNT(*) AS n FROM held_messages
-           WHERE channel_account_id = ? AND processed_at IS NULL`,
-        )
-        .get(tenant.channelAccountId) as { n: number };
-    }
-
-    afterEach(() => {
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-    });
-
-    it("hands off a held group that fails twice, with the message that joined between", async () => {
-      failures = Infinity;
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "true");
-      await customerWrites(tenant, CUSTOMER, "mmm lo voy a pensar");
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-
-      const first = await processHeldMessages(tenant.tenantId);
-      expect(first.errors).toBe(1);
-      expect(heldRows().n).toBe(1);
-      expect(inbox()).toEqual([]);
-
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "true");
-      await customerWrites(tenant, CUSTOMER, "¿y si lo dejo para después?");
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-      expect(heldRows().n).toBe(2);
-
-      const second = await processHeldMessages(tenant.tenantId);
-      expect(second.errors).toBe(1);
-      expect(heldRows().n).toBe(0);
-      expect(inbox()).toMatchObject([
-        { status: "failed", attempts: 2, last_error: "the model is down" },
-        { status: "failed", attempts: 2, last_error: "the model is down" },
-      ]);
-
-      await processDueOutbox();
-
-      expect(delivered).toEqual([]);
-      expect(conversation().handover_reason).toBe("turn_failed");
-      expect(alerts).toHaveLength(1);
-
-      // The sweep has nothing left to retry.
-      expect((await processHeldMessages(tenant.tenantId)).errors).toBe(0);
-      expect(attempts).toBe(2);
-    });
-
-    it("hands off a message held while the last attempt runs", async () => {
-      failures = Infinity;
-      whileAnswering[2] = async () => {
-        TenantSettings.set(tenant.tenantId, "maintenance_mode", "true");
-        await customerWrites(tenant, CUSTOMER, "¿y si lo dejo para después?");
-        TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-      };
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "true");
-      await customerWrites(tenant, CUSTOMER, "mmm lo voy a pensar");
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-
-      await processHeldMessages(tenant.tenantId);
-      await processHeldMessages(tenant.tenantId);
-
-      expect(attempts).toBe(2);
-      expect(heldRows().n).toBe(0);
-      expect(inbox()).toMatchObject([
-        { status: "failed", attempts: 2 },
-        { status: "failed", attempts: 2 },
-      ]);
-
-      await processDueOutbox();
-      expect(alerts).toHaveLength(1);
-      await processHeldMessages(tenant.tenantId);
-      expect(attempts).toBe(2);
-      expect(delivered).toEqual([]);
-    });
-
-    it("answers a held group that fails once and then works", async () => {
-      failures = 1;
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "true");
-      await customerWrites(tenant, CUSTOMER, "mmm lo voy a pensar");
-      TenantSettings.set(tenant.tenantId, "maintenance_mode", "false");
-
-      await processHeldMessages(tenant.tenantId);
-      const second = await processHeldMessages(tenant.tenantId);
-
-      expect(second.messagesProcessed).toBe(1);
-      expect(delivered).toEqual([FOLLOW_UP]);
-      expect(inbox()).toEqual([]);
-      expect(alerts).toEqual([]);
-    });
   });
 
   it("is answered after the backend is killed mid-turn, with no duplicate send", async () => {

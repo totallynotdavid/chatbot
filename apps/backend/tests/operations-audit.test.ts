@@ -1,8 +1,8 @@
 /**
- * What the audit trail says about the platform-wide operations sweeps. An
- * operator with no tenant selected sweeps every open tenant. Each tenant the
- * run reaches gets its own entry with its own counts. A retry run that reaches
- * no tenant gets one entry, so a no-op is on the record too.
+ * What the audit trail says about the platform-wide retry sweep. An operator
+ * with no tenant selected sweeps every open tenant, and the run splits its
+ * counts by tenant. A run that reaches no tenant gets one entry, so a no-op is
+ * on the record too.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
@@ -11,7 +11,6 @@ import { Hono } from "hono";
 import { db } from "../src/db/index.ts";
 import {
   applySchema,
-  createMember,
   createTenantFixture,
   dropTenantFixture,
   type TenantFixture,
@@ -23,8 +22,6 @@ import {
   generateSessionToken,
 } from "../src/platform/auth/session.ts";
 import adminRoutes from "../src/routes/admin.ts";
-import { getAuditTrail } from "../src/platform/audit/logger.ts";
-import { holdMessage } from "../src/conversation/held-messages.ts";
 import { RetryEligibilityHandler } from "../src/domains/recovery/handlers/retry-eligibility-handler.ts";
 import type { CheckEligibilityHandler } from "../src/domains/eligibility/handlers/check-eligibility-handler.ts";
 import { Ok } from "../src/shared/result/index.ts";
@@ -92,82 +89,6 @@ describe("auditing an operations sweep", () => {
   function post(path: string, cookie: string) {
     return app.request(path, { method: "POST", headers: { Cookie: cookie } });
   }
-
-  describe("held messages, swept across every tenant at once", () => {
-    beforeEach(() => {
-      holdMessage(
-        alpha.ref(CUSTOMER),
-        "hola",
-        `wamid-${crypto.randomUUID()}`,
-        1,
-      );
-      holdMessage(
-        beta.ref(CUSTOMER),
-        "hola",
-        `wamid-${crypto.randomUUID()}`,
-        1,
-      );
-    });
-
-    it("records one entry per tenant it touched, not one for the platform", async () => {
-      const response = await post("/api/admin/process-held-messages", operator);
-      expect(response.status).toBe(200);
-
-      const entries = entriesFor("process_held_messages");
-
-      expect(entries.map((e) => e.tenant_id).sort()).toEqual(
-        [alpha.tenantId, beta.tenantId].sort(),
-      );
-      expect(entries.some((e) => e.tenant_id === null)).toBe(false);
-    });
-
-    it("puts the entry in the affected tenant's own trail", async () => {
-      await post("/api/admin/process-held-messages", operator);
-
-      const alphaTrail = getAuditTrail(alpha.tenantId).filter(
-        (log) => log.action === "process_held_messages",
-      );
-
-      expect(alphaTrail).toHaveLength(1);
-      expect(alphaTrail[0]!.tenant_id).toBe(alpha.tenantId);
-    });
-
-    it("says the entry came from a cross-tenant sweep", async () => {
-      await post("/api/admin/process-held-messages", operator);
-
-      for (const entry of entriesFor("process_held_messages")) {
-        expect(JSON.parse(entry.metadata)).toMatchObject({
-          sweptAcrossTenants: true,
-        });
-      }
-    });
-
-    it("keeps a pinned admin's run inside their own tenant", async () => {
-      const admin = createMember(alpha, "admin");
-
-      const response = await post(
-        "/api/admin/process-held-messages",
-        login(admin.userId, alpha.tenantId),
-      );
-      expect(response.status).toBe(200);
-
-      const entries = entriesFor("process_held_messages");
-
-      expect(entries).toHaveLength(1);
-      expect(entries[0]!.tenant_id).toBe(alpha.tenantId);
-      expect(JSON.parse(entries[0]!.metadata)).toMatchObject({
-        sweptAcrossTenants: false,
-      });
-      // Beta's held message is still held: a pinned caller swept only alpha.
-      expect(
-        db
-          .prepare(
-            "SELECT COUNT(*) as c FROM held_messages WHERE tenant_id = ? AND processed_at IS NULL",
-          )
-          .get(beta.tenantId),
-      ).toEqual({ c: 1 });
-    });
-  });
 
   /**
    * The counts the entries are written from. Splitting them per tenant is what

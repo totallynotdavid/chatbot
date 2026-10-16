@@ -23,7 +23,6 @@ import {
   type AggregatedGroup,
   getReadyForAggregation,
 } from "../src/conversation/message-inbox.ts";
-import { processHeldMessages } from "../src/conversation/process-held.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import {
   acquireLock,
@@ -325,16 +324,6 @@ describe("an answer still running when its lock times out", () => {
     ).map((row) => row.status);
   }
 
-  function unansweredHeld(): number {
-    return (
-      db
-        .prepare(
-          "SELECT COUNT(*) as c FROM held_messages WHERE channel_account_id = ? AND processed_at IS NULL",
-        )
-        .get(ref.channelAccountId) as { c: number }
-    ).c;
-  }
-
   function queue(): AggregatedGroup {
     db.prepare(
       `INSERT INTO message_inbox
@@ -353,19 +342,6 @@ describe("an answer still running when its lock times out", () => {
     );
     if (!group) throw new Error("The queued message was not dequeued");
     return group;
-  }
-
-  function hold(): void {
-    db.prepare(
-      `INSERT INTO held_messages
-         (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp)
-       VALUES (?, ?, ?, 'hola', ?, 1)`,
-    ).run(
-      ref.tenantId,
-      ref.channelAccountId,
-      CUSTOMER,
-      `wamid-${crypto.randomUUID()}`,
-    );
   }
 
   beforeEach(() => {
@@ -456,76 +432,6 @@ describe("an answer still running when its lock times out", () => {
       expect(readReceipts).toBe(2);
     });
   });
-
-  describe("held through maintenance", () => {
-    it("is marked answered once the late answer finishes, and a later sweep does not answer it again", async () => {
-      hold();
-      const letThrough = holdAnswers();
-      lockTimeouts.LOCK_DEFAULT = 20;
-
-      const run = await processHeldMessages(ref.tenantId);
-      expect(readReceipts).toBe(1);
-      expect(run.byTenant[ref.tenantId]).toEqual({
-        usersProcessed: 0,
-        messagesProcessed: 0,
-        errors: 0,
-        stillAnswering: 1,
-      });
-
-      letThrough();
-      await eventually(() => unansweredHeld() === 0);
-
-      const later = await processHeldMessages(ref.tenantId);
-      expect(later.usersProcessed).toBe(0);
-      expect(readReceipts).toBe(1);
-    });
-
-    it("is not answered by a sweep that starts while the first answer is still running", async () => {
-      hold();
-      const letThrough = holdAnswers();
-      lockTimeouts.LOCK_DEFAULT = 20;
-
-      await processHeldMessages(ref.tenantId);
-      expect(readReceipts).toBe(1);
-
-      // A second sweep patient enough to outlast the first answer: queued
-      // behind it on the lock, it would answer the same group right after.
-      lockTimeouts.LOCK_DEFAULT = savedLockTimeout;
-      const second = processHeldMessages(ref.tenantId);
-      await pause(50);
-
-      letThrough();
-      const run = await second;
-      await eventually(() => unansweredHeld() === 0);
-
-      expect(run.usersProcessed).toBe(0);
-      expect(readReceipts).toBe(1);
-    });
-
-    it("stays held when the late answer is refused, and is answered by the sweep after the number returns", async () => {
-      hold();
-      const letThrough = holdAnswers();
-      lockTimeouts.LOCK_DEFAULT = 20;
-
-      await processHeldMessages(ref.tenantId);
-      ChannelAccountService.updateStatus(ref.channelAccountId, "disabled");
-
-      letThrough();
-      // The late refusal changes nothing observable in the table, because the
-      // row stays unanswered either way. Wait for the lock to come free instead.
-      await withLock(ref, async () => {}, 10_000);
-      await pause(10);
-      expect(unansweredHeld()).toBe(1);
-
-      ChannelAccountService.updateStatus(ref.channelAccountId, "active");
-      lockTimeouts.LOCK_DEFAULT = savedLockTimeout;
-      const run = await processHeldMessages(ref.tenantId);
-
-      expect(run.messagesProcessed).toBe(1);
-      expect(unansweredHeld()).toBe(0);
-      expect(readReceipts).toBe(2);
-    });
-  });
 });
 
 describe("a group whose answer fails outright", () => {
@@ -600,30 +506,5 @@ describe("a group whose answer fails outright", () => {
     expect(row.status).toBe("failed");
     expect(row.attempts).toBe(2);
     expect(row.last_error).toContain("phase");
-  });
-
-  it("is left held for the next sweep when held", async () => {
-    const ref = tenant.ref("51900777667");
-    unreadableConversation(ref);
-    db.prepare(
-      `INSERT INTO held_messages
-         (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp)
-       VALUES (?, ?, ?, 'hola', ?, 1)`,
-    ).run(
-      ref.tenantId,
-      ref.channelAccountId,
-      ref.phoneNumber,
-      `wamid-${crypto.randomUUID()}`,
-    );
-
-    const failed = await processHeldMessages(ref.tenantId);
-    expect(failed.errors).toBe(1);
-
-    db.prepare(
-      "DELETE FROM conversations WHERE channel_account_id = ? AND phone_number = ?",
-    ).run(ref.channelAccountId, ref.phoneNumber);
-    const retried = await processHeldMessages(ref.tenantId);
-
-    expect(retried.messagesProcessed).toBe(1);
   });
 });

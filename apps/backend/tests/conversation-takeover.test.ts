@@ -28,8 +28,6 @@ import {
   ConversationBusyError,
   acquireLock,
 } from "../src/conversation/locks.ts";
-import { holdMessage } from "../src/conversation/held-messages.ts";
-import { processHeldMessages } from "../src/conversation/process-held.ts";
 import { MessageStore } from "../src/adapters/whatsapp/message-store.ts";
 import { ChannelAccountService } from "../src/domains/channels/accounts.ts";
 import {
@@ -229,18 +227,6 @@ describe("a person takes over a conversation", () => {
       expect(after.phase.phase).toBe("escalated");
       expect(after.status).toBe("human_takeover");
       expect(after.handoverReason).toBe("Manual takeover by agent");
-    });
-
-    it("keeps the bot silent on a message the held-message sweep answers", async () => {
-      insert(OFFERING);
-      holdMessage(ref, "quiero el segundo", `wamid-${crypto.randomUUID()}`, 1);
-
-      await takeoverConversation(ref, agent);
-      const run = await processHeldMessages(tenant.tenantId);
-
-      expect(run.messagesProcessed).toBe(1);
-      expect(textSends).toEqual([]);
-      expect(conversation().phase.phase).toBe("escalated");
     });
 
     it("waits for a bot turn in flight and leaves the conversation escalated", async () => {

@@ -144,17 +144,6 @@ describe("foreign key enforcement", () => {
             .run(tenantId, channelAccountId, crypto.randomUUID()),
       },
       {
-        table: "held_messages",
-        insert: (tenantId, channelAccountId) =>
-          db
-            .prepare(
-              `INSERT INTO held_messages
-                 (tenant_id, channel_account_id, phone_number, message_text, message_id, whatsapp_timestamp)
-               VALUES (?, ?, '51900000012', 'hola', ?, 1)`,
-            )
-            .run(tenantId, channelAccountId, crypto.randomUUID()),
-      },
-      {
         table: "analytics_events",
         insert: (tenantId, channelAccountId) =>
           db
@@ -573,7 +562,6 @@ describe("the composite reference itself", () => {
     expect(tables.sort()).toEqual([
       "analytics_events",
       "conversations",
-      "held_messages",
       "llm_calls",
       "message_inbox",
       "messages",
@@ -607,100 +595,5 @@ describe("the composite reference itself", () => {
         columns: ["channel_account_id->id", "tenant_id->tenant_id"],
       });
     }
-  });
-});
-
-/**
- * The migration renames tables aside while it rebuilds them, which enforcement
- * would trip. It turns foreign keys off for the rebuild and restores the prior
- * setting, including when the connection had them on as the app's does.
- */
-describe("migration under an enforcing connection", () => {
-  let dir: string;
-  let legacy: Database;
-
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "vendeya-fk-migration-"));
-    legacy = createTestDatabase(join(dir, "legacy.sqlite"));
-    legacy.run("PRAGMA foreign_keys = ON;");
-    legacy.run(`
-      CREATE TABLE users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        role TEXT NOT NULL,
-        name TEXT NOT NULL,
-        phone_number TEXT,
-        is_active INTEGER DEFAULT 1,
-        is_available INTEGER DEFAULT 1,
-        created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
-        created_by TEXT
-      );
-      CREATE TABLE conversations (
-        phone_number TEXT PRIMARY KEY,
-        context_data TEXT DEFAULT '{}',
-        current_state TEXT GENERATED ALWAYS AS (json_extract(context_data, '$.phase.phase')) STORED,
-        status TEXT DEFAULT 'active',
-        is_simulation INTEGER DEFAULT 0,
-        last_activity_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
-        assigned_agent TEXT REFERENCES users(id)
-      );
-      CREATE TABLE messages (
-        id TEXT PRIMARY KEY,
-        phone_number TEXT NOT NULL REFERENCES conversations(phone_number) ON DELETE CASCADE,
-        direction TEXT NOT NULL,
-        type TEXT NOT NULL,
-        content TEXT,
-        status TEXT DEFAULT 'sent',
-        created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
-      );
-    `);
-
-    legacy
-      .prepare(
-        `INSERT INTO users (id, username, password_hash, role, name)
-         VALUES ('admin-001', 'admin', 'hash', 'admin', 'Administrador')`,
-      )
-      .run();
-    legacy
-      .prepare(
-        `INSERT INTO conversations (phone_number, context_data, assigned_agent)
-         VALUES ('51999888777', ?, 'admin-001')`,
-      )
-      .run(JSON.stringify({ phase: { phase: "greeting" }, metadata: {} }));
-    legacy
-      .prepare(
-        `INSERT INTO messages (id, phone_number, direction, type, content)
-         VALUES ('m1', '51999888777', 'inbound', 'text', 'Hola')`,
-      )
-      .run();
-  });
-
-  afterEach(() => {
-    legacy.close();
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  it("migrates and leaves enforcement back on, with no violations", () => {
-    initializeDatabase(legacy);
-
-    expect(legacy.prepare("PRAGMA foreign_keys").get()).toEqual({
-      foreign_keys: 1,
-    });
-    expect(legacy.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
-
-    const message = legacy
-      .prepare(
-        "SELECT tenant_id, channel_account_id FROM messages WHERE id = 'm1'",
-      )
-      .get() as { tenant_id: string; channel_account_id: string };
-    const tenantId = (
-      legacy.prepare("SELECT id FROM tenants").get() as { id: string }
-    ).id;
-
-    expect(message.tenant_id).toBe(tenantId);
-    expect(
-      legacy.prepare("SELECT COUNT(*) as c FROM conversations").get(),
-    ).toEqual({ c: 1 });
   });
 });

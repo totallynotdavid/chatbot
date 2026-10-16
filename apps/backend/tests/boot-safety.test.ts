@@ -107,9 +107,9 @@ async function boot(
   let exited = false;
 
   // `/api/conversations` rather than `/health`, which can spend seconds waiting
-  // on the notifier. An unauthenticated 401 comes straight back from the
-  // middleware and is all the evidence needed that the port is bound and the app
-  // is answering.
+  // on the eligibility providers. An unauthenticated 401 comes straight back
+  // from the middleware and is all the evidence needed that the port is bound
+  // and the app is answering.
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {

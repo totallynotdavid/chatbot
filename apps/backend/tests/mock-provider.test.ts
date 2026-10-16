@@ -66,33 +66,4 @@ describe("MockProvider", () => {
     });
     expect(result).toBe("Disculpa, no te entendí. ¿Puedes repetirlo?");
   });
-
-  test("extractProductData returns null data by default", async () => {
-    const provider = createMockProvider();
-    const buffer = Buffer.from("fake image");
-    const result = await provider.extractProductData(buffer);
-
-    expect(result.name).toBeNull();
-    expect(result.price).toBeNull();
-    expect(result.installments).toBeNull();
-    expect(result.category).toBeNull();
-    expect(result.description).toBeNull();
-  });
-
-  test("extractProductData returns configured data", async () => {
-    const provider = createMockProvider();
-    const mockData = {
-      name: "Samsung Galaxy",
-      price: 2999,
-      installments: 12,
-      category: "celulares",
-      description: "Smartphone premium",
-    };
-    provider.setResponse("extractProductData", mockData);
-
-    const buffer = Buffer.from("fake image");
-    const result = await provider.extractProductData(buffer);
-
-    expect(result).toEqual(mockData);
-  });
 });
