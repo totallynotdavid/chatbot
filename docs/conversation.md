@@ -57,16 +57,42 @@ Rows of a suspended tenant or an inactive number are skipped and stay `pending`
 ready groups run in parallel. Each row moves:
 
 ```text
-pending -> processing -> processed    the turn returned
+pending -> processing -> processed    the turn recorded its result
                       -> pending      the lock was busy, or the number was
-                                      switched off during the turn
-                      -> failed       the turn threw before working out a reply
+                                      switched off during the turn, or the
+                                      turn failed for the first time
+                      -> failed       the turn failed for the second time
 ```
 
-A turn that fails while working out a reply is caught inside the turn, so its
-rows still end `processed` and the customer gets no reply. Nothing retries a
-`failed` row. A backend that dies mid-turn leaves its rows `processing`, and
-nothing answers them again.
+A row becomes `processed` only in the transaction that records the turn: the
+phase, the analytics rows and the row's own status commit together (see
+[the executor](#the-executor)). A turn that throws before that, anywhere in the
+reply step, leaves the rows unsettled. The aggregator counts the failure in
+`message_inbox.attempts` and keeps the error in `last_error`. Attempts belong to
+the conversation, not the row: a message that arrives after the first failure
+joins the retry and fails with the older ones. After the first failure the group
+goes back to `pending` and the next poll runs its turn again. After the second,
+every row of the group ends `failed`, and so does every `pending` row of the
+conversation, including one that arrived while the second attempt ran.
+[The handoff](#the-handoff) then gives the conversation to a person with reason
+`turn_failed`, and no row is left to be answered after it. A turn refused
+because the lock was busy or the number was switched off counts no attempt.
+
+A backend that dies mid-turn leaves its rows `processing`. At boot, before the
+aggregator polls, each conversation's `processing` rows are settled as one
+failed attempt with `last_error` `interrupted: the process ended mid-turn`, on
+the same rule, so a message that kills the backend every time reaches a person.
+When that is the second attempt, the conversation's `pending` rows fail with it.
+The commit comes after the sends, so a reply that went out before the backend
+died is sent again on the rerun, as with a send that throws partway through a
+batch.
+
+The held-message sweep ([maintenance mode](./operations.md#maintenance-mode))
+runs the same turn and counts failures the same way, per group and in memory. A
+group that fails once is held for the next sweep. After the second failure every
+unanswered held message of the conversation, including one held while the
+attempt ran, moves to the inbox as a `failed` row and the handoff takes them
+from there.
 
 Processed rows are kept 7 days, because the Meta message id on them is what
 recognizes a redelivery
@@ -167,16 +193,17 @@ It stays in memory. The database holds the phase the turn started from until
 customer mid-eligibility-check still shows `collecting_dni` in the dashboard.
 
 The loop stops after 10 rounds and escalates with reason
-`enrichment_loop_exceeded`. A handler that throws ends the turn: no reply, the
-error is logged as "Message processing failed", and a `system_error_occurred`
-alert goes to the dev group. With no `OPENAI_API_KEY`, every message the regexes
-do not recognize ends this way.
+`enrichment_loop_exceeded`. A handler that throws ends the turn with no reply:
+the error is logged as "Message processing failed", a `system_error_occurred`
+alert goes to the dev group, and the turn is retried and then handed off (see
+[the inbox](#the-inbox-and-the-aggregator)). With no `OPENAI_API_KEY`, every
+message the regexes do not recognize ends this way.
 
 ## The executor
 
 [`handler/command-executor.ts`](../apps/backend/src/conversation/handler/command-executor.ts)
-runs the commands in order, then writes the new phase if it changed, then the
-analytics rows.
+runs the commands in order, then in one transaction writes the new phase if it
+changed, the analytics rows, and marks the turn's inbox rows `processed`.
 
 A simulated conversation (`is_simulation = 1`) writes each reply to `messages`
 as `sent` and sends nothing.
@@ -261,19 +288,21 @@ Final rows are deleted after 7 days.
 
 ## The handoff
 
-A `failed` row means the customer did not get a reply.
-[`outbox-handoff.ts`](../apps/backend/src/conversation/outbox-handoff.ts) runs
+A `failed` row, in `outbox` or in `message_inbox`, means the customer did not
+get a reply. [`handoff.ts`](../apps/backend/src/conversation/handoff.ts) runs
 after every outbox pass and finds conversations of open tenants with a `failed`
 row not yet handed off. A suspended tenant's rows wait for it to reopen. Inside
 the lock it:
 
 1. cancels the conversation's pending replies,
-2. escalates the conversation with reason `reply_undeliverable` if it is still
-   `active`, and assigns it an agent,
+2. escalates the conversation if it is still `active`, and assigns it an agent,
 3. records the unread alert and emits `escalation_triggered`,
 4. stamps `handed_off_at` on the failed rows.
 
-A crash between steps 3 and 4 alerts twice. The customer is not told anything.
+The reason is `turn_failed` when an inbox row failed, because no reply was
+worked out, and `reply_undeliverable` when only outbox rows failed. The event's
+`context.lastReason` carries the last error. A crash between steps 3 and 4
+alerts twice. The customer is not told anything.
 
 ## Phases
 
@@ -338,7 +367,8 @@ The bot escalates when:
   `customer_question_during_objection`),
 - the eligibility check throws (`eligibility_check_error`),
 - the enrichment loop runs out (`enrichment_loop_exceeded`),
-- a reply cannot be delivered (`reply_undeliverable`).
+- a reply cannot be delivered (`reply_undeliverable`),
+- a turn fails twice (`turn_failed`).
 
 Escalating sets the phase to `escalated`, `conversations.status` to
 `human_takeover` and `handover_reason` to the reason, and emits

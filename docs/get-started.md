@@ -155,8 +155,9 @@ number a real conversation holds. A deleted conversation never frees a number
 another simulation holds.
 
 Without `OPENAI_API_KEY`, a message the bot's patterns do not recognize gets no
-reply, and the backend logs "Message processing failed". Set the key in `.env`
-to let the bot answer questions and recover from unclear replies.
+reply, the backend logs "Message processing failed", and the simulator answers
+500 with `{"status":"failed","error":"..."}`. Set the key in `.env` to let the
+bot answer questions and recover from unclear replies.
 
 ## Next
 

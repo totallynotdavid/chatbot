@@ -54,7 +54,7 @@ conversation/handler/command-executor.ts
 adapters/whatsapp/index.ts
   uses DevAdapter in development and CloudApiAdapter otherwise
 conversation/outbox-worker.ts
-  retries recoverable failures and outbox-handoff.ts escalates a failed reply
+  retries recoverable failures and handoff.ts escalates a failed reply or turn
 shared/events + bootstrap/event-bus-setup.ts
   dispatch domain events such as orders and escalation alerts
 ```
@@ -123,7 +123,7 @@ assigned agent.
 | Transition     | When                                                                                                              | Owner                                                                                                                |
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | none to unread | a bot turn escalates the conversation, after it is assigned                                                       | `handleMessage` in [`orchestrator.ts`](../apps/backend/src/conversation/handler/orchestrator.ts), `raiseUnreadAlert` |
-| none to unread | a failed reply hands the conversation to a person                                                                 | `handOff` in [`outbox-handoff.ts`](../apps/backend/src/conversation/outbox-handoff.ts), `raiseUnreadAlert`           |
+| none to unread | a failed reply or turn hands the conversation to a person                                                         | `handOff` in [`handoff.ts`](../apps/backend/src/conversation/handoff.ts), `raiseUnreadAlert`                         |
 | none to unread | a customer message reaches a `human_takeover` conversation whose agent has a phone                                | `claimMessageAlert` in [`unread-alerts.ts`](../apps/backend/src/conversation/unread-alerts.ts), one atomic insert    |
 | unread to none | the holder sends a message                                                                                        | `sendManualMessage`, `clearUnreadAlert`, after the send succeeded                                                    |
 | unread to none | `assigned_agent` is written: assignment, reassignment, decline, takeover, release, idle reset, an agent's removal | the trigger `conversations_assignment_clears_unread_alert` in [`schema.sql`](../apps/backend/src/db/schema.sql)      |

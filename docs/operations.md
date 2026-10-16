@@ -292,9 +292,11 @@ curl -X POST -b "session=<token>" https://<frontend>/api/admin/process-held-mess
 
 It answers 409 while the caller's scope is still frozen. Otherwise it answers
 each held conversation through the normal turn, one grouped message per
-conversation, and reports counts. An unpinned operator's sweep skips tenants
-still frozen on their own. `GET /api/admin/held-messages-status` counts what is
-held. The code is in
+conversation, and reports counts. A conversation whose turn fails is retried and
+then handed to a person, as in
+[Conversation](./conversation.md#the-inbox-and-the-aggregator). An unpinned
+operator's sweep skips tenants still frozen on their own.
+`GET /api/admin/held-messages-status` counts what is held. The code is in
 [`routes/admin/operations.ts`](../apps/backend/src/routes/admin/operations.ts)
 and
 [`conversation/process-held.ts`](../apps/backend/src/conversation/process-held.ts).
@@ -311,5 +313,7 @@ and
 | The conversation is waiting on providers | phase `waiting_for_recovery`; see [Eligibility](./eligibility.md#outages-and-recovery) |
 | The conversation is with a person        | phase `escalated`; the bot stays silent until release                                  |
 
-Inbox rows a crash left `processing` are never answered again. Rows that ended
-`failed` are never retried. Neither shows in the dashboard.
+Failed turns and crashes are retried and handed off as
+[Conversation](./conversation.md#the-inbox-and-the-aggregator) describes.
+`message_inbox.last_error` keeps the error. The inbox rows are not in the
+dashboard, but the conversation is.
