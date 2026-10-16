@@ -1,0 +1,46 @@
+# Layered over compose.prod.yml by drill.sh: a Graph fake and an S3 server, and
+# no tunnel.
+services:
+  cloudflared:
+    profiles: !override ["tunnel"]
+
+  graph:
+    image: oven/bun:${BUN_VERSION:?set BUN_VERSION}-alpine
+    command: ["bun", "/drill/graph-fake.ts"]
+    environment:
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID}
+      PUBLIC_URL: ${PUBLIC_URL}
+    volumes:
+      - ${DRILL_DIR:?set DRILL_DIR}:/drill:ro
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 3s
+      retries: 10
+
+  s3:
+    image: rustfs/rustfs:1.0.1
+    environment:
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - s3:/data
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "9000"]
+      interval: 3s
+      retries: 20
+
+  backend:
+    depends_on:
+      graph:
+        condition: service_healthy
+
+  backup:
+    depends_on:
+      s3:
+        condition: service_healthy
+
+volumes:
+  s3:
