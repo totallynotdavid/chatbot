@@ -1,4 +1,4 @@
-FROM alpine:3.23
+FROM alpine:3.24
 
 # pg_dump must match the server's major version, which compose.prod.yml pins.
 RUN apk add --no-cache restic postgresql18-client sqlite \
