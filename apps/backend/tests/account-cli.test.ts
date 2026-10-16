@@ -1,30 +1,24 @@
 /** `bun run account` in a subprocess: where the password comes from, what it prints, its exit code. */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import type { Database } from "bun:sqlite";
 import bcrypt from "bcryptjs";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir, userInfo } from "node:os";
+import { userInfo } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { initializeDatabase } from "../src/db/init.ts";
 import { currentOperator } from "../src/cli/os-user.ts";
-import { ensureDefaultTenant } from "../src/db/seeds/tenants.ts";
-import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import { ACCOUNT_ENV } from "./helpers/account-env.ts";
-import { createTestDatabase } from "./helpers/database.ts";
+import {
+  createTestDb,
+  postgresAvailable,
+  type TestDb,
+} from "./helpers/postgres.ts";
 
 const CLI = join(import.meta.dir, "..", "src", "cli", "account.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
 const PASSWORD = "a-long-enough-password";
 
-describe("the account command", () => {
-  let dir: string;
-  let dbPath: string;
-
-  function open(): Database {
-    return createTestDatabase(dbPath);
-  }
+describe.skipIf(!postgresAvailable)("the account command", () => {
+  let database: TestDb;
 
   function childEnv(extra: Record<string, string> = {}) {
     return {
@@ -32,12 +26,18 @@ describe("the account command", () => {
       HOME: process.env.HOME ?? "",
       USER: process.env.USER ?? "",
       NODE_ENV: "test",
-      DB_PATH: dbPath,
-      UPLOAD_DIR: join(dir, "uploads"),
-      PRIVATE_DIR: join(dir, "private"),
-      LOG_DIR: join(dir, "logs"),
+      DATABASE_URL: database.url,
       ...extra,
     };
+  }
+
+  async function addTenant(slug: string, name: string) {
+    const id = crypto.randomUUID();
+    await database.db
+      .insertInto("tenants")
+      .values({ id, slug, name })
+      .execute();
+    return { id, slug };
   }
 
   async function run(
@@ -107,66 +107,42 @@ describe("the account command", () => {
   }
 
   function user(username: string) {
-    const db = open();
-    try {
-      return db
-        .prepare("SELECT * FROM users WHERE username = ?")
-        .get(username) as {
-        id: string;
-        password_hash: string;
-        is_platform_operator: number;
-      } | null;
-    } finally {
-      db.close();
-    }
+    return database.db
+      .selectFrom("users")
+      .selectAll()
+      .where("username", "=", username)
+      .executeTakeFirstOrThrow();
   }
 
-  function userCount(): number {
-    const db = open();
-    try {
-      return (
-        db.prepare("SELECT COUNT(*) as count FROM users").get() as {
-          count: number;
-        }
-      ).count;
-    } finally {
-      db.close();
-    }
+  async function userCount(): Promise<number> {
+    const rows = await database.db.selectFrom("users").select("id").execute();
+    return rows.length;
   }
 
   function auditRows() {
-    const db = open();
-    try {
-      return db
-        .prepare(
-          "SELECT tenant_id, user_id, actor, action, resource_type, resource_id, metadata FROM audit_log ORDER BY rowid",
-        )
-        .all() as Array<{
-        tenant_id: string | null;
-        user_id: string | null;
-        actor: string;
-        action: string;
-        resource_type: string;
-        resource_id: string | null;
-        metadata: string;
-      }>;
-    } finally {
-      db.close();
-    }
+    return database.db
+      .selectFrom("audit_log")
+      .select([
+        "tenant_id",
+        "user_id",
+        "actor",
+        "action",
+        "resource_type",
+        "resource_id",
+        "metadata",
+      ])
+      .orderBy("created_at")
+      .orderBy("id")
+      .execute();
   }
 
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "vendeya-account-cli-"));
-    dbPath = join(dir, "cli.sqlite");
-
-    const db = open();
-    initializeDatabase(db);
-    ensureDefaultTenant(db);
-    db.close();
+  beforeEach(async () => {
+    database = await createTestDb();
+    await addTenant("totem", "Totem");
   });
 
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+  afterEach(async () => {
+    await database.destroy();
   });
 
   describe("create", () => {
@@ -181,8 +157,8 @@ describe("the account command", () => {
         "Created platform operator vendeya-staff",
       );
 
-      const row = user("vendeya-staff")!;
-      expect(row.is_platform_operator).toBe(1);
+      const row = await user("vendeya-staff");
+      expect(row.is_platform_operator).toBe(true);
       expect(bcrypt.compareSync(PASSWORD, row.password_hash)).toBe(true);
     });
 
@@ -194,18 +170,17 @@ describe("the account command", () => {
       expect(result.code).toBe(0);
       expect(result.stdout).toContain("as admin of tenant totem");
 
-      const db = open();
-      const tenant = tenantsOn(db).getBySlug("totem")!;
-      expect(membershipsOn(db).roleFor(tenant.id, user("maria")!.id)).toBe(
-        "admin",
-      );
-      db.close();
+      const membership = await database.db
+        .selectFrom("tenant_memberships")
+        .innerJoin("tenants", "tenants.id", "tenant_memberships.tenant_id")
+        .select(["tenants.slug", "tenant_memberships.role"])
+        .where("tenant_memberships.user_id", "=", (await user("maria")).id)
+        .execute();
+      expect(membership).toEqual([{ slug: "totem", role: "admin" }]);
     });
 
     it("takes the tenant it is named when there are several", async () => {
-      const db = open();
-      const other = tenantsOn(db).create({ slug: "other", name: "Other" });
-      db.close();
+      const other = await addTenant("other", "Other");
 
       const result = await run(["create", "maria", "--tenant", other.id], {
         stdin: PASSWORD,
@@ -216,16 +191,14 @@ describe("the account command", () => {
     });
 
     it("refuses without a tenant when there are several, and lists them", async () => {
-      const db = open();
-      tenantsOn(db).create({ slug: "other", name: "Other" });
-      db.close();
+      await addTenant("other", "Other");
 
       const result = await run(["create", "maria"], { stdin: PASSWORD });
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("(totem)");
       expect(result.stderr).toContain("(other)");
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("refuses a platform operator that is also given a tenant", async () => {
@@ -235,7 +208,7 @@ describe("the account command", () => {
       );
 
       expect(result.code).toBe(1);
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("refuses a password under 12 characters", async () => {
@@ -243,7 +216,7 @@ describe("the account command", () => {
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("at least 12 characters");
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("refuses a username that is taken", async () => {
@@ -253,7 +226,7 @@ describe("the account command", () => {
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("taken");
-      expect(userCount()).toBe(1);
+      expect(await userCount()).toBe(1);
     });
 
     it("refuses a password given as an argument, and does not repeat it", async () => {
@@ -264,7 +237,7 @@ describe("the account command", () => {
       expect(result.code).toBe(2);
       expect(result.stderr).toContain("Usage:");
       expect(result.stderr).not.toContain(PASSWORD);
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("does not read the password from the environment", async () => {
@@ -278,7 +251,7 @@ describe("the account command", () => {
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("at least 12 characters");
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("refuses a password spread over several lines of stdin", async () => {
@@ -288,7 +261,7 @@ describe("the account command", () => {
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("single line");
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
   });
 
@@ -299,16 +272,16 @@ describe("the account command", () => {
     it("records a creation under the operator, and does not print it", async () => {
       const result = await run(["create", "maria"], { stdin: PASSWORD });
 
-      const [row, ...rest] = auditRows();
+      const [row, ...rest] = await auditRows();
       expect(rest).toEqual([]);
       expect(row).toMatchObject({
         user_id: null,
         actor,
         action: "create_user",
         resource_type: "user",
-        resource_id: user("maria")!.id,
+        resource_id: (await user("maria")).id,
       });
-      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+      expect(row!.metadata.uid).toBe(uid);
       expect(result.stdout).not.toContain(actor);
       expect(result.stderr).not.toContain(actor);
     });
@@ -318,15 +291,12 @@ describe("the account command", () => {
 
       const result = await run(["promote", "maria"]);
 
-      const rows = auditRows();
+      const rows = await auditRows();
       expect(rows.map((row) => [row.actor, row.action])).toEqual([
         [actor, "create_user"],
         [actor, "promote_platform_operator"],
       ]);
-      expect(rows.map((row) => JSON.parse(row.metadata).uid)).toEqual([
-        uid,
-        uid,
-      ]);
+      expect(rows.map((row) => row.metadata.uid)).toEqual([uid, uid]);
       expect(result.stdout).not.toContain(actor);
       expect(result.stderr).not.toContain(actor);
     });
@@ -337,9 +307,9 @@ describe("the account command", () => {
         env: { USER: "" },
       });
 
-      const [row] = auditRows();
+      const [row] = await auditRows();
       expect(row!.actor).toBe(`cli:uid=${uid}`);
-      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+      expect(row!.metadata.uid).toBe(uid);
     });
 
     it("keeps the real uid when $USER names somebody else", async () => {
@@ -348,15 +318,15 @@ describe("the account command", () => {
         env: { USER: "alice" },
       });
 
-      const [row] = auditRows();
+      const [row] = await auditRows();
       expect(row!.actor).toBe("cli:alice");
-      expect(JSON.parse(row!.metadata).uid).toBe(uid);
+      expect(row!.metadata.uid).toBe(uid);
     });
 
     it("writes nothing for a refused creation", async () => {
       await run(["create", "maria"], { stdin: "short\n" });
 
-      expect(auditRows()).toEqual([]);
+      expect(await auditRows()).toEqual([]);
     });
   });
 
@@ -370,7 +340,7 @@ describe("the account command", () => {
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain("Promoted maria to platform operator");
-      expect(user("maria")!.is_platform_operator).toBe(1);
+      expect((await user("maria")).is_platform_operator).toBe(true);
     });
 
     it("says nothing changed the second time", async () => {
@@ -390,21 +360,22 @@ describe("the account command", () => {
     });
 
     it("refuses a disabled account", async () => {
-      const db = open();
-      db.prepare("UPDATE users SET is_active = 0").run();
-      db.close();
+      await database.db
+        .updateTable("users")
+        .set({ is_active: false })
+        .execute();
 
       const result = await run(["promote", "maria"]);
 
       expect(result.code).toBe(1);
-      expect(user("maria")!.is_platform_operator).toBe(0);
+      expect((await user("maria")).is_platform_operator).toBe(false);
     });
 
     it("takes no password and no options", async () => {
       const result = await run(["promote", "maria", "--platform-operator"]);
 
       expect(result.code).toBe(2);
-      expect(user("maria")!.is_platform_operator).toBe(0);
+      expect((await user("maria")).is_platform_operator).toBe(false);
     });
   });
 
@@ -443,9 +414,9 @@ describe("the account command", () => {
       expect(code).toBe(0);
       expect(screen).toContain("Created maria");
       expect(screen).not.toContain(PASSWORD);
-      expect(bcrypt.compareSync(PASSWORD, user("maria")!.password_hash)).toBe(
-        true,
-      );
+      expect(
+        bcrypt.compareSync(PASSWORD, (await user("maria")).password_hash),
+      ).toBe(true);
     });
 
     it("honours backspace", async () => {
@@ -458,9 +429,9 @@ describe("the account command", () => {
       );
 
       expect(code).toBe(0);
-      expect(bcrypt.compareSync(PASSWORD, user("maria")!.password_hash)).toBe(
-        true,
-      );
+      expect(
+        bcrypt.compareSync(PASSWORD, (await user("maria")).password_hash),
+      ).toBe(true);
     });
 
     it("refuses two passwords that differ", async () => {
@@ -474,7 +445,7 @@ describe("the account command", () => {
 
       expect(code).toBe(1);
       expect(screen).toContain("do not match");
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("stops on Ctrl-C without creating anything", async () => {
@@ -484,7 +455,7 @@ describe("the account command", () => {
       );
 
       expect(code).toBe(1);
-      expect(userCount()).toBe(0);
+      expect(await userCount()).toBe(0);
     });
 
     it("does not ask for a password it would have to throw away", async () => {

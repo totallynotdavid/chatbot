@@ -4,11 +4,13 @@
  * PRIVATE_DIR once at module load.
  */
 
+import { afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
+import { closeTestServer } from "./helpers/postgres.ts";
 import { TEST_APP_SECRET } from "./helpers/webhook.ts";
 
 // A temp directory per run keeps the tests' own cleanup away from real files.
@@ -28,6 +30,9 @@ process.env.PRIVATE_DIR = join(dir, "private");
 // `apps/backend/data/logs` with test output.
 process.env.LOG_DIR = join(dir, "logs");
 process.env.WHATSAPP_APP_SECRET = TEST_APP_SECRET;
+
+// One Postgres template serves every test file, so it goes once, after the last.
+afterAll(closeTestServer);
 
 process.on("exit", () => {
   rmSync(dir, { recursive: true, force: true });

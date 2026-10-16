@@ -16,7 +16,7 @@ import { seedPeriods } from "../src/db/seeds/periods.ts";
 import { seedProducts } from "../src/db/seeds/products.ts";
 import { seedBundles } from "../src/db/seeds/bundles.ts";
 import { tenantsOn } from "../src/domains/tenants/index.ts";
-import { periodId } from "../src/domains/catalog/periods.ts";
+import { periodId } from "../src/domains/catalog/ids.ts";
 import { currentPeriodId } from "../src/db/seeds/periods.ts";
 import { BASE_PRODUCTS } from "../src/db/seed-data/products.ts";
 import { createTestDatabase } from "./helpers/database.ts";

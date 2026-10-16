@@ -12,10 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { initializeDatabase } from "../src/db/init.ts";
-import {
-  ensureDefaultTenant,
-  unconfiguredPhoneNumberId,
-} from "../src/db/seeds/tenants.ts";
+import { unconfiguredPhoneNumberId } from "../src/db/seeds/tenant-defaults.ts";
+import { ensureDefaultTenant } from "../src/db/seeds/tenants.ts";
 import { accountsOn } from "../src/domains/accounts/index.ts";
 import { channelAccountsOn } from "../src/domains/channels/accounts.ts";
 import { tenantsOn } from "../src/domains/tenants/index.ts";

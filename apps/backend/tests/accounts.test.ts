@@ -7,10 +7,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initializeDatabase } from "../src/db/init.ts";
-import {
-  accountsOn,
-  type AccountErrorReason,
-} from "../src/domains/accounts/index.ts";
+import type { AccountErrorReason } from "../src/domains/accounts/errors.ts";
+import { accountsOn } from "../src/domains/accounts/index.ts";
 import { membershipsOn, tenantsOn } from "../src/domains/tenants/index.ts";
 import type { Result } from "../src/shared/result/index.ts";
 import { createTestDatabase } from "./helpers/database.ts";
