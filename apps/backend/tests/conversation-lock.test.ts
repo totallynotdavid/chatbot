@@ -555,7 +555,7 @@ describe("a group whose answer fails outright", () => {
     dropTenantFixture(tenant);
   });
 
-  it("is marked failed with the reason when queued, not stranded in 'processing'", async () => {
+  it("is tried again once, then marked failed with the reason, never stranded in 'processing'", async () => {
     const ref = tenant.ref("51900777666");
     unreadableConversation(ref);
     db.prepare(
@@ -576,17 +576,29 @@ describe("a group whose answer fails outright", () => {
     );
     if (!group) throw new Error("The queued message was not dequeued");
 
-    await processGroup(group);
+    const rowOf = () =>
+      db
+        .prepare(
+          "SELECT status, attempts, last_error FROM message_inbox WHERE channel_account_id = ?",
+        )
+        .get(ref.channelAccountId) as {
+        status: string;
+        attempts: number;
+        last_error: string | null;
+      };
 
-    const row = db
-      .prepare(
-        "SELECT status, last_error FROM message_inbox WHERE channel_account_id = ?",
-      )
-      .get(ref.channelAccountId) as {
-      status: string;
-      last_error: string | null;
-    };
+    await processGroup(group);
+    expect(rowOf()).toMatchObject({ status: "pending", attempts: 1 });
+
+    const retry = getReadyForAggregation(0).find(
+      (g) => g.channel_account_id === ref.channelAccountId,
+    );
+    if (!retry) throw new Error("The failed turn was not put back");
+    await processGroup(retry);
+
+    const row = rowOf();
     expect(row.status).toBe("failed");
+    expect(row.attempts).toBe(2);
     expect(row.last_error).toContain("phase");
   });
 

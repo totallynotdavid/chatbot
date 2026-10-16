@@ -37,6 +37,14 @@ const RULE_2_EXEMPT: Array<{ file: string; sql: string; reason: string }> = [
       "isQueued() dedupes by WhatsApp message id, before any tenant is resolved",
   },
   {
+    file: join("conversation", "message-inbox.ts"),
+    sql: "FROM message_inbox WHERE status = 'processing' GROUP BY",
+    reason:
+      "recoverInterruptedTurns() settles the rows a dead process left " +
+      "processing, in every tenant including suspended ones, and groups by " +
+      "tenant so no conversation's attempts reach another",
+  },
+  {
     file: join("domains", "channels", "accounts.ts"),
     sql: "WHERE verify_token_secret_id IS NOT NULL",
     reason:

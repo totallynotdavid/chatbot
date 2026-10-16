@@ -156,7 +156,7 @@ describe("handing a conversation to a person when a reply cannot be delivered", 
     // symbol on the root of the prototype chain.
     let stream: { write: (line: string) => unknown } | undefined;
     for (
-      let node: object | null = createLogger("outbox-handoff-test");
+      let node: object | null = createLogger("handoff-test");
       node && !stream;
       node = Object.getPrototypeOf(node)
     ) {
@@ -557,7 +557,7 @@ describe("handing a conversation to a person when a reply cannot be delivered", 
     expect(rowsOf(ref)[0]!.handed_off_at).toBeNull();
     expect(conversationOf(ref).status).toBe("active");
 
-    const failure = logs.find((entry) => entry.module === "outbox-handoff");
+    const failure = logs.find((entry) => entry.module === "handoff");
     expect(failure).toMatchObject({
       tenantId: ref.tenantId,
       channelAccountId: ref.channelAccountId,
