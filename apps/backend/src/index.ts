@@ -41,7 +41,7 @@ import tenants from "./routes/tenants.ts";
 import assets from "./routes/assets.ts";
 import providerRoutes from "./routes/providers.ts";
 
-import { getAllStatus } from "./adapters/providers/health.ts";
+import { healthRoute } from "./routes/health.ts";
 import { checkAndReassignTimeouts } from "./domains/conversations/assignment.ts";
 import { initializeApplication } from "./bootstrap/index.ts";
 import { IMAGES_DIR } from "./lib/storage-paths.ts";
@@ -125,16 +125,7 @@ app.use(
 );
 
 // Unprotected routes
-app.get("/health", (c) => {
-  const providers = getAllStatus();
-  const allHealthy = providers.fnb.available && providers.gaso.available;
-
-  return c.json({
-    status: allHealthy ? "healthy" : "degraded",
-    providers,
-    timestamp: new Date().toISOString(),
-  });
-});
+app.route("/health", healthRoute(db));
 
 app.route("/api/webhook", webhook);
 
