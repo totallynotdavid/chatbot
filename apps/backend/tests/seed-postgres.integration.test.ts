@@ -1,5 +1,3 @@
-/** `bun run seed` against Postgres: what it writes, and that a second run changes nothing. */
-
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import process from "node:process";
 import { sql } from "kysely";

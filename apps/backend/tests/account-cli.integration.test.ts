@@ -1,5 +1,3 @@
-/** `bun run account` in a subprocess: where the password comes from, what it prints, its exit code. */
-
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import bcrypt from "bcryptjs";
 import { userInfo } from "node:os";
@@ -62,8 +60,8 @@ describe.skipIf(!postgresAvailable)("the account command", () => {
   }
 
   /**
-   * Runs it on a terminal, answering each prompt in turn. What the terminal
-   * showed is returned, echo included, so a password that leaked is visible.
+   * Returns terminal output with input echo included. This makes leaked
+   * passwords visible to the test.
    */
   async function runOnTerminal(
     args: string[],

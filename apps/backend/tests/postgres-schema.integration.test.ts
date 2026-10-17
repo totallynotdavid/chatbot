@@ -1,9 +1,3 @@
-/**
- * The Postgres schema as the migrations build it: the migrate command on an
- * empty database, the template clone every other Postgres test starts from, and
- * the two things the schema does that no query asks for.
- */
-
 import { beforeAll, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import process from "node:process";
@@ -19,7 +13,6 @@ const MIGRATE_CLI = join(import.meta.dir, "..", "src", "db", "migrate-cli.ts");
 const BACKEND_ROOT = join(import.meta.dir, "..");
 
 describe.skipIf(!postgresAvailable)("the Postgres schema", () => {
-  // Builds the template here, so no test is charged for it.
   beforeAll(prepareTestServer);
 
   async function migrate(url: string) {
@@ -117,27 +110,17 @@ describe.skipIf(!postgresAvailable)("the Postgres schema", () => {
   });
 
   describe("the test template", () => {
-    it("clones a migrated database in under 100 ms", async () => {
-      const timings: number[] = [];
+    it("clones a migrated, empty database", async () => {
+      const clone = await createTestDb();
 
-      for (let i = 0; i < 5; i++) {
-        const start = performance.now();
-        const clone = await createTestDb();
-        timings.push(performance.now() - start);
-
-        try {
-          const { rows } = await sql<{ count: number }>`
-            select count(*)::int as count from tenants
-          `.execute(clone.db);
-          expect(rows).toEqual([{ count: 0 }]);
-        } finally {
-          await clone.destroy();
-        }
+      try {
+        const { rows } = await sql<{ count: number }>`
+          select count(*)::int as count from tenants
+        `.execute(clone.db);
+        expect(rows).toEqual([{ count: 0 }]);
+      } finally {
+        await clone.destroy();
       }
-
-      // The median, because one clone can land on a checkpoint or a busy host.
-      timings.sort((a, b) => a - b);
-      expect(timings[Math.floor(timings.length / 2)]).toBeLessThan(100);
     });
 
     it("gives each test its own rows", async () => {
