@@ -1,13 +1,16 @@
 {
-    "name": "@vendeya/intelligence",
-    "version": "0.1.0",
-    "type": "module",
-    "exports": {
-        ".": "./src/index.ts"
-    },
-    "dependencies": {
-        "@vendeya/core": "workspace:*",
-        "@vendeya/types": "workspace:*",
-        "openai": "^7.32.0"
-    }
+  "name": "@vendeya/intelligence",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vendeya/core": "workspace:*",
+    "@vendeya/types": "workspace:*",
+    "openai": "^7.32.0"
+  }
 }

@@ -1,17 +1,18 @@
 {
-    "name": "@vendeya/core",
-    "version": "1.0.0",
-    "type": "module",
-    "exports": {
-        ".": "./src/index.ts"
-    },
-    "scripts": {
-        "test": "bun test",
-        "test:watch": "bun test --watch",
-        "test:coverage": "bun test --coverage"
-    },
-    "dependencies": {
-        "@vendeya/types": "workspace:*",
-        "@vendeya/utils": "workspace:*"
-    }
+  "name": "@vendeya/core",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
+  },
+  "dependencies": {
+    "@vendeya/types": "workspace:*",
+    "@vendeya/utils": "workspace:*"
+  }
 }

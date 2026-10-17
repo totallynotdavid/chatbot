@@ -1,12 +1,15 @@
 {
-    "name": "@vendeya/logger",
-    "version": "1.0.0",
-    "type": "module",
-    "exports": {
-        ".": "./src/index.ts"
-    },
-    "dependencies": {
-        "pino": "^10.4.0",
-        "pino-pretty": "^13.2.0"
-    }
+  "name": "@vendeya/logger",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pino": "^10.4.0",
+    "pino-pretty": "^13.2.0"
+  }
 }
