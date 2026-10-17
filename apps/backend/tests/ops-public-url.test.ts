@@ -87,4 +87,16 @@ describe("in production", () => {
     );
     expect(message).not.toContain("localhost");
   });
+
+  it("links system notices to the activity page", () => {
+    setPublicUrl(PRODUCTION_URL);
+
+    const message = templates.systemError(
+      { phoneNumber: "51999999999" },
+      "provider unavailable",
+    );
+
+    expect(message).toContain(`${PRODUCTION_URL}/dashboard/activity`);
+    expect(message).not.toContain("/dashboard/logs");
+  });
 });
