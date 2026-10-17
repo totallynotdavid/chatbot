@@ -38,8 +38,8 @@ The backend calls one Graph endpoint with the token,
 `POST https://graph.facebook.com/<version>/<phone number id>/messages`, to send
 replies and mark messages read
 ([`cloud-api.ts`](../apps/backend/src/adapters/whatsapp/cloud-api.ts)). The
-version is `GRAPH_API_VERSION`, `v26.0` when unset. It must match `v26.0`,
-or boot stops. `GRAPH_API_BASE_URL` replaces `https://graph.facebook.com`, for a
+version is `GRAPH_API_VERSION`, `v26.0` when unset. It must match `v26.0`, or
+boot stops. `GRAPH_API_BASE_URL` replaces `https://graph.facebook.com`, for a
 proxy or a fake server. Every Graph URL is built by `graphUrl` in
 [`config/graph.ts`](../apps/backend/src/config/graph.ts).
 

@@ -1,7 +1,7 @@
 # Contributing
 
-This page is the contributor entry point. It owns the contribution path.
-The repository README owns the product overview. The architecture map owns code
+This page is the contributor entry point. It owns the contribution path. The
+repository README owns the product overview. The architecture map owns code
 boundaries, and [Development](../docs/development.md) owns checks and CI.
 
 ## Start here

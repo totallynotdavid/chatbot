@@ -88,9 +88,13 @@ jobs:
       - uses: docker/build-push-action@v7.4.0
         with:
           context: ${{ matrix.image == 'backup' && 'deploy/backup' || '.' }}
-          file: ${{ matrix.image == 'backup' && 'deploy/backup/Dockerfile' || format('deploy/{0}.Dockerfile', matrix.image) }}
+          file:
+            ${{ matrix.image == 'backup' && 'deploy/backup/Dockerfile' ||
+            format('deploy/{0}.Dockerfile', matrix.image) }}
           build-args: BUN_VERSION=${{ steps.pins.outputs.bun }}
-          tags: ${{ steps.pins.outputs.repository }}/${{ matrix.image }}:${{ steps.pins.outputs.tag }}
+          tags:
+            ${{ steps.pins.outputs.repository }}/${{ matrix.image }}:${{
+            steps.pins.outputs.tag }}
           push: true
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}

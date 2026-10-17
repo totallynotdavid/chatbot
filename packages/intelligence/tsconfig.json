@@ -1,11 +1,11 @@
 {
-    "extends": "@vendeya/tsconfig/backend.json",
-    "compilerOptions": {
-        "paths": {
-            "@vendeya/core": ["../core/src"],
-            "@vendeya/types": ["../types/src"]
-        }
-    },
-    "include": ["src/**/*"],
-    "exclude": ["node_modules", "dist"]
+  "extends": "@vendeya/tsconfig/backend.json",
+  "compilerOptions": {
+    "paths": {
+      "@vendeya/core": ["../core/src"],
+      "@vendeya/types": ["../types/src"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,23 +1,23 @@
 {
-    "root": false,
-    "extends": "//",
-    "files": {
-        "includes": ["**", "!src/lib/components/ui/data-table.svelte"]
-    },
-    "linter": {
-        "rules": {
-            "correctness": {
-                "preset": "recommended",
-                "noUnusedImports": "off"
-            },
-            "complexity": {
-                "noExcessiveCognitiveComplexity": {
-                    "level": "on",
-                    "options": {
-                        "maxAllowedComplexity": 17
-                    }
-                }
-            }
+  "root": false,
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!src/lib/components/ui/data-table.svelte"]
+  },
+  "linter": {
+    "rules": {
+      "correctness": {
+        "preset": "recommended",
+        "noUnusedImports": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "on",
+          "options": {
+            "maxAllowedComplexity": 17
+          }
         }
+      }
     }
+  }
 }
