@@ -5,6 +5,7 @@
 
 import { afterEach, describe, expect, it } from "bun:test";
 import type { Database } from "bun:sqlite";
+import { Hono } from "hono";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,31 +21,35 @@ function openDatabase(): Database {
   return createTestDatabase(join(dir, "health.sqlite"));
 }
 
+function appFor(db: Database): Hono {
+  const app = new Hono();
+  app.route("/health", healthRoute(db));
+  return app;
+}
+
 afterEach(() => {
   markHealthy("gaso");
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true });
 });
 
 describe("/health", () => {
-  it("answers 200 and healthy while the database answers", async () => {
-    const response = await healthRoute(openDatabase()).request("/");
+  it("answers 200, then 503 after the database stops answering", async () => {
+    const db = openDatabase();
+    const app = appFor(db);
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
+    const healthyResponse = await app.request("/health");
+
+    expect(healthyResponse.status).toBe(200);
+    expect(await healthyResponse.json()).toMatchObject({
       status: "healthy",
       database: { status: "healthy" },
     });
-  });
-
-  it("answers 503 once the database is gone", async () => {
-    const db = openDatabase();
-    const route = healthRoute(db);
     db.close();
 
-    const response = await route.request("/");
+    const unavailableResponse = await app.request("/health");
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({
+    expect(unavailableResponse.status).toBe(503);
+    expect(await unavailableResponse.json()).toMatchObject({
       status: "unavailable",
       database: { status: "unavailable" },
     });
@@ -53,9 +58,11 @@ describe("/health", () => {
   it("stays 200 and reports degraded while a provider is blocked", async () => {
     markBlocked("gaso", "upstream timeout");
 
-    const response = await healthRoute(openDatabase()).request("/");
+    const db = openDatabase();
+    const response = await appFor(db).request("/health");
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ status: "degraded" });
+    db.close();
   });
 });
