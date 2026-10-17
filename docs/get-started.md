@@ -5,9 +5,9 @@ It needs no WhatsApp number, no Cálidda credentials and no LLM key.
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev), which installs the pinned bun, biome and
-  Postgres from [`mise.toml`](../mise.toml). A bun of the pinned version on your
-  `PATH` works too.
+- [mise](https://mise.jdx.dev), which installs the pinned bun and Postgres from
+  [`mise.toml`](../mise.toml). A bun of the pinned version on your `PATH` works
+  too.
 
 ## Install
 
@@ -15,7 +15,7 @@ It needs no WhatsApp number, no Cálidda credentials and no LLM key.
 git clone https://github.com/totallynotdavid/chatbot.git
 cd chatbot
 mise install
-bun install
+mise run install
 ```
 
 ## The env file

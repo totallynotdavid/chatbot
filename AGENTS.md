@@ -27,8 +27,8 @@ only the rules those documents do not.
   backend. The Postgres schema is different: a change is a new file in
   `db/migrations/` and an edit to `db/types.ts`, never an edit to a migration
   that has run.
-- **A new workspace** needs an entry in the CI typecheck matrix and a step in
-  the CI `test` job. Nothing checks either.
+- **A new workspace** needs a `typecheck` script, which `mise run typecheck`
+  runs. Nothing checks that it has one.
 - **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
   The repository is still named `chatbot`. Totem is the default tenant, a client
   business, and its slug `totem` is a lookup key for an existing row, so it is
@@ -38,10 +38,9 @@ only the rules those documents do not.
 
 ## Before you finish
 
-Run the checks in [Development](./docs/development.md#checks) that cover your
-change, at least `bun test`, the typecheck of each workspace you touched, and
-`bunx biome format`. Run `bun run format:md` after editing Markdown. Report a
-check you could not run.
+Run `mise run fix`, then `mise run check` and `mise run test:integration`, which
+are what CI runs ([Development](./docs/development.md#checks)). Report a check
+you could not run.
 
 When behavior changes, change the manual page that describes it in the same
 commit. A page that is wrong is worse than none.

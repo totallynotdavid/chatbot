@@ -8,7 +8,7 @@ A production deployment runs two processes on one host:
 
 ```sh
 bun install --frozen-lockfile
-bun run build                                    # builds apps/frontend/dist
+bun run --cwd apps/frontend build                # builds apps/frontend/dist
 bun run --cwd apps/backend start                 # backend on :3000
 PORT=5173 bun apps/frontend/dist/index.js
 ```
