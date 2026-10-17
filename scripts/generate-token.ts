@@ -1,4 +1,3 @@
-/** Each preset is the byte length to generate and the variable it is for. */
 const PRESETS = {
   webhook: { bytes: 32, variable: "WHATSAPP_WEBHOOK_VERIFY_TOKEN" },
   secrets: { bytes: 32, variable: "SECRETS_KEY" },
@@ -17,23 +16,16 @@ function main() {
   const arg = process.argv[2];
 
   let length: number;
-  // The variable the token is printed as. Getting this wrong is not cosmetic:
-  // the .env examples tell operators to run a preset and paste the output, so a
-  // label that always said WHATSAPP_WEBHOOK_VERIFY_TOKEN left SECRETS_KEY unset
-  // for anyone who followed them.
   let variable = "GENERATED_TOKEN";
 
   if (!arg) {
-    // Default: webhook verify token
     length = PRESETS.webhook.bytes;
     variable = PRESETS.webhook.variable;
   } else if (arg in PRESETS) {
-    // Preset name
     const preset = arg as PresetName;
     length = PRESETS[preset].bytes;
     variable = PRESETS[preset].variable;
   } else {
-    // Custom length
     length = parseInt(arg, 10);
     if (Number.isNaN(length) || length < 16) {
       console.error("Error: Length must be a number >= 16");

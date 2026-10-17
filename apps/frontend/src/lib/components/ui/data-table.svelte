@@ -71,7 +71,6 @@ let {
                                 {#if col.cell}
                                     {@render col.cell(item)}
                                 {:else if col.key}
-                                     <!-- Default: treat as string -->
                                      {item[col.key]}
                                 {/if}
                             </td>

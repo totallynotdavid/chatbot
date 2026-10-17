@@ -386,7 +386,7 @@ CREATE TABLE IF NOT EXISTS assets (
     -- For a contract or recording upload it starts as the browser's `File.type`.
     -- It holds a value only when the kind's allowlist in
     -- domains/assets/content-types.ts accepts it. Null means no type was
-    -- recorded: none declared, one not served, or a migrated legacy upload.
+    -- recorded: none declared or one not served.
     -- Private bytes go out as an attachment regardless, so this column labels a
     -- download and never decides what a browser renders.
     content_type TEXT,

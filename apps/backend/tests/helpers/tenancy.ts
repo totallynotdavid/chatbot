@@ -18,10 +18,7 @@ if (!dbPath.startsWith(path.resolve(tmpdir()) + path.sep)) {
   );
 }
 
-/**
- * Brings the test database to the current schema, migrating a legacy database
- * first. Idempotent, so every test file can call it on the shared connection.
- */
+/** Migrates the shared test database; every test file may call it. */
 export function applySchema(): void {
   initializeDatabase(db);
 }

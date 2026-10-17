@@ -8,12 +8,6 @@ const payload = "<img src=x onerror=alert(1)>";
 const attributePayload = `x" onmouseover="alert(1)`;
 
 describe("a dashboard table", () => {
-  /**
-   * The activity page shows a `summary` the catalog editor controls (a bundle
-   * name ends up in it). It reaches the page through a column snippet, so
-   * Svelte escapes it. The old string renderer put it in as HTML, and every
-   * admin who opened the page ran the script.
-   */
   it("shows a stored value as text, in a cell and in an attribute", async () => {
     const { default: Page } = await import(
       "../../../routes/dashboard/activity/+page.svelte"

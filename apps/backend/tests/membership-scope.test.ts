@@ -501,8 +501,6 @@ describe("membership scope", () => {
         { accessToken: "EAAG-good-token", verifyToken: 123 },
       );
 
-      // The stored state first: on the old code the token was written and the
-      // account activated before the 500.
       expect(ChannelAccountService.getById(pendingId)).toEqual(before);
       expect(secretCount()).toBe(secretsBefore);
       expect(response.status).toBeGreaterThanOrEqual(400);

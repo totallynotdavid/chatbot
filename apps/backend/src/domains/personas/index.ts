@@ -100,14 +100,9 @@ const INITIAL_PERSONAS: TestPersona[] = [
   },
 ];
 
-/**
- * Simulator personas are tenant-owned. INITIAL_PERSONAS are built-in fallbacks.
- * A tenant sees each one unless it has an active persona with the same id. They
- * are shared across tenants, so they hold fixtures and no customer data.
- */
+/** Built-in personas remain available unless a tenant overrides their id. */
 export const PersonasService = {
   getAll(tenantId: string): TestPersona[] {
-    // Get from database
     const dbPersonas = getAll<TestPersona>(
       `SELECT id, name, description, segment, client_name as clientName,
               dni, credit_line as creditLine, nse, is_active as isActive
@@ -117,7 +112,6 @@ export const PersonasService = {
       [tenantId],
     );
 
-    // Merge with hardcoded personas (db takes precedence)
     const dbIds = new Set(dbPersonas.map((p) => p.id));
     const hardcodedFiltered = INITIAL_PERSONAS.filter((p) => !dbIds.has(p.id));
 
@@ -125,7 +119,6 @@ export const PersonasService = {
   },
 
   getById(tenantId: string, id: string): TestPersona | undefined {
-    // Check database first
     const dbPersona = getOne<{
       id: string;
       name: string;
@@ -153,7 +146,6 @@ export const PersonasService = {
       };
     }
 
-    // Fallback to hardcoded
     return INITIAL_PERSONAS.find((p) => p.id === id);
   },
 

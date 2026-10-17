@@ -32,10 +32,10 @@ export class InvalidPagingError extends Error {
   }
 }
 
-/** The `limit` query value, or `fallback` when it is absent or empty. */
-export function queryLimit(c: Context, fallback: number): number {
+/** The `limit` query value, or the route default when it is absent or empty. */
+export function queryLimit(c: Context, defaultLimit: number): number {
   const raw = c.req.query("limit");
-  if (raw === undefined || raw === "") return fallback;
+  if (raw === undefined || raw === "") return defaultLimit;
 
   const value = PLAIN_INTEGER.test(raw) ? Number(raw) : Number.NaN;
   if (!(value >= 1 && value <= MAX_LIMIT)) {

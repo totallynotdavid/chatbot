@@ -36,10 +36,8 @@ async function storeUpload(
   file: File,
 ): Promise<Asset> {
   const extension = file.name.split(".").pop() || FALLBACK_EXTENSION[kind];
-  // The asset id names the file, so every upload has its own storage key and an
-  // id always serves the bytes it was created for. Re-uploading a corrected
-  // contract adds an asset instead of overwriting what an audit trail, an event
-  // or an old link points at.
+  // The asset id names the file, so every upload has its own storage key. A
+  // corrected contract adds an asset instead of overwriting an audit record.
   const assetId = crypto.randomUUID();
 
   const storageKey = privateStorageKey(

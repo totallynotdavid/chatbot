@@ -577,7 +577,6 @@ function handleEnrichmentResult(
     };
   }
 
-  // Fallback: couldn't extract category or unknown enrichment, ask for clarification
   return {
     type: "need_enrichment",
     enrichment: {
@@ -682,7 +681,6 @@ function formatDisambiguationMessage(
     return `Tengo estas tres opciones: el ${p1.name}${pr1}, el ${p2.name}${pr2} y el ${p3.name}${pr3}. ¿Cuál te interesa?`;
   }
 
-  // Fallback for 4+ matches: use a conversational list
   const options = matches
     .map((p, idx) => {
       const priceText = p.price ? ` - S/ ${p.price.toFixed(2)}` : "";

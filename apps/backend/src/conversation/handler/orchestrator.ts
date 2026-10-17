@@ -60,8 +60,8 @@ export async function handleMessage(message: IncomingMessage): Promise<void> {
         "Session timeout reset",
       );
       resetSession(ref, conversation.metadata.lastCategory);
-      // This turn answers from the reset conversation. The old phase would
-      // be written back over the reset when the turn ends.
+      // Reload the reset state so the turn cannot write the timed-out phase
+      // back when it records its result.
       conversation = getOrCreateConversation(ref);
     }
 
