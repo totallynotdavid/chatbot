@@ -9,69 +9,32 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  format:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    env:
+      MISE_DISABLE_TOOLS: postgres
     steps:
       - uses: actions/checkout@v7.0.1
-
-      # Tool versions come from mise.toml, the one place that pins them.
-      - uses: jdx/mise-action@v5.1.2
         with:
-          install_args: biome
+          persist-credentials: false
 
-      - run: biome format
+      - uses: jdx/mise-action@v5.2.0
 
-  typecheck:
-    name: typecheck (${{ matrix.name }})
+      - run: mise run install
+
+      - run: mise run check
+
+  integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: backend
-            directory: apps/backend
-            command: bunx tsc --noEmit
-          - name: core
-            directory: packages/core
-            command: bunx tsc --noEmit
-          - name: logger
-            directory: packages/logger
-            command: bunx tsc --noEmit
-          - name: types
-            directory: packages/types
-            command: bunx tsc --noEmit
-          - name: utils
-            directory: packages/utils
-            command: bunx tsc --noEmit
-          - name: intelligence
-            directory: packages/intelligence
-            command: bunx tsc --noEmit
-          - name: frontend
-            directory: apps/frontend
-            command: bun run check
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - uses: jdx/mise-action@v5.1.2
-        with:
-          install_args: bun
-
-      - run: bun install --frozen-lockfile
-
-      - run: ${{ matrix.command }}
-        working-directory: ${{ matrix.directory }}
-
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     # The Postgres tests clone a migrated template database per test. They need
     # a server whose user may create databases, which the postgres user may.
+    # The runner supplies Postgres because mise would otherwise compile it.
     services:
       postgres:
         image: postgres:18
@@ -83,37 +46,15 @@ jobs:
           --health-cmd "pg_isready -U postgres" --health-interval 5s
           --health-timeout 5s --health-retries 10
     env:
+      MISE_DISABLE_TOOLS: postgres
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v7.0.1
-
-      - uses: jdx/mise-action@v5.1.2
         with:
-          install_args: bun
+          persist-credentials: false
 
-      # The workspace install also brings in apps/frontend, whose files the
-      # proxy and Lima contract tests import.
-      - run: bun install --frozen-lockfile
+      - uses: jdx/mise-action@v5.2.0
 
-      - run: bun run test
-        working-directory: apps/backend
+      - run: mise run install
 
-      - run: bun test
-        working-directory: packages/core
-
-      - run: bun test
-        working-directory: apps/frontend
-
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - uses: jdx/mise-action@v5.1.2
-        with:
-          install_args: bun
-
-      - run: bun install --frozen-lockfile
-
-      - run: bun run build
+      - run: mise run test:integration
