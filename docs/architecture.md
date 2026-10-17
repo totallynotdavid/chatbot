@@ -224,9 +224,7 @@ These tests live in [`apps/backend/tests/`](../apps/backend/tests/):
 
 | Test                          | Holds                                                                                              |
 | ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `tenant-scope-guard.test.ts`  | A tenant predicate in each SELECT statement, and rejects hand-built conditional tenant filters.    |
 | `created-at-contract.test.ts` | INTEGER `*_at` fields reach clients as milliseconds.                                               |
-| `lima-date-contract.test.ts`  | The server and dashboard name the same Lima calendar day.                                          |
 | `foreign-keys.test.ts`        | The application connection enables `PRAGMA foreign_keys`.                                          |
 | `webhook-proxy.test.ts`       | The frontend relays backend webhook refusals to Meta.                                              |
 | `boot-safety.test.ts`         | Boot creates no account, warns without an operator, and does not bind a port after a seed failure. |

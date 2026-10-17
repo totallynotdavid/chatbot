@@ -121,8 +121,7 @@ the run ends. With neither, a suite written as
 `describe.skipIf(!postgresAvailable)` skips.
 
 Some backend tests boot the real server or open the database from several
-processes (`boot-safety`, `concurrent-startup`). Some read frontend files
-(`webhook-proxy`, `lima-date-contract`).
+processes (`boot-safety`, `concurrent-startup`).
 
 `packages/core/tests/` is not typechecked: core's `tsconfig.json` includes `src`
 only.
@@ -132,8 +131,7 @@ The tests that hold the architecture's boundaries are listed in
 
 ## Conventions
 
-These are what the code does today. `tenant-scope-guard.test.ts` checks the
-first.
+These are what the code does today.
 
 - **Tenant scope.** A read function takes `tenantId: string | null` and filters
   with `tenantPredicate`, not a hand-built `if (tenantId)` branch, from
