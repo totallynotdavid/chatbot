@@ -36,8 +36,11 @@ and push to `master`, has two jobs. Each installs mise and runs
 compiling its own server in both jobs.
 
 [`codeql.yml`](../.github/workflows/codeql.yml) adds `analyze (actions)` and
-`analyze (javascript-typescript)`. Branch protection is configured on GitHub
-rather than in this repository and is not described here.
+`analyze (javascript-typescript)`.
+[`deploy.yml`](../.github/workflows/deploy.yml) builds and publishes the changed
+Docker images on pushes to `master`; its deployment procedure is in
+[Deploy](./deploy.md). Branch protection is configured on GitHub rather than in
+this repository and is not described here.
 
 A `package.json` change without its `bun.lock` update fails `mise run install`.
 
@@ -61,8 +64,9 @@ it, so `tsc` and `svelte-check` both type-check with tsgo. The first check in a
 process prints `TNB ACTIVE` to stderr.
 
 `mise install` installs the pinned tools. Dependabot
-([`dependabot.yml`](../.github/dependabot.yml)) updates the bun dependencies
-daily and the actions weekly. It does not update `mise.toml`.
+([`dependabot.yml`](../.github/dependabot.yml)) updates the Bun dependencies,
+GitHub Actions, Docker images, and Docker Compose definitions weekly. It does
+not update `mise.toml`.
 
 To bump a pin, edit `mise.toml` to an exact version and run `mise lock` to
 rewrite its entry in `mise.lock`. The deploy workflow and the image builds read

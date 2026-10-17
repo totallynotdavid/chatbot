@@ -28,8 +28,11 @@ backend         -> core, intelligence, logger, types, utils
 frontend        -> types, utils
 ```
 
-The browser talks to the frontend. The frontend calls the backend over HTTP at
-`http://localhost:3000`. The backend does not import frontend code.
+The browser talks to the frontend. The frontend server calls the backend over
+HTTP at `BACKEND_URL`, which defaults to `http://localhost:3000` and is
+`http://backend:3000` in the production Compose file. The backend does not
+import frontend code. The URL helper is
+[`packages/utils/src/url.ts`](../packages/utils/src/url.ts).
 
 ## Request path
 
@@ -37,7 +40,7 @@ The browser talks to the frontend. The frontend calls the backend over HTTP at
 Meta
   POST /api/webhook
 apps/frontend  routes/api/webhook/+server.ts
-  relays the raw body to http://localhost:3000 and waits up to 10 s for its verdict
+  relays the raw body to BACKEND_URL and waits up to 10 s for its verdict
 apps/backend   routes/webhook.ts
   verifies, routes by phone_number_id, deduplicates, and stores the message
   message_inbox row
@@ -159,8 +162,8 @@ This makes the backend one process per database. A second backend on the same
 file would not share the locks, could answer the same inbox rows twice, and
 would mark the first one's live sends as interrupted at its boot.
 
-The frontend keeps no state of its own. See [Operations](./operations.md) for
-deployment details.
+The frontend keeps no state of its own. See [Deploy](./deploy.md) for deployment
+details.
 
 ## Boundaries
 
@@ -195,9 +198,10 @@ deployment details.
   a database file made before the change keeps the old shape, and a new file
   gets the new one.
 - The browser talks only to the frontend. The frontend proxies `/api/*` and
-  `/media/*` to the literal `http://localhost:3000` in
-  [`packages/utils/src/url.ts`](../packages/utils/src/url.ts); the frontend and
-  backend must share a host.
+  `/media/*` to the URL returned by `getBackendUrl()` in
+  [`packages/utils/src/url.ts`](../packages/utils/src/url.ts). That helper reads
+  `BACKEND_URL`, trims it, removes trailing slashes, and defaults to
+  `http://localhost:3000`.
 
 ## Where a change belongs
 

@@ -7,9 +7,9 @@ orders. Its UI text is Spanish.
 ## How it reaches the backend
 
 The browser talks only to the frontend. Three routes forward to the backend at
-`http://localhost:3000`, a literal in
-[`packages/utils/src/url.ts`](../packages/utils/src/url.ts), so the frontend and
-the backend run on one host:
+the URL returned by `getBackendUrl()` in
+[`packages/utils/src/url.ts`](../packages/utils/src/url.ts). It reads
+`BACKEND_URL` and defaults to `http://localhost:3000`.
 
 | Route                                                                                         | Forwards                                                                                                                                 |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

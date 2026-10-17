@@ -18,8 +18,8 @@ repeating it.
    callback.
 7. [Deploy](./deploy.md): run the container stack, set its env file, and back up
    and restore it.
-8. [Operations](./operations.md): deploy, inspect health and logs, manage
-   accounts, and investigate missing replies.
+8. [Operations](./operations.md): inspect health and logs, manage accounts, and
+   investigate missing replies.
 9. [Development](./development.md): run checks, find CI jobs, and follow code
    conventions.
 
