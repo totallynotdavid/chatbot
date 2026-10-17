@@ -109,7 +109,7 @@ export const templates = {
     return [
       `El ${ident} ha excedido el límite de bucles de enriquecimiento.`,
       `Conversación: ${conversationLink(ctx)}`,
-      `Logs: ${formatLink(`/dashboard/logs?phone=${ctx.phoneNumber}`)}`, // TODO: filter by phone is missing in frontend
+      `Actividad: ${formatLink("/activity")}`,
     ].join("\n");
   },
 
@@ -118,7 +118,7 @@ export const templates = {
     return [
       `Se ha producido un error con el ${ident}. Error: ${error}`,
       `Conversación: ${conversationLink(ctx)}`,
-      `Logs: ${formatLink(`/dashboard/logs?phone=${ctx.phoneNumber}`)}`,
+      `Actividad: ${formatLink("/activity")}`,
     ].join("\n");
   },
 
