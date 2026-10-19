@@ -13,6 +13,18 @@ updates:
           - minor
           - patch
 
+  - package-ecosystem: docker
+    directories:
+      - /deploy/backup
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      all:
+        patterns:
+          - "*"
+
   - package-ecosystem: github-actions
     directories:
       - /
@@ -24,19 +36,3 @@ updates:
       all:
         patterns:
           - "*"
-
-  - package-ecosystem: docker
-    directories:
-      - /deploy/backup
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-
-  - package-ecosystem: docker-compose
-    directories:
-      - /deploy
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
