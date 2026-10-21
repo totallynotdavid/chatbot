@@ -15,7 +15,7 @@ It needs no WhatsApp number, no Cálidda credentials and no LLM key.
 git clone https://github.com/totallynotdavid/chatbot.git
 cd chatbot
 mise install
-mise run install
+bun install --frozen-lockfile
 ```
 
 ## The env file

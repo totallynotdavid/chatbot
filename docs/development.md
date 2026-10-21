@@ -6,21 +6,22 @@ are laid out, and the conventions a change follows. Where a change belongs is in
 
 ## Checks
 
-Run from the repository root. [mise](https://mise.jdx.dev) owns the tasks, and
-`mise tasks` lists them.
+Run from the repository root. [mise](https://mise.jdx.dev) installs the pinned
+tools, and the scripts in the root [`package.json`](../package.json) are the
+checks.
 
-| Command                     | What it does                                                          |
-| --------------------------- | --------------------------------------------------------------------- |
-| `mise run install`          | installs from `bun.lock` and fails if the lockfile is out of date     |
-| `mise run lint`             | Biome lint and format check on code, oxfmt check on the rest          |
-| `mise run fix`              | Biome safe fixes and formatting, oxfmt formatting. It writes files    |
-| `mise run typecheck`        | `typecheck` in every workspace: tsc, and svelte-check for the website |
-| `mise run test`             | every test file except `*.integration.test.ts`. It needs no service   |
-| `mise run test:integration` | the `*.integration.test.ts` files, which need Postgres                |
-| `mise run build`            | the production frontend build                                         |
-| `mise run check`            | `lint`, `typecheck`, `test` and `build`. It needs no service          |
+| Command                         | What it does                                                          |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `bun install --frozen-lockfile` | installs from `bun.lock` and fails if the lockfile is out of date     |
+| `bun run lint`                  | Biome lint and format check on code, oxfmt check on the rest          |
+| `bun run fix`                   | Biome safe fixes and formatting, oxfmt formatting. It writes files    |
+| `bun run typecheck`             | `typecheck` in every workspace: tsc, and svelte-check for the website |
+| `bun run test`                  | every test file except `*.integration.test.ts`. It needs no service   |
+| `bun run test:integration`      | the `*.integration.test.ts` files, which need Postgres                |
+| `bun run build`                 | the production frontend build                                         |
+| `bun run check`                 | `lint`, `typecheck`, `test` and `build`. It needs no service          |
 
-`lint` and `fix` have subtasks, `lint:js`, `lint:fmt`, `fix:js` and `fix:fmt`.
+`lint` and `fix` have parts, `lint:js`, `lint:fmt`, `fix:js` and `fix:fmt`.
 Biome formats code. oxfmt formats Markdown, YAML and JSON.
 
 `apps/backend` has `bun run test:llm`, which runs one file against the mock LLM
@@ -29,10 +30,10 @@ provider. It does not call a model.
 ## What CI runs
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), on every pull request
-and push to `master`, has two jobs. Each installs mise and runs
-`mise run install`. `check` then runs `mise run check`. `integration` runs a
-`postgres:18` service, sets `TEST_DATABASE_URL` to it and runs
-`mise run test:integration`. `MISE_DISABLE_TOOLS=postgres` keeps mise from
+and push to `master`, has two jobs. Each installs the pinned tools with mise and
+runs `bun install --frozen-lockfile`. `check` then runs `bun run check`.
+`integration` runs a `postgres:18` service, sets `TEST_DATABASE_URL` to it and
+runs `bun run test:integration`. `MISE_DISABLE_TOOLS=postgres` keeps mise from
 compiling its own server in both jobs.
 
 [`codeql.yml`](../.github/workflows/codeql.yml) adds `analyze (actions)` and
@@ -42,9 +43,10 @@ Docker images on pushes to `master`; its deployment procedure is in
 [Deploy](./deploy.md). Branch protection is configured on GitHub rather than in
 this repository and is not described here.
 
-A `package.json` change without its `bun.lock` update fails `mise run install`.
+A `package.json` change without its `bun.lock` update fails
+`bun install --frozen-lockfile`.
 
-A new workspace needs a `typecheck` script, which `mise run typecheck` runs. Its
+A new workspace needs a `typecheck` script, which `bun run typecheck` runs. Its
 tests run with the rest under `bun test`.
 
 ## Where the pins live
@@ -92,7 +94,7 @@ sends go to the mocked Cloud API, and sets a test `WHATSAPP_APP_SECRET`. A test
 never touches the development database.
 
 A test that needs Postgres lives in a file named `*.integration.test.ts`, so
-`mise run test` skips it, and calls `createTestDb` from
+`bun run test` skips it, and calls `createTestDb` from
 [`tests/helpers/postgres.ts`](../apps/backend/tests/helpers/postgres.ts), which
 returns a migrated database of its own, cloned from a template, and `destroy()`
 drops it. The first call builds the template with the real migrations. The

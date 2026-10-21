@@ -6,6 +6,17 @@
     "packages/*"
   ],
   "scripts": {
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build",
+    "lint": "bun run lint:js && bun run lint:fmt",
+    "lint:js": "biome lint && biome format",
+    "lint:fmt": "oxfmt --check '**/*.{md,yml,yaml,json}'",
+    "fix": "bun run fix:js && bun run fix:fmt",
+    "fix:js": "biome check --write",
+    "fix:fmt": "oxfmt '**/*.{md,yml,yaml,json}'",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun test --timeout 60000 --path-ignore-patterns '**/*.integration.test.ts'",
+    "test:integration": "bun test --timeout 60000 .integration.test.ts",
+    "build": "bun run --cwd apps/frontend build",
     "db:migrate": "cd apps/backend && bun run db:migrate",
     "seed": "cd apps/backend && bun run seed",
     "account": "cd apps/backend && bun run account",

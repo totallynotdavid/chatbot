@@ -27,7 +27,7 @@ only the rules those documents do not.
   backend. The Postgres schema is different: a change is a new file in
   `db/migrations/` and an edit to `db/types.ts`, never an edit to a migration
   that has run.
-- **A new workspace** needs a `typecheck` script, which `mise run typecheck`
+- **A new workspace** needs a `typecheck` script, which `bun run typecheck`
   runs. Nothing checks that it has one.
 - **Names.** The product and every workspace package are VendeYa (`@vendeya/*`).
   The repository is still named `chatbot`. Totem is the default tenant, a client
@@ -38,7 +38,7 @@ only the rules those documents do not.
 
 ## Before you finish
 
-Run `mise run fix`, then `mise run check` and `mise run test:integration`, which
+Run `bun run fix`, then `bun run check` and `bun run test:integration`, which
 are what CI runs ([Development](./docs/development.md#checks)). Report a check
 you could not run.
 

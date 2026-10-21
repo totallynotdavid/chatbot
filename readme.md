@@ -15,7 +15,7 @@ The local setup needs [mise](https://mise.jdx.dev) and Bun. From a fresh clone:
 
 ```sh
 mise install
-mise run install
+bun install --frozen-lockfile
 cp .env.example .env
 bun run db:migrate
 bun run seed
