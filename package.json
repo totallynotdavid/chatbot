@@ -28,8 +28,8 @@
     "dev:frontend": "bun run --cwd apps/frontend dev"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "@types/bun": "^1.4.3",
+    "@biomejs/biome": "2.6.3",
+    "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
     "@vendeya/tsconfig": "workspace:*",
     "oxfmt": "0.74.0",
