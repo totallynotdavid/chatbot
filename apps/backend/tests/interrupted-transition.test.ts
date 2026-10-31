@@ -48,6 +48,7 @@ describe("a send refused partway through a transition", () => {
   /** Runs inside the send that makes this count, before it answers. */
   let onSend: (count: number) => void;
   let originalFetch: typeof globalThis.fetch;
+  let originalRandom: typeof Math.random;
 
   function setStatus(status: ChannelAccount["status"]): void {
     ChannelAccountService.updateStatus(account.id, status);
@@ -139,6 +140,10 @@ describe("a send refused partway through a transition", () => {
 
     sends = 0;
     onSend = () => {};
+    originalRandom = Math.random;
+    // Fix the one-message purchase-confirmation variant so this test does not
+    // depend on pacing sleeps.
+    Math.random = () => 0.999999;
     originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
       sends++;
@@ -151,6 +156,7 @@ describe("a send refused partway through a transition", () => {
   });
 
   afterEach(() => {
+    Math.random = originalRandom;
     globalThis.fetch = originalFetch;
     if (savedKey === undefined) delete process.env.SECRETS_KEY;
     else process.env.SECRETS_KEY = savedKey;
