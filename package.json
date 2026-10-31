@@ -28,13 +28,13 @@
     "dev:frontend": "bun run --cwd apps/frontend dev"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "@types/bun": "^1.4.3",
-    "@types/node": "^26.6.5",
+    "@biomejs/biome": "2.6.4",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
     "@vendeya/tsconfig": "workspace:*",
-    "oxfmt": "0.74.0",
+    "oxfmt": "0.75.0",
     "shx": "^0.4.0",
-    "typescript": "npm:typescript-native-bridge@6.0.3-bridge.18.tsgo.7.0.2"
+    "typescript": "npm:typescript-native-bridge@6.0.3-bridge.19.tsgo.7.0.2"
   },
   "overrides": {
     "basic-ftp": ">=5.3.1 <6.0.0",
